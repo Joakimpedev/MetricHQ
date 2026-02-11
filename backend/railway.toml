@@ -1,0 +1,11 @@
+# Railway config – use with Root Directory = "backend" when deploying from monorepo.
+# See: https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm install"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
