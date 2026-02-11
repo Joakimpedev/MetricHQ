@@ -1,5 +1,7 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import type { NextFetchEvent } from "next/server";
 
 const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const isClerkConfigured =
@@ -7,11 +9,11 @@ const isClerkConfigured =
 
 const clerkHandler = clerkMiddleware();
 
-export default async function proxy(req: Request) {
+export default function proxy(req: NextRequest, event: NextFetchEvent) {
   if (!isClerkConfigured) {
     return NextResponse.next();
   }
-  return clerkHandler(req);
+  return clerkHandler(req, event);
 }
 
 export const config = {
