@@ -158,9 +158,9 @@ function PostHogModal({
 }) {
   const isConnected = !!connection?.connected;
 
-  // Edit mode
+  // Edit mode — pre-fill with existing values so nothing disappears
   const [editing, setEditing] = useState(!isConnected);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(connection?.fullKey || '');
   const [projectId, setProjectId] = useState(connection?.accountId || '');
   const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.posthog.com');
   const [saving, setSaving] = useState(false);
@@ -222,7 +222,6 @@ function PostHogModal({
       }
       setMessage({ type: 'success', text: 'Saved!' });
       setEditing(false);
-      setApiKey('');
       onSaved();
       setTimeout(fetchEvents, 500);
     } catch {
@@ -320,7 +319,13 @@ function PostHogModal({
               </button>
               {isConnected && (
                 <button
-                  onClick={() => { setEditing(false); setMessage(null); }}
+                  onClick={() => {
+                    setEditing(false);
+                    setMessage(null);
+                    setApiKey(connection?.fullKey || '');
+                    setProjectId(connection?.accountId || '');
+                    setPosthogHost(connection?.settings?.posthogHost || 'https://us.posthog.com');
+                  }}
                   className="px-4 py-2 rounded-lg text-[12px] font-medium text-text-dim hover:text-text-body transition-colors"
                 >
                   Cancel

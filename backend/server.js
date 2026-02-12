@@ -257,10 +257,11 @@ app.get('/api/posthog/events', async (req, res) => {
     }
 
     // All hosts failed
-    console.error('PostHog events fetch error (all hosts):', lastError?.response?.data || lastError?.message);
+    const keyPreview = apiKey ? apiKey.slice(0, 8) + '...' : 'empty';
+    console.error(`PostHog events failed for project ${projectId}, key ${keyPreview}, hosts tried: ${hostsToTry.join(', ')}`, lastError?.response?.data || lastError?.message);
     res.status(502).json({
-      error: 'Could not reach PostHog API. Check your API key and Project ID.',
-      detail: lastError?.response?.data?.detail || lastError?.message
+      error: 'Could not connect to PostHog.',
+      detail: lastError?.response?.data?.detail || lastError?.response?.data?.attr || lastError?.message
     });
   } catch (error) {
     console.error('PostHog events endpoint error:', error.message);
