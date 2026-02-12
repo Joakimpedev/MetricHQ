@@ -21,6 +21,12 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
   // Sanitize event name — only allow alphanumeric, underscores, hyphens, dots, spaces
   const safeEvent = eventName.replace(/[^a-zA-Z0-9_ .\-]/g, '');
 
+  // endDate is inclusive (e.g. "2026-02-13" means include all of Feb 13),
+  // but timestamp < requires the next day to capture the full last day
+  const endExclusive = new Date(endDate + 'T00:00:00Z');
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const endNext = endExclusive.toISOString().slice(0, 10);
+
   const query = `
     SELECT
       properties.$geoip_country_code AS country,
@@ -31,7 +37,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
     WHERE
       event = '${safeEvent}'
       AND timestamp >= '${startDate}'
-      AND timestamp < '${endDate}'
+      AND timestamp < '${endNext}'
     GROUP BY country, date
     ORDER BY date DESC
   `;
