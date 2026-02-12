@@ -69,7 +69,7 @@ app.get('/api/connections', async (req, res) => {
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const result = await pool.query(
-      'SELECT platform, account_id, access_token, updated_at FROM connected_accounts WHERE user_id = $1',
+      'SELECT platform, account_id, access_token, settings, updated_at FROM connected_accounts WHERE user_id = $1',
       [internalUserId]
     );
 
@@ -78,7 +78,8 @@ app.get('/api/connections', async (req, res) => {
       const conn = {
         connected: true,
         accountId: row.account_id,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        settings: row.settings || {}
       };
       // Return masked API key for PostHog so the UI can show what's stored
       if (row.platform === 'posthog' && row.access_token) {
@@ -125,9 +126,9 @@ app.post('/api/waitlist', async (req, res) => {
   }
 });
 
-// Connect PostHog: store API key and project ID for the user
+// Connect PostHog: store API key, project ID, and purchase event name
 app.post('/api/settings/posthog', async (req, res) => {
-  const { userId, apiKey, projectId } = req.body || {};
+  const { userId, apiKey, projectId, purchaseEvent } = req.body || {};
 
   if (!userId || !apiKey || !projectId) {
     return res.status(400).json({
@@ -137,17 +138,85 @@ app.post('/api/settings/posthog', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const settings = {};
+    if (purchaseEvent) settings.purchaseEvent = purchaseEvent;
+
     await pool.query(
-      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token, settings)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, platform) DO UPDATE
-       SET account_id = $3, access_token = $4, updated_at = NOW()`,
-      [internalUserId, 'posthog', String(projectId).trim(), String(apiKey).trim()]
+       SET account_id = $3, access_token = $4, settings = connected_accounts.settings || $5, updated_at = NOW()`,
+      [internalUserId, 'posthog', String(projectId).trim(), String(apiKey).trim(), JSON.stringify(settings)]
     );
     res.json({ ok: true, message: 'PostHog connected' });
   } catch (error) {
     console.error('PostHog settings error:', error);
     res.status(500).json({ error: 'Failed to save PostHog settings' });
+  }
+});
+
+// Save PostHog purchase event selection (separate from credentials)
+app.post('/api/settings/posthog/event', async (req, res) => {
+  const { userId, purchaseEvent } = req.body || {};
+
+  if (!userId || !purchaseEvent) {
+    return res.status(400).json({ error: 'userId and purchaseEvent are required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    await pool.query(
+      `UPDATE connected_accounts
+       SET settings = COALESCE(settings, '{}'::jsonb) || $1, updated_at = NOW()
+       WHERE user_id = $2 AND platform = 'posthog'`,
+      [JSON.stringify({ purchaseEvent }), internalUserId]
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('PostHog event save error:', error);
+    res.status(500).json({ error: 'Failed to save event selection' });
+  }
+});
+
+// Fetch PostHog event names for auto-detection
+const axios = require('axios');
+app.get('/api/posthog/events', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const account = await pool.query(
+      "SELECT access_token, account_id FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'",
+      [internalUserId]
+    );
+
+    if (account.rows.length === 0) {
+      return res.status(404).json({ error: 'PostHog not connected' });
+    }
+
+    const { access_token: apiKey, account_id: projectId } = account.rows[0];
+
+    const response = await axios.get(
+      `https://app.posthog.com/api/projects/${projectId}/event_definitions/`,
+      {
+        params: { limit: 200 },
+        headers: { Authorization: `Bearer ${apiKey}` }
+      }
+    );
+
+    const events = (response.data?.results || [])
+      .map(e => e.name)
+      .filter(name => !name.startsWith('$'))
+      .sort();
+
+    res.json({ events });
+  } catch (error) {
+    console.error('PostHog events fetch error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch events from PostHog' });
   }
 });
 

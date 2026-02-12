@@ -205,13 +205,15 @@ async function syncMeta(userId, accessToken, adAccountId) {
   }
 }
 
-async function syncPostHog(userId, apiKey, projectId) {
+async function syncPostHog(userId, apiKey, projectId, settings = {}) {
   const { startDate, endDate } = await getSyncDateRange(userId, 'posthog');
   const locked = await acquireLock(userId, 'posthog');
   if (!locked) return;
 
   try {
-    const rows = await fetchRevenueData(apiKey, projectId, startDate, endDate);
+    const rows = await fetchRevenueData(apiKey, projectId, startDate, endDate, {
+      purchaseEvent: settings.purchaseEvent
+    });
     const data = Array.isArray(rows) ? rows : [];
 
     const client = await pool.connect();
@@ -260,7 +262,7 @@ async function syncPostHog(userId, apiKey, projectId) {
 
 async function syncForUser(userId) {
   const accounts = await pool.query(
-    'SELECT platform, account_id, access_token FROM connected_accounts WHERE user_id = $1',
+    'SELECT platform, account_id, access_token, COALESCE(settings, \'{}\'::jsonb) as settings FROM connected_accounts WHERE user_id = $1',
     [userId]
   );
 
@@ -274,7 +276,7 @@ async function syncForUser(userId) {
         promises.push(syncMeta(userId, acc.access_token, acc.account_id));
         break;
       case 'posthog':
-        promises.push(syncPostHog(userId, acc.access_token, acc.account_id));
+        promises.push(syncPostHog(userId, acc.access_token, acc.account_id, acc.settings));
         break;
     }
   }

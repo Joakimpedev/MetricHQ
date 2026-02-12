@@ -16,6 +16,7 @@ CREATE TABLE connected_accounts (
   access_token TEXT,
   refresh_token TEXT,
   expires_at TIMESTAMP,
+  settings JSONB DEFAULT '{}',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(user_id, platform)
