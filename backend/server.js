@@ -25,6 +25,7 @@ const { getOrCreateUserByClerkId } = authRoutes;
 app.use('/auth', authRoutes);
 
 const { aggregateMetrics } = require('./services/aggregator');
+const { syncForUser, startCronJob, getSyncStatus } = require('./services/sync');
 const { pool } = require('./db/database');
 
 // Health check
@@ -49,11 +50,43 @@ app.get('/api/metrics', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
-    const countries = await aggregateMetrics(internalUserId, start, end);
-    res.json({ countries });
+    const data = await aggregateMetrics(internalUserId, start, end);
+    res.json(data);
   } catch (error) {
     console.error('Error fetching metrics:', error);
     res.status(500).json({ error: 'Failed to fetch metrics' });
+  }
+});
+
+// Integration status: which platforms are connected for this user
+app.get('/api/connections', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const result = await pool.query(
+      'SELECT platform, account_id, updated_at FROM connected_accounts WHERE user_id = $1',
+      [internalUserId]
+    );
+
+    const connections = {};
+    result.rows.forEach(row => {
+      connections[row.platform] = {
+        connected: true,
+        accountId: row.account_id,
+        updatedAt: row.updated_at
+      };
+    });
+
+    const syncStatus = await getSyncStatus(internalUserId);
+    res.json({ connections, sync: syncStatus });
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    res.status(500).json({ error: 'Failed to fetch connections' });
   }
 });
 
@@ -109,6 +142,46 @@ app.post('/api/settings/posthog', async (req, res) => {
   }
 });
 
+// Manual sync trigger (fire-and-forget)
+app.post('/api/sync', async (req, res) => {
+  const { userId } = req.body || {};
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    // Fire-and-forget: start sync in background, respond immediately
+    syncForUser(internalUserId).catch(err => {
+      console.error('Background sync error:', err.message);
+    });
+    res.json({ ok: true, message: 'Sync started' });
+  } catch (error) {
+    console.error('Sync trigger error:', error);
+    res.status(500).json({ error: 'Failed to start sync' });
+  }
+});
+
+// Sync status for dashboard indicator
+app.get('/api/sync/status', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const status = await getSyncStatus(internalUserId);
+    res.json(status);
+  } catch (error) {
+    console.error('Sync status error:', error);
+    res.status(500).json({ error: 'Failed to get sync status' });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`✅ Backend server running on http://localhost:${PORT}`);
+  console.log(`Backend server running on http://localhost:${PORT}`);
+  startCronJob();
 });

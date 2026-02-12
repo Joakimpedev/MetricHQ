@@ -1,9 +1,6 @@
 const { pool } = require('../db/database');
-const { fetchRevenueData } = require('./posthog');
-const { fetchAdSpend: fetchTikTokSpend } = require('./tiktok');
-const { fetchAdSpend: fetchMetaSpend } = require('./meta');
+const { syncForUser } = require('./sync');
 
-// Optional: map country codes to display names for API response
 const COUNTRY_NAMES = {
   NO: 'Norway', SE: 'Sweden', US: 'United States', GB: 'United Kingdom',
   DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', NL: 'Netherlands',
@@ -11,88 +8,59 @@ const COUNTRY_NAMES = {
 };
 
 /**
- * Aggregate ad spend (TikTok, Meta) and revenue (PostHog) by country for a user.
- * @param {number} userId - Internal user id (users.id)
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate - YYYY-MM-DD
- * @returns {Promise<Array<{ code: string, name: string, spend, revenue, profit, roas, purchases }>>}
+ * Aggregate metrics from local DB cache.
+ * On first load (no cached rows), triggers a sync then reads from DB.
  */
 async function aggregateMetrics(userId, startDate, endDate) {
-  const accountsResult = await pool.query(
-    'SELECT platform, account_id, access_token FROM connected_accounts WHERE user_id = $1',
+  // Check if we have any cached data at all
+  const cacheCheck = await pool.query(
+    'SELECT COUNT(*) as cnt FROM metrics_cache WHERE user_id = $1',
     [userId]
   );
 
-  const accountMap = {};
-  accountsResult.rows.forEach(acc => {
-    accountMap[acc.platform] = acc;
-  });
+  if (parseInt(cacheCheck.rows[0].cnt, 10) === 0) {
+    // First load — trigger sync (blocking), then read from DB
+    await syncForUser(userId);
+  }
 
-  const [revenueData, tiktokData, metaData] = await Promise.all([
-    accountMap.posthog
-      ? fetchRevenueData(
-          accountMap.posthog.access_token,
-          accountMap.posthog.account_id,
-          startDate,
-          endDate
-        )
-      : Promise.resolve([]),
-    accountMap.tiktok
-      ? fetchTikTokSpend(
-          accountMap.tiktok.access_token,
-          accountMap.tiktok.account_id,
-          startDate,
-          endDate
-        )
-      : Promise.resolve([]),
-    accountMap.meta
-      ? fetchMetaSpend(
-          accountMap.meta.access_token,
-          accountMap.meta.account_id,
-          startDate,
-          endDate
-        )
-      : Promise.resolve([])
-  ]);
+  // ---- Read country-level metrics from metrics_cache ----
+  const metricsResult = await pool.query(
+    `SELECT country_code,
+            COALESCE(SUM(spend), 0) as spend,
+            COALESCE(SUM(revenue), 0) as revenue,
+            COALESCE(SUM(impressions), 0) as impressions,
+            COALESCE(SUM(clicks), 0) as clicks,
+            COALESCE(SUM(purchases), 0) as purchases
+     FROM metrics_cache
+     WHERE user_id = $1 AND date >= $2 AND date <= $3
+     GROUP BY country_code`,
+    [userId, startDate, endDate]
+  );
 
+  // ---- Build country metrics ----
   const countryMetrics = {};
+  let totalRevenue = 0;
+  let totalSpend = 0;
+  let totalPurchases = 0;
 
-  // PostHog can return array of arrays or array of objects depending on API
-  const revenueRows = Array.isArray(revenueData) ? revenueData : [];
-  revenueRows.forEach(row => {
-    const country = Array.isArray(row) ? row[0] : (row.country ?? row.country_code);
-    const revenue = Array.isArray(row) ? parseFloat(row[2]) : parseFloat(row.total_revenue ?? row.revenue ?? 0);
-    const purchases = Array.isArray(row) ? parseInt(row[3], 10) : parseInt(row.purchases ?? 0, 10);
-    if (!country) return;
-    const code = String(country).toUpperCase().slice(0, 2);
-    if (!countryMetrics[code]) {
-      countryMetrics[code] = { revenue: 0, spend: 0, purchases: 0 };
-    }
-    countryMetrics[code].revenue += revenue;
-    countryMetrics[code].purchases += purchases;
-  });
+  for (const row of metricsResult.rows) {
+    const code = row.country_code;
+    if (!code) continue;
+    const spend = parseFloat(row.spend);
+    const revenue = parseFloat(row.revenue);
+    const purchases = parseInt(row.purchases, 10);
 
-  (tiktokData || []).forEach(row => {
-    const country = row.country_code || row.country;
-    if (!country) return;
-    const code = String(country).toUpperCase().slice(0, 2);
-    if (!countryMetrics[code]) {
-      countryMetrics[code] = { revenue: 0, spend: 0, purchases: 0 };
-    }
-    countryMetrics[code].spend += parseFloat(row.spend || 0);
-  });
+    countryMetrics[code] = {
+      spend,
+      revenue,
+      purchases
+    };
+    totalSpend += spend;
+    totalRevenue += revenue;
+    totalPurchases += purchases;
+  }
 
-  (metaData || []).forEach(row => {
-    const country = row.country;
-    if (!country) return;
-    const code = String(country).toUpperCase().slice(0, 2);
-    if (!countryMetrics[code]) {
-      countryMetrics[code] = { revenue: 0, spend: 0, purchases: 0 };
-    }
-    countryMetrics[code].spend += parseFloat(row.spend || 0);
-  });
-
-  const results = Object.entries(countryMetrics).map(([code, data]) => ({
+  const countries = Object.entries(countryMetrics).map(([code, data]) => ({
     code,
     name: COUNTRY_NAMES[code] || code,
     spend: Math.round(data.spend * 100) / 100,
@@ -102,7 +70,58 @@ async function aggregateMetrics(userId, startDate, endDate) {
     purchases: data.purchases
   }));
 
-  return results;
+  // ---- Read campaign-level data from campaign_metrics ----
+  const campaignResult = await pool.query(
+    `SELECT platform, campaign_id,
+            COALESCE(SUM(spend), 0) as spend,
+            COALESCE(SUM(impressions), 0) as impressions,
+            COALESCE(SUM(clicks), 0) as clicks
+     FROM campaign_metrics
+     WHERE user_id = $1 AND date >= $2 AND date <= $3
+     GROUP BY platform, campaign_id`,
+    [userId, startDate, endDate]
+  );
+
+  // Group campaigns by platform
+  const platformData = {};
+  for (const row of campaignResult.rows) {
+    const plat = row.platform;
+    if (!platformData[plat]) {
+      platformData[plat] = { totalSpend: 0, campaigns: [] };
+    }
+    const spend = parseFloat(row.spend);
+    platformData[plat].totalSpend += spend;
+    platformData[plat].campaigns.push({
+      ...(plat === 'meta' ? { campaignName: row.campaign_id } : { campaignId: row.campaign_id }),
+      spend: Math.round(spend * 100) / 100,
+      impressions: parseInt(row.impressions, 10),
+      clicks: parseInt(row.clicks, 10)
+    });
+  }
+
+  // Round platform totals
+  const platforms = {};
+  for (const [plat, data] of Object.entries(platformData)) {
+    platforms[plat] = {
+      totalSpend: Math.round(data.totalSpend * 100) / 100,
+      campaigns: data.campaigns
+    };
+  }
+
+  // ---- Summary ----
+  totalSpend = Math.round(totalSpend * 100) / 100;
+  totalRevenue = Math.round(totalRevenue * 100) / 100;
+  const totalProfit = Math.round((totalRevenue - totalSpend) * 100) / 100;
+
+  const summary = {
+    totalSpend,
+    totalRevenue,
+    totalProfit,
+    cpa: totalPurchases > 0 ? parseFloat((totalSpend / totalPurchases).toFixed(2)) : 0,
+    totalPurchases
+  };
+
+  return { summary, platforms, countries };
 }
 
 module.exports = { aggregateMetrics };

@@ -15,7 +15,7 @@ async function fetchAdSpend(accessToken, advertiserId, startDate, endDate) {
       {
         params: {
           advertiser_id: advertiserId,
-          dimensions: JSON.stringify(['campaign_id', 'country_code']),
+          dimensions: JSON.stringify(['campaign_id', 'country_code', 'stat_time_day']),
           metrics: JSON.stringify(['spend', 'impressions', 'clicks']),
           start_date: startDate,
           end_date: endDate,
