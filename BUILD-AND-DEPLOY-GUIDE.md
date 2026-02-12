@@ -916,6 +916,29 @@ app.get('/api/metrics', async (req, res) => {
 
 ---
 
+### Week 5: Landing Page + Waitlist
+
+Landing page and waitlist are implemented:
+
+- **Landing page** (`/`): Hero, features, waitlist signup, and links to dashboard
+- **Dashboard** (`/dashboard`): Full app with connect accounts and metrics
+- **Waitlist API** (`POST /api/waitlist`): Email signup stored in `waitlist` table
+
+**Database migration** (for existing deployments): Run the waitlist migration if your DB was created before Week 5:
+
+```bash
+# Using Railway CLI or psql
+psql $DATABASE_URL < backend/db/migrations/001_waitlist.sql
+```
+
+Or run the full schema (fresh installs include the waitlist table).
+
+**Test locally:**
+- `http://localhost:3000` — landing page
+- `http://localhost:3000/dashboard` — dashboard
+
+---
+
 ## Phase 3: Deploy to Production
 
 **Phase 2 Week 4** = Deploy to production. For a **step-by-step checklist** using this single repo (backend + frontend), see **[DEPLOY-WEEK4.md](./DEPLOY-WEEK4.md)**.

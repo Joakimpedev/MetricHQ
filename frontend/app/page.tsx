@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs';
+import { SignInButton, useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 
 const CLERK_ENABLED =
   typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'string' &&
@@ -11,281 +12,182 @@ const CLERK_ENABLED =
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
-function ConnectPostHogForm({ userId }: { userId?: string }) {
-  const [apiKey, setApiKey] = useState('');
-  const [projectId, setProjectId] = useState('');
+function WaitlistForm() {
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) {
-      setMessage({ type: 'error', text: 'Sign in to save PostHog settings.' });
-      return;
-    }
-    if (!apiKey.trim() || !projectId.trim()) {
-      setMessage({ type: 'error', text: 'API key and Project ID are required.' });
-      return;
-    }
     setMessage(null);
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/settings/posthog`, {
+      const response = await fetch(`${API_URL}/api/waitlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          apiKey: apiKey.trim(),
-          projectId: projectId.trim()
-        })
+        body: JSON.stringify({ email: email.trim() })
       });
       const data = await response.json();
       if (!response.ok) {
-        setMessage({ type: 'error', text: data.error || 'Failed to save.' });
+        setMessage({ type: 'error', text: data.error || 'Something went wrong.' });
         return;
       }
-      setMessage({ type: 'success', text: 'PostHog connected.' });
-      setApiKey('');
-      setProjectId('');
+      setMessage({ type: 'success', text: data.message || "You're on the list!" });
+      setEmail('');
     } catch (err) {
-      setMessage({ type: 'error', text: 'Network error.' });
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="border-t border-slate-700 pt-4 mt-4">
-      <h3 className="text-sm font-semibold text-slate-300 mb-2">Connect PostHog</h3>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-        <div>
-          <label htmlFor="posthog-api-key" className="block text-xs text-slate-400 mb-1">API key</label>
-          <input
-            id="posthog-api-key"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="phx_…"
-            className="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 w-56"
-            autoComplete="off"
-          />
-        </div>
-        <div>
-          <label htmlFor="posthog-project-id" className="block text-xs text-slate-400 mb-1">Project ID</label>
-          <input
-            id="posthog-project-id"
-            type="text"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            placeholder="12345"
-            className="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 w-28"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium"
-        >
-          {loading ? 'Saving…' : 'Connect PostHog'}
-        </button>
-      </form>
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@company.com"
+        required
+        disabled={loading}
+        className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 disabled:opacity-50"
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? 'Joining…' : 'Join waitlist'}
+      </button>
       {message && (
-        <p className={`mt-2 text-sm ${message.type === 'success' ? 'text-green-400' : 'text-amber-400'}`}>
+        <p className={`text-sm sm:col-span-2 ${message.type === 'success' ? 'text-amber-400' : 'text-red-400'}`}>
           {message.text}
         </p>
       )}
-    </div>
+    </form>
   );
 }
 
-function MetricsBlock({ userId }: { userId?: string }) {
-  const [metrics, setMetrics] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function LandingPage() {
+  const { isSignedIn, isLoaded } = useUser();
 
-  const fetchMetrics = async () => {
-    if (!userId) {
-      setError('Sign in to load metrics from your connected accounts.');
-      return;
-    }
-    setError(null);
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ userId });
-      const response = await fetch(`${API_URL}/api/metrics?${params}`);
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.error || 'Failed to load metrics');
-        return;
-      }
-      setMetrics(data);
-    } catch (err) {
-      console.error('Error fetching metrics:', err);
-      setError('Network error loading metrics.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <>
-        <button
-          onClick={fetchMetrics}
-          disabled={loading || !userId}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg font-semibold mb-8"
-        >
-          {loading ? 'Loading...' : '🔄 Refresh Data'}
-        </button>
-        {error && (
-          <p className="text-amber-400 mb-4">{error}</p>
-        )}
-
-        {metrics && metrics.countries?.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {metrics.countries.map((country: any) => (
-              <div key={country.code} className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl">{country.code === 'NO' ? '🇳🇴' : '🇸🇪'}</span>
-                  <h2 className="text-2xl font-bold">{country.name}</h2>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Ad Spend:</span>
-                    <span className="font-semibold">${country.spend}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Revenue:</span>
-                    <span className="font-semibold">${country.revenue}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-slate-700 pt-2 mt-2">
-                    <span className="text-slate-400">Profit:</span>
-                    <span className={`font-bold text-xl ${country.profit > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      ${country.profit}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">ROAS:</span>
-                    <span className="font-semibold">{country.roas}x</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Purchases:</span>
-                    <span className="font-semibold">{country.purchases}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {metrics && (!metrics.countries || metrics.countries.length === 0) && !error && (
-          <p className="text-slate-400">No country data yet. Connect TikTok, Meta, or PostHog and refresh.</p>
-        )}
-    </>
-  );
-}
-
-function DashboardWithAuth() {
-  const { isSignedIn, user, isLoaded } = useUser();
-
-  if (!isLoaded) {
+  // If signed in, show a simple redirect prompt to dashboard
+  if (CLERK_ENABLED && isLoaded && isSignedIn) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">💰 Profit Tracker</h1>
-          <p className="text-slate-400 mb-8">Track your app profit by country</p>
-          <SignInButton mode="modal">
-            <button className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold">
-              Sign In
-            </button>
-          </SignInButton>
+          <p className="text-slate-400 mb-8">You&apos;re signed in. Go to your dashboard.</p>
+          <Link
+            href="/dashboard"
+            className="inline-block bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors"
+          >
+            Open Dashboard
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-4xl font-bold mb-1">💰 Profit Tracker</h1>
-            <p className="text-slate-400">
-              See your real profit by country · {user?.primaryEmailAddress?.emailAddress}
-            </p>
-          </div>
-          <SignOutButton>
-            <button className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium">
-              Sign Out
-            </button>
-          </SignOutButton>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Hero */}
+      <header className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(245,158,11,0.15),transparent)]" />
+        <nav className="relative max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
+          <span className="text-xl font-bold">💰 Profit Tracker</span>
+          {CLERK_ENABLED && (
+            <SignInButton mode="modal">
+              <button className="text-slate-400 hover:text-white text-sm font-medium transition-colors">
+                Sign in
+              </button>
+            </SignInButton>
+          )}
+          {!CLERK_ENABLED && (
+            <Link href="/dashboard" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">
+              Dashboard
+            </Link>
+          )}
+        </nav>
 
-        <div className="mb-8 p-4 bg-slate-800 rounded-lg border border-slate-700">
-          <h2 className="text-lg font-semibold mb-2">Connect ad accounts</h2>
-          <p className="text-slate-400 text-sm mb-3">Link TikTok, Meta, and PostHog to pull spend and revenue.</p>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <a
-              href={`${API_URL}/auth/tiktok?userId=${encodeURIComponent(user?.id ?? '')}`}
-              className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium"
+        <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-24 text-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
+            See your real profit{' '}
+            <span className="text-amber-400">by country</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10">
+            Connect TikTok, Meta, and PostHog. Get ad spend and revenue in one dashboard. Know exactly where you make or lose money.
+          </p>
+          {CLERK_ENABLED && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
+              <SignInButton mode="modal">
+                <button className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors">
+                  Try it free
+                </button>
+              </SignInButton>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center justify-center border border-white/20 hover:border-white/40 px-8 py-3 rounded-lg font-medium transition-colors"
+              >
+                Open dashboard
+              </Link>
+            </div>
+          )}
+          {!CLERK_ENABLED && (
+            <Link
+              href="/dashboard"
+              className="inline-block bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors mb-4"
             >
-              TikTok Ads
-            </a>
-            <a
-              href={`${API_URL}/auth/meta?userId=${encodeURIComponent(user?.id ?? '')}`}
-              className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              Meta Ads
-            </a>
-          </div>
-          <ConnectPostHogForm userId={user?.id} />
+              Open dashboard
+            </Link>
+          )}
         </div>
+      </header>
 
-        <MetricsBlock userId={user?.id} />
-      </div>
+      {/* Features */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <h2 className="text-2xl font-bold text-center mb-12">One dashboard for all your ad data</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
+            <div className="text-2xl mb-3">📊</div>
+            <h3 className="font-semibold text-lg mb-2">TikTok & Meta Ads</h3>
+            <p className="text-slate-400 text-sm">Connect your ad accounts. We pull spend, impressions, and clicks by country.</p>
+          </div>
+          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
+            <div className="text-2xl mb-3">📈</div>
+            <h3 className="font-semibold text-lg mb-2">PostHog revenue</h3>
+            <p className="text-slate-400 text-sm">Link PostHog to get revenue and purchases. Profit = revenue − ad spend.</p>
+          </div>
+          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
+            <div className="text-2xl mb-3">🌍</div>
+            <h3 className="font-semibold text-lg mb-2">Country-level breakdown</h3>
+            <p className="text-slate-400 text-sm">See which countries are profitable. Stop wasting spend where it doesn’t pay off.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Waitlist */}
+      <section className="border-t border-slate-800">
+        <div className="max-w-2xl mx-auto px-6 py-20 text-center">
+          <h2 className="text-2xl font-bold mb-4">Get early access</h2>
+          <p className="text-slate-400 mb-8">
+            Join the waitlist and we&apos;ll let you know when new features drop.
+          </p>
+          <WaitlistForm />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-800 py-8">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="text-slate-500 text-sm">Profit Tracker</span>
+          <div className="flex gap-6">
+            <Link href="/dashboard" className="text-slate-500 hover:text-slate-400 text-sm transition-colors">
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
-}
-
-function DashboardNoAuth() {
-  return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold mb-1">💰 Profit Tracker</h1>
-          <p className="text-slate-400">See your real profit by country</p>
-        </div>
-
-        <div className="mb-8 p-4 bg-slate-800 rounded-lg border border-slate-700">
-          <h2 className="text-lg font-semibold mb-2">Connect ad accounts</h2>
-          <p className="text-slate-400 text-sm mb-3">Link TikTok, Meta, and PostHog to pull spend and revenue. Sign in to connect accounts.</p>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <span className="inline-flex items-center gap-2 bg-slate-700/50 px-4 py-2 rounded-lg text-sm text-slate-400 cursor-not-allowed">
-              TikTok Ads (sign in)
-            </span>
-            <span className="inline-flex items-center gap-2 bg-slate-700/50 px-4 py-2 rounded-lg text-sm text-slate-400 cursor-not-allowed">
-              Meta Ads (sign in)
-            </span>
-          </div>
-          <ConnectPostHogForm userId={undefined} />
-        </div>
-
-        <MetricsBlock />
-      </div>
-    </div>
-  );
-}
-
-export default function Dashboard() {
-  if (CLERK_ENABLED) {
-    return <DashboardWithAuth />;
-  }
-  return <DashboardNoAuth />;
 }

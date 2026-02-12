@@ -57,6 +57,32 @@ app.get('/api/metrics', async (req, res) => {
   }
 });
 
+// Waitlist signup (Phase 2 Week 5 - no auth required)
+app.post('/api/waitlist', async (req, res) => {
+  const { email } = req.body || {};
+  const trimmed = typeof email === 'string' ? email.trim() : '';
+
+  if (!trimmed) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO waitlist (email) VALUES ($1) ON CONFLICT (email) DO NOTHING',
+      [trimmed.toLowerCase()]
+    );
+    res.json({ ok: true, message: "You're on the list! We'll be in touch." });
+  } catch (error) {
+    console.error('Waitlist signup error:', error);
+    res.status(500).json({ error: 'Failed to join waitlist' });
+  }
+});
+
 // Connect PostHog: store API key and project ID for the user
 app.post('/api/settings/posthog', async (req, res) => {
   const { userId, apiKey, projectId } = req.body || {};

@@ -40,3 +40,11 @@ CREATE TABLE metrics_cache (
 -- Indexes for performance
 CREATE INDEX idx_metrics_user_date ON metrics_cache(user_id, date);
 CREATE INDEX idx_connected_accounts_user ON connected_accounts(user_id);
+
+-- Waitlist (Phase 2 Week 5)
+CREATE TABLE waitlist (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_waitlist_email ON waitlist(email);
