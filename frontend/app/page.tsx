@@ -3,11 +3,15 @@
 import { useState } from 'react';
 import { SignInButton, SignOutButton, useUser } from '@clerk/nextjs';
 
+const RAW_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 const CLERK_ENABLED =
-  typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'string' &&
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY !== 'pk_test_xxxxx' &&
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.startsWith('pk_') &&
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.length > 30;
+  typeof RAW_KEY === 'string' &&
+  RAW_KEY !== 'pk_test_xxxxx' &&
+  RAW_KEY.startsWith('pk_') &&
+  RAW_KEY.length > 30;
+
+// Debug — remove after confirming Clerk works
+console.log('[clerk-debug] key length:', RAW_KEY.length, 'enabled:', CLERK_ENABLED, 'key-start:', RAW_KEY.slice(0, 10));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
