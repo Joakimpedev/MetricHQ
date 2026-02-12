@@ -20,7 +20,9 @@ async function aggregateMetrics(userId, startDate, endDate) {
 
   if (parseInt(cacheCheck.rows[0].cnt, 10) === 0) {
     // First load — trigger sync (blocking), then read from DB
-    await syncForUser(userId);
+    try { await syncForUser(userId); } catch (err) {
+      console.error('[aggregator] First-load sync failed:', err.message);
+    }
   }
 
   // ---- Read country-level metrics from metrics_cache ----

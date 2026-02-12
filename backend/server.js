@@ -82,8 +82,9 @@ app.get('/api/connections', async (req, res) => {
       };
     });
 
-    const syncStatus = await getSyncStatus(internalUserId);
-    res.json({ connections, sync: syncStatus });
+    let sync = { lastSynced: null, isSyncing: false, platforms: {} };
+    try { sync = await getSyncStatus(internalUserId); } catch {}
+    res.json({ connections, sync });
   } catch (error) {
     console.error('Error fetching connections:', error);
     res.status(500).json({ error: 'Failed to fetch connections' });
