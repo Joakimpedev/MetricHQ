@@ -35,7 +35,7 @@ app.get('/health', (req, res) => {
 
 // Real metrics from connected accounts (PostHog, TikTok, Meta)
 app.get('/api/metrics', async (req, res) => {
-  const { userId, startDate, endDate } = req.query;
+  const { userId, startDate, endDate, compareStartDate, compareEndDate, chartStartDate, chartEndDate } = req.query;
 
   if (!userId) {
     return res.status(400).json({ error: 'userId (Clerk user id) is required' });
@@ -51,6 +51,19 @@ app.get('/api/metrics', async (req, res) => {
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const data = await aggregateMetrics(internalUserId, start, end);
+
+    // Comparison period
+    if (compareStartDate && compareEndDate) {
+      const prev = await aggregateMetrics(internalUserId, compareStartDate, compareEndDate);
+      data.comparison = prev.summary;
+    }
+
+    // Separate chart date range (graph may show a wider range than KPIs)
+    if (chartStartDate && chartEndDate) {
+      const chartData = await aggregateMetrics(internalUserId, chartStartDate, chartEndDate);
+      data.timeSeries = chartData.timeSeries;
+    }
+
     res.json(data);
   } catch (error) {
     console.error('Error fetching metrics:', error);

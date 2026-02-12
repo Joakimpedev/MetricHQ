@@ -6,7 +6,7 @@ import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import ProfitTrend from '../../../components/ProfitTrend';
-import DateRangeSelector from '../../../components/DateRangeSelector';
+import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -54,16 +54,42 @@ interface MetricsData {
   platforms: Record<string, Platform>;
   countries: Country[];
   timeSeries: TimeSeriesPoint[];
+  comparison?: Summary;
 }
 
-function getDateRange(days: number): { startDate: string; endDate: string } {
+function fmtDate(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function todayRange(): DateRange {
+  const today = fmtDate(new Date());
+  return { startDate: today, endDate: today };
+}
+
+/** Calculate comparison period: same length, immediately preceding */
+function getComparisonRange(range: DateRange): { compareStartDate: string; compareEndDate: string } {
+  const start = new Date(range.startDate + 'T00:00:00');
+  const end = new Date(range.endDate + 'T00:00:00');
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const compEnd = new Date(start);
+  compEnd.setDate(compEnd.getDate() - 1);
+  const compStart = new Date(compEnd);
+  compStart.setDate(compStart.getDate() - days + 1);
+  return { compareStartDate: fmtDate(compStart), compareEndDate: fmtDate(compEnd) };
+}
+
+/** Determine chart date range. If dashboard range < 7 days, chart shows 7d. Otherwise matches. */
+function getChartRange(chartDays: number): { chartStartDate: string; chartEndDate: string } {
   const end = new Date();
   const start = new Date();
-  start.setDate(end.getDate() - days);
-  return {
-    startDate: start.toISOString().split('T')[0],
-    endDate: end.toISOString().split('T')[0],
-  };
+  start.setDate(end.getDate() - chartDays + 1);
+  return { chartStartDate: fmtDate(start), chartEndDate: fmtDate(end) };
+}
+
+function getRangeDays(range: DateRange): number {
+  const start = new Date(range.startDate + 'T00:00:00');
+  const end = new Date(range.endDate + 'T00:00:00');
+  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
 }
 
 export default function DashboardPage() {
@@ -71,19 +97,39 @@ export default function DashboardPage() {
   const [data, setData] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rangeDays, setRangeDays] = useState(30);
+  const [dateRange, setDateRange] = useState<DateRange>(todayRange);
+  const [chartDays, setChartDays] = useState(7);
 
-  const { startDate, endDate } = useMemo(() => getDateRange(rangeDays), [rangeDays]);
+  // If dashboard range >= 7 days, sync chart to match
+  const dashboardDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
+  const effectiveChartDays = useMemo(() => {
+    if (dashboardDays >= 7) return Math.max(chartDays, dashboardDays);
+    return Math.max(chartDays, 7);
+  }, [dashboardDays, chartDays]);
+
+  // When dashboard range changes and is >= 7d, auto-update chart
+  useEffect(() => {
+    if (dashboardDays >= 7) {
+      setChartDays(dashboardDays);
+    }
+  }, [dashboardDays]);
 
   const fetchMetrics = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     setError(null);
     try {
+      const comp = getComparisonRange(dateRange);
+      const chart = getChartRange(effectiveChartDays);
+
       const params = new URLSearchParams({
         userId: user.id,
-        startDate,
-        endDate,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        compareStartDate: comp.compareStartDate,
+        compareEndDate: comp.compareEndDate,
+        chartStartDate: chart.chartStartDate,
+        chartEndDate: chart.chartEndDate,
       });
       const response = await fetch(`${API_URL}/api/metrics?${params}`);
       const json = await response.json();
@@ -97,7 +143,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, startDate, endDate]);
+  }, [user?.id, dateRange, effectiveChartDays]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -121,15 +167,19 @@ export default function DashboardPage() {
   }
 
   const summary = data?.summary || { totalSpend: 0, totalRevenue: 0, totalProfit: 0, cpa: 0, totalPurchases: 0 };
+  const comparison = data?.comparison;
   const platforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
 
   return (
     <div className="space-y-6">
-      {/* Date range selector */}
-      <div className="flex items-center justify-end">
-        <DateRangeSelector selectedDays={rangeDays} onChange={setRangeDays} />
+      {/* Top bar: date range + compare badge */}
+      <div className="flex items-center justify-between">
+        <div /> {/* spacer */}
+        <div className="flex items-center gap-2">
+          <DateRangeSelector value={dateRange} onChange={setDateRange} compare />
+        </div>
       </div>
 
       {/* 3 KPI cards */}
@@ -138,20 +188,29 @@ export default function DashboardPage() {
           title="Profit"
           value={`${summary.totalProfit >= 0 ? '+' : ''}$${summary.totalProfit.toLocaleString()}`}
           valueColor={summary.totalProfit >= 0 ? 'text-success' : 'text-error'}
-          subtitle={`${summary.totalPurchases} purchases`}
+          currentValue={summary.totalProfit}
+          previousValue={comparison?.totalProfit}
         />
         <KPICard
           title="Revenue"
           value={`$${summary.totalRevenue.toLocaleString()}`}
+          currentValue={summary.totalRevenue}
+          previousValue={comparison?.totalRevenue}
         />
         <KPICard
           title="Ad Spend"
           value={`$${summary.totalSpend.toLocaleString()}`}
+          currentValue={summary.totalSpend}
+          previousValue={comparison?.totalSpend}
         />
       </div>
 
       {/* Profit trend chart */}
-      <ProfitTrend data={timeSeries} />
+      <ProfitTrend
+        data={timeSeries}
+        chartDays={effectiveChartDays}
+        onChartDaysChange={setChartDays}
+      />
 
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
