@@ -37,30 +37,31 @@ function formatDollar(value: number): string {
   return `$${value}`;
 }
 
-interface TooltipPayload {
-  active?: boolean;
-  payload?: Array<{ dataKey: string; value: number; payload: MergedPoint }>;
-  label?: string;
-}
-
-function CustomTooltip({ active, payload, label }: TooltipPayload) {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function CustomTooltip(props: any) {
+  const { active, payload, label } = props || {};
   if (!active || !payload?.length) return null;
 
   const point = payload[0]?.payload;
-  const profit = point?.profit;
-  const prevProfit = point?.prevProfit;
-  const prevDate = point?.prevDate;
+  if (!point) return null;
+
+  const profit = typeof point.profit === 'number' ? point.profit : null;
+  const prevProfit = typeof point.prevProfit === 'number' ? point.prevProfit : null;
+  const prevDate = typeof point.prevDate === 'string' ? point.prevDate : null;
+  const dateLabel = typeof label === 'string' ? label : '';
 
   return (
     <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-[11px] text-text-dim">{label ? formatDate(label) : ''}</p>
-      <p className={`text-[13px] font-semibold ${profit !== undefined && profit >= 0 ? 'text-success' : 'text-error'}`}>
-        {profit !== undefined && profit >= 0 ? '+' : ''}${profit?.toLocaleString()}
-      </p>
-      {prevProfit !== undefined && prevDate && (
+      <p className="text-[11px] text-text-dim">{dateLabel ? formatDate(dateLabel) : ''}</p>
+      {profit !== null && (
+        <p className={`text-[13px] font-semibold ${profit >= 0 ? 'text-success' : 'text-error'}`}>
+          {profit >= 0 ? '+' : ''}${profit.toLocaleString()}
+        </p>
+      )}
+      {prevProfit !== null && prevDate && (
         <div className="mt-1.5 pt-1.5 border-t border-border-dim/50">
           <p className="text-[10px] text-text-dim">{formatDate(prevDate)}</p>
-          <p className={`text-[12px] font-medium text-text-dim`}>
+          <p className="text-[12px] font-medium text-text-dim">
             {prevProfit >= 0 ? '+' : ''}${prevProfit.toLocaleString()}
           </p>
         </div>

@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
+import dynamic from 'next/dynamic';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
-import ProfitTrend from '../../../components/ProfitTrend';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
+
+const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -49,17 +51,12 @@ interface TimeSeriesPoint {
   purchases: number;
 }
 
-interface Comparison {
-  summary: Summary;
-  timeSeries: TimeSeriesPoint[];
-}
-
 interface MetricsData {
   summary: Summary;
   platforms: Record<string, Platform>;
   countries: Country[];
   timeSeries: TimeSeriesPoint[];
-  comparison?: Comparison;
+  comparison?: { summary: Summary; timeSeries: TimeSeriesPoint[] } | Summary;
 }
 
 function fmtDate(d: Date): string {
@@ -161,8 +158,10 @@ export default function DashboardPage() {
   }
 
   const summary = data?.summary || { totalSpend: 0, totalRevenue: 0, totalProfit: 0, cpa: 0, totalPurchases: 0 };
-  const compSummary = data?.comparison?.summary;
-  const compTimeSeries = data?.comparison?.timeSeries || [];
+  // Handle both new format { summary, timeSeries } and old flat Summary format
+  const rawComp = data?.comparison;
+  const compSummary = rawComp && 'summary' in rawComp ? rawComp.summary : (rawComp as Summary | undefined);
+  const compTimeSeries = rawComp && 'timeSeries' in rawComp ? rawComp.timeSeries : [];
   const platforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
