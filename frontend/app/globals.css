@@ -1,26 +1,55 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Background layers — neutral dark with minimal cool tint, 5-6% spacing */
+  --bg-body:      #09090f;
+  --bg-sidebar:   #0c0c13;
+  --bg-surface:   #15151e;
+  --bg-elevated:  #1d1d28;
+
+  /* Borders — visible in dark mode */
+  --border:       #2a2a36;
+  --border-dim:   #1c1c26;
+
+  /* Text — dimmed hierarchy, never pure white */
+  --text-heading:  #e2e2ea;
+  --text-body:     #9898a8;
+  --text-dim:      #5c5c70;
+
+  /* Accent — subtle indigo for interactive elements only */
+  --accent:        #7c7cf5;
+  --accent-hover:  #6565e0;
+  --accent-muted:  rgba(124, 124, 245, 0.08);
+
+  --foreground: var(--text-body);
+  --background: var(--bg-body);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-bg-body: var(--bg-body);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-border: var(--border);
+  --color-border-dim: var(--border-dim);
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-dim: var(--text-dim);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-body);
+  color: var(--text-body);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
