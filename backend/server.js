@@ -81,12 +81,13 @@ app.get('/api/connections', async (req, res) => {
         updatedAt: row.updated_at,
         settings: row.settings || {}
       };
-      // Return masked API key for PostHog so the UI can show what's stored
+      // Return masked + full API key for PostHog so the UI can toggle visibility
       if (row.platform === 'posthog' && row.access_token) {
         const key = row.access_token;
         conn.maskedKey = key.length > 8
-          ? key.slice(0, 6) + '...' + key.slice(-4)
-          : '••••••••';
+          ? key.slice(0, 6) + '••••••••' + key.slice(-4)
+          : '••••••••••••';
+        conn.fullKey = key;
       }
       connections[row.platform] = conn;
     });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, ChevronDown, Loader2 } from 'lucide-react';
+import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -11,6 +11,7 @@ interface Connection {
   accountId: string;
   updatedAt: string;
   maskedKey?: string;
+  fullKey?: string;
   settings?: { purchaseEvent?: string; posthogHost?: string };
 }
 
@@ -83,6 +84,66 @@ function IntegrationCard({
   );
 }
 
+// Credential field with eye toggle and inline edit
+function CredentialField({
+  label,
+  value,
+  maskedValue,
+  sensitive,
+  editing,
+  editValue,
+  onEditChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  maskedValue?: string;
+  sensitive?: boolean;
+  editing: boolean;
+  editValue: string;
+  onEditChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  if (editing) {
+    return (
+      <div className="p-3 rounded-lg bg-bg-elevated border border-border-dim">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-1.5">{label}</p>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => onEditChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-bg-body border border-border-dim rounded-md px-2.5 py-1.5 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
+          autoComplete="off"
+        />
+      </div>
+    );
+  }
+
+  const display = sensitive
+    ? (revealed ? value : (maskedValue || '••••••••••••'))
+    : value || '—';
+
+  return (
+    <div className="p-3 rounded-lg bg-bg-elevated border border-border-dim">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-1.5">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13px] font-mono text-text-body truncate">{display}</p>
+        {sensitive && value && (
+          <button
+            onClick={() => setRevealed(!revealed)}
+            className="text-text-dim hover:text-text-body transition-colors flex-shrink-0"
+          >
+            {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // PostHog configuration modal
 function PostHogModal({
   userId,
@@ -95,28 +156,31 @@ function PostHogModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const isConnected = !!connection?.connected;
+
+  // Edit mode
+  const [editing, setEditing] = useState(!isConnected);
   const [apiKey, setApiKey] = useState('');
   const [projectId, setProjectId] = useState(connection?.accountId || '');
   const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.i.posthog.com');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Event selection state
+  // Event selection
   const [events, setEvents] = useState<string[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState(connection?.settings?.purchaseEvent || '');
   const [savingEvent, setSavingEvent] = useState(false);
+  const [manualEvent, setManualEvent] = useState('');
 
-  const isConnected = !!connection?.connected;
-
-  // Load events when modal opens and PostHog is already connected
   useEffect(() => {
     if (isConnected) fetchEvents();
   }, [isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvents = async () => {
     setLoadingEvents(true);
+    setEventsError(null);
     try {
       const params = new URLSearchParams({ userId });
       const res = await fetch(`${API_URL}/api/posthog/events?${params}`);
@@ -133,10 +197,9 @@ function PostHogModal({
     }
   };
 
-  const handleSaveCredentials = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     if (!apiKey.trim() || !projectId.trim()) {
-      setMessage({ type: 'error', text: 'Both fields are required.' });
+      setMessage({ type: 'error', text: 'API Key and Project ID are required.' });
       return;
     }
     setMessage(null);
@@ -157,10 +220,10 @@ function PostHogModal({
         setMessage({ type: 'error', text: data.error || 'Failed to save.' });
         return;
       }
-      setMessage({ type: 'success', text: 'Connected!' });
+      setMessage({ type: 'success', text: 'Saved!' });
+      setEditing(false);
       setApiKey('');
       onSaved();
-      // Fetch events after connecting
       setTimeout(fetchEvents, 500);
     } catch {
       setMessage({ type: 'error', text: 'Network error.' });
@@ -189,8 +252,9 @@ function PostHogModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-bg-surface border border-border rounded-xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="relative bg-bg-surface border border-border rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-0">
           <div className="flex items-center gap-3">
             <PostHogLogo />
             <div>
@@ -198,89 +262,91 @@ function PostHogModal({
               <p className="text-[11px] text-text-dim">Revenue and purchase data</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-text-dim hover:text-text-body transition-colors">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            {isConnected && !editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="p-1.5 rounded-md hover:bg-white/5 text-text-dim hover:text-text-heading transition-colors"
+                title="Edit credentials"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-white/5 text-text-dim hover:text-text-body transition-colors">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Show stored credentials if connected */}
-        {isConnected && (
-          <div className="mb-5 p-3 rounded-lg bg-bg-elevated border border-border-dim">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-2">Current credentials</p>
-            <div className="space-y-1 text-[12px] font-mono">
-              <p className="text-text-dim">API Key: <span className="text-text-body">{connection.maskedKey || '--------'}</span></p>
-              <p className="text-text-dim">Project ID: <span className="text-text-body">{connection.accountId}</span></p>
-              {connection.settings?.posthogHost && (
-                <p className="text-text-dim">Host: <span className="text-text-body">{connection.settings.posthogHost}</span></p>
+        {/* Credentials */}
+        <div className="p-5 space-y-2">
+          <CredentialField
+            label="API Key"
+            value={connection?.fullKey || ''}
+            maskedValue={connection?.maskedKey}
+            sensitive
+            editing={editing}
+            editValue={apiKey}
+            onEditChange={setApiKey}
+            placeholder="phx_..."
+          />
+          <CredentialField
+            label="Project ID"
+            value={connection?.accountId || ''}
+            editing={editing}
+            editValue={projectId}
+            onEditChange={setProjectId}
+            placeholder="12345"
+          />
+          <CredentialField
+            label="Host"
+            value={connection?.settings?.posthogHost || ''}
+            editing={editing}
+            editValue={posthogHost}
+            onEditChange={setPosthogHost}
+            placeholder="https://us.i.posthog.com"
+          />
+
+          {/* Save / Cancel when editing */}
+          {editing && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-white transition-colors"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              {isConnected && (
+                <button
+                  onClick={() => { setEditing(false); setMessage(null); }}
+                  className="px-4 py-2 rounded-lg text-[12px] font-medium text-text-dim hover:text-text-body transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              {message && (
+                <p className={`text-[12px] ${message.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {message.text}
+                </p>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Credentials form */}
-        <form onSubmit={handleSaveCredentials} className="space-y-3">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim">
-            {isConnected ? 'Update credentials' : 'Connect PostHog'}
-          </p>
-          <div>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="API Key (phx_...)"
-              className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2.5 text-[13px] text-text-heading placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <input
-              type="text"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              placeholder="Project ID (e.g. 12345)"
-              className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2.5 text-[13px] text-text-heading placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-            />
-          </div>
-          <div>
-            <input
-              type="text"
-              value={posthogHost}
-              onChange={(e) => setPosthogHost(e.target.value)}
-              placeholder="https://us.i.posthog.com"
-              className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2.5 text-[13px] text-text-heading placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-            />
-            <p className="text-[10px] text-text-dim mt-1">PostHog host (find in your PostHog project settings)</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-white transition-colors"
-            >
-              {saving ? 'Saving...' : isConnected ? 'Update' : 'Connect'}
-            </button>
-            {message && (
-              <p className={`text-[12px] ${message.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {message.text}
-              </p>
-            )}
-          </div>
-        </form>
-
-        {/* Event selection — only show when connected */}
-        {isConnected && (
-          <div className="mt-6 pt-5 border-t border-border-dim">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Purchase event</p>
+        {/* Purchase Event — always visible */}
+        <div className="px-5 pb-5 pt-0">
+          <div className="border-t border-border-dim pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Purchase Event</p>
             <p className="text-[11px] text-text-dim mb-3">
-              Select the event that represents a purchase (from RevenueCat or your setup)
+              The event that represents a purchase (from RevenueCat or your setup)
             </p>
 
             {loadingEvents ? (
-              <div className="flex items-center gap-2 text-text-dim text-[12px]">
+              <div className="flex items-center gap-2 text-text-dim text-[12px] py-1">
                 <Loader2 size={14} className="animate-spin" /> Loading events from PostHog...
               </div>
-            ) : eventsError ? (
-              <p className="text-[12px] text-red-400">{eventsError}</p>
             ) : events.length > 0 ? (
               <div className="relative">
                 <select
@@ -297,16 +363,39 @@ function PostHogModal({
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none" />
               </div>
             ) : (
-              <p className="text-[12px] text-text-dim">No events found. Make sure your PostHog project has events.</p>
+              <div className="space-y-2">
+                {eventsError && (
+                  <p className="text-[11px] text-red-400">{eventsError}</p>
+                )}
+                <p className="text-[11px] text-text-dim">
+                  {isConnected ? 'Could not load events. Enter the event name manually:' : 'Connect PostHog above to load events, or enter manually:'}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualEvent || selectedEvent}
+                    onChange={(e) => setManualEvent(e.target.value)}
+                    placeholder="e.g. rc_initial_purchase"
+                    className="flex-1 bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
+                  />
+                  <button
+                    onClick={() => { if (manualEvent.trim()) handleSaveEvent(manualEvent.trim()); }}
+                    disabled={!manualEvent.trim() || savingEvent}
+                    className="bg-accent hover:bg-accent-hover disabled:opacity-50 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             )}
 
             {selectedEvent && (
-              <p className="mt-2 text-[11px] text-emerald-400">
-                Using: {selectedEvent}
+              <p className="mt-2.5 text-[11px] text-emerald-400 flex items-center gap-1.5">
+                <Check size={12} /> Using: <span className="font-mono">{selectedEvent}</span>
               </p>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
