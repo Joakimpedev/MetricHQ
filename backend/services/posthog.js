@@ -1,6 +1,7 @@
 const axios = require('axios');
 
 const DEFAULT_EVENT = 'rc_initial_purchase';
+const DEFAULT_HOST = 'https://us.posthog.com';
 
 /**
  * Fetch revenue and purchase data from PostHog by country and date.
@@ -10,10 +11,12 @@ const DEFAULT_EVENT = 'rc_initial_purchase';
  * @param {string} endDate - YYYY-MM-DD
  * @param {object} [options]
  * @param {string} [options.purchaseEvent] - Custom event name (default: rc_initial_purchase)
+ * @param {string} [options.posthogHost] - PostHog host (default: https://us.posthog.com)
  * @returns {Promise<Array>} Rows of [country_code, date, total_revenue, purchases]
  */
 async function fetchRevenueData(apiKey, projectId, startDate, endDate, options = {}) {
   const eventName = options.purchaseEvent || DEFAULT_EVENT;
+  const host = options.posthogHost || DEFAULT_HOST;
 
   // Sanitize event name — only allow alphanumeric, underscores, hyphens, dots, spaces
   const safeEvent = eventName.replace(/[^a-zA-Z0-9_ .\-]/g, '');
@@ -35,7 +38,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
 
   try {
     const response = await axios.post(
-      `https://app.posthog.com/api/projects/${projectId}/query/`,
+      `${host}/api/projects/${projectId}/query/`,
       {
         query: {
           kind: 'HogQLQuery',
@@ -46,7 +49,8 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000
       }
     );
 

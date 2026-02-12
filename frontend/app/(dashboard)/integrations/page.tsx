@@ -11,7 +11,7 @@ interface Connection {
   accountId: string;
   updatedAt: string;
   maskedKey?: string;
-  settings?: { purchaseEvent?: string };
+  settings?: { purchaseEvent?: string; posthogHost?: string };
 }
 
 interface Connections {
@@ -97,12 +97,14 @@ function PostHogModal({
 }) {
   const [apiKey, setApiKey] = useState('');
   const [projectId, setProjectId] = useState(connection?.accountId || '');
+  const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.i.posthog.com');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Event selection state
   const [events, setEvents] = useState<string[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState(connection?.settings?.purchaseEvent || '');
   const [savingEvent, setSavingEvent] = useState(false);
 
@@ -118,12 +120,14 @@ function PostHogModal({
     try {
       const params = new URLSearchParams({ userId });
       const res = await fetch(`${API_URL}/api/posthog/events?${params}`);
+      const json = await res.json();
       if (res.ok) {
-        const json = await res.json();
         setEvents(json.events || []);
+      } else {
+        setEventsError(json.detail || json.error || 'Failed to load events');
       }
     } catch {
-      // silently fail
+      setEventsError('Network error loading events');
     } finally {
       setLoadingEvents(false);
     }
@@ -145,6 +149,7 @@ function PostHogModal({
           userId,
           apiKey: apiKey.trim(),
           projectId: projectId.trim(),
+          posthogHost: posthogHost.trim(),
         }),
       });
       const data = await response.json();
@@ -205,6 +210,9 @@ function PostHogModal({
             <div className="space-y-1 text-[12px] font-mono">
               <p className="text-text-dim">API Key: <span className="text-text-body">{connection.maskedKey || '--------'}</span></p>
               <p className="text-text-dim">Project ID: <span className="text-text-body">{connection.accountId}</span></p>
+              {connection.settings?.posthogHost && (
+                <p className="text-text-dim">Host: <span className="text-text-body">{connection.settings.posthogHost}</span></p>
+              )}
             </div>
           </div>
         )}
@@ -233,6 +241,16 @@ function PostHogModal({
               className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2.5 text-[13px] text-text-heading placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
             />
           </div>
+          <div>
+            <input
+              type="text"
+              value={posthogHost}
+              onChange={(e) => setPosthogHost(e.target.value)}
+              placeholder="https://us.i.posthog.com"
+              className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2.5 text-[13px] text-text-heading placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
+            />
+            <p className="text-[10px] text-text-dim mt-1">PostHog host (find in your PostHog project settings)</p>
+          </div>
           <div className="flex items-center gap-3">
             <button
               type="submit"
@@ -259,8 +277,10 @@ function PostHogModal({
 
             {loadingEvents ? (
               <div className="flex items-center gap-2 text-text-dim text-[12px]">
-                <Loader2 size={14} className="animate-spin" /> Loading events...
+                <Loader2 size={14} className="animate-spin" /> Loading events from PostHog...
               </div>
+            ) : eventsError ? (
+              <p className="text-[12px] text-red-400">{eventsError}</p>
             ) : events.length > 0 ? (
               <div className="relative">
                 <select

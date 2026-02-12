@@ -212,7 +212,8 @@ async function syncPostHog(userId, apiKey, projectId, settings = {}) {
 
   try {
     const rows = await fetchRevenueData(apiKey, projectId, startDate, endDate, {
-      purchaseEvent: settings.purchaseEvent
+      purchaseEvent: settings.purchaseEvent,
+      posthogHost: settings.posthogHost
     });
     const data = Array.isArray(rows) ? rows : [];
 

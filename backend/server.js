@@ -126,9 +126,9 @@ app.post('/api/waitlist', async (req, res) => {
   }
 });
 
-// Connect PostHog: store API key, project ID, and purchase event name
+// Connect PostHog: store API key, project ID, host, and purchase event name
 app.post('/api/settings/posthog', async (req, res) => {
-  const { userId, apiKey, projectId, purchaseEvent } = req.body || {};
+  const { userId, apiKey, projectId, purchaseEvent, posthogHost } = req.body || {};
 
   if (!userId || !apiKey || !projectId) {
     return res.status(400).json({
@@ -140,6 +140,7 @@ app.post('/api/settings/posthog', async (req, res) => {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const settings = {};
     if (purchaseEvent) settings.purchaseEvent = purchaseEvent;
+    if (posthogHost) settings.posthogHost = posthogHost.replace(/\/+$/, '');
 
     await pool.query(
       `INSERT INTO connected_accounts (user_id, platform, account_id, access_token, settings)
@@ -180,6 +181,8 @@ app.post('/api/settings/posthog/event', async (req, res) => {
 
 // Fetch PostHog event names for auto-detection
 const axios = require('axios');
+const POSTHOG_HOSTS = ['https://us.posthog.com', 'https://eu.posthog.com', 'https://app.posthog.com'];
+
 app.get('/api/posthog/events', async (req, res) => {
   const { userId } = req.query;
 
@@ -190,7 +193,7 @@ app.get('/api/posthog/events', async (req, res) => {
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const account = await pool.query(
-      "SELECT access_token, account_id FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'",
+      "SELECT access_token, account_id, COALESCE(settings, '{}'::jsonb) as settings FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'",
       [internalUserId]
     );
 
@@ -198,25 +201,54 @@ app.get('/api/posthog/events', async (req, res) => {
       return res.status(404).json({ error: 'PostHog not connected' });
     }
 
-    const { access_token: apiKey, account_id: projectId } = account.rows[0];
+    const { access_token: apiKey, account_id: projectId, settings } = account.rows[0];
 
-    const response = await axios.get(
-      `https://app.posthog.com/api/projects/${projectId}/event_definitions/`,
-      {
-        params: { limit: 200 },
-        headers: { Authorization: `Bearer ${apiKey}` }
+    // Use stored host first, then try fallbacks
+    const hostsToTry = settings.posthogHost
+      ? [settings.posthogHost, ...POSTHOG_HOSTS.filter(h => h !== settings.posthogHost)]
+      : POSTHOG_HOSTS;
+
+    let lastError = null;
+    for (const host of hostsToTry) {
+      try {
+        const response = await axios.get(
+          `${host}/api/projects/${projectId}/event_definitions/`,
+          {
+            params: { limit: 200 },
+            headers: { Authorization: `Bearer ${apiKey}` },
+            timeout: 10000
+          }
+        );
+
+        const events = (response.data?.results || [])
+          .map(e => e.name)
+          .filter(name => !name.startsWith('$'))
+          .sort();
+
+        // Remember which host worked
+        if (!settings.posthogHost || settings.posthogHost !== host) {
+          await pool.query(
+            `UPDATE connected_accounts SET settings = COALESCE(settings, '{}'::jsonb) || $1 WHERE user_id = $2 AND platform = 'posthog'`,
+            [JSON.stringify({ posthogHost: host }), internalUserId]
+          );
+        }
+
+        return res.json({ events });
+      } catch (err) {
+        lastError = err;
+        continue;
       }
-    );
+    }
 
-    const events = (response.data?.results || [])
-      .map(e => e.name)
-      .filter(name => !name.startsWith('$'))
-      .sort();
-
-    res.json({ events });
+    // All hosts failed
+    console.error('PostHog events fetch error (all hosts):', lastError?.response?.data || lastError?.message);
+    res.status(502).json({
+      error: 'Could not reach PostHog API. Check your API key and Project ID.',
+      detail: lastError?.response?.data?.detail || lastError?.message
+    });
   } catch (error) {
-    console.error('PostHog events fetch error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to fetch events from PostHog' });
+    console.error('PostHog events endpoint error:', error.message);
+    res.status(500).json({ error: 'Internal error fetching events' });
   }
 });
 
