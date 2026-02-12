@@ -7,12 +7,15 @@ import ConnectPostHogForm from '../../../components/ConnectPostHogForm';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
+interface Connection {
+  connected: boolean;
+  accountId: string;
+  updatedAt: string;
+  maskedKey?: string;
+}
+
 interface Connections {
-  [platform: string]: {
-    connected: boolean;
-    accountId: string;
-    updatedAt: string;
-  };
+  [platform: string]: Connection;
 }
 
 function StatusBadge({ connected }: { connected: boolean }) {
@@ -100,6 +103,12 @@ export default function IntegrationsPage() {
           </div>
           <StatusBadge connected={!!connections.posthog} />
         </div>
+        {connections.posthog && (
+          <div className="mb-3 space-y-1 text-[12px] text-text-dim font-mono">
+            <p>API Key: <span className="text-text-body">{connections.posthog.maskedKey || '••••••••'}</span></p>
+            <p>Project ID: <span className="text-text-body">{connections.posthog.accountId}</span></p>
+          </div>
+        )}
         <button
           onClick={() => setShowPostHogModal(true)}
           className="inline-flex items-center gap-1.5 bg-bg-elevated hover:bg-border-dim px-4 py-2 rounded-lg text-[12px] font-medium text-text-body hover:text-text-heading transition-colors"
@@ -124,6 +133,7 @@ export default function IntegrationsPage() {
             </div>
             <ConnectPostHogForm
               userId={user?.id}
+              existingProjectId={connections.posthog?.accountId}
               onSuccess={() => {
                 setShowPostHogModal(false);
                 fetchConnections();

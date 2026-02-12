@@ -6,12 +6,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKE
 
 interface ConnectPostHogFormProps {
   userId?: string;
+  existingProjectId?: string;
   onSuccess?: () => void;
 }
 
-export default function ConnectPostHogForm({ userId, onSuccess }: ConnectPostHogFormProps) {
+export default function ConnectPostHogForm({ userId, existingProjectId, onSuccess }: ConnectPostHogFormProps) {
   const [apiKey, setApiKey] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState(existingProjectId || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 

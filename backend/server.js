@@ -69,17 +69,25 @@ app.get('/api/connections', async (req, res) => {
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const result = await pool.query(
-      'SELECT platform, account_id, updated_at FROM connected_accounts WHERE user_id = $1',
+      'SELECT platform, account_id, access_token, updated_at FROM connected_accounts WHERE user_id = $1',
       [internalUserId]
     );
 
     const connections = {};
     result.rows.forEach(row => {
-      connections[row.platform] = {
+      const conn = {
         connected: true,
         accountId: row.account_id,
         updatedAt: row.updated_at
       };
+      // Return masked API key for PostHog so the UI can show what's stored
+      if (row.platform === 'posthog' && row.access_token) {
+        const key = row.access_token;
+        conn.maskedKey = key.length > 8
+          ? key.slice(0, 6) + '...' + key.slice(-4)
+          : '••••••••';
+      }
+      connections[row.platform] = conn;
     });
 
     let sync = { lastSynced: null, isSyncing: false, platforms: {} };
