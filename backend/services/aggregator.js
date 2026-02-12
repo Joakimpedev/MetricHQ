@@ -110,6 +110,27 @@ async function aggregateMetrics(userId, startDate, endDate) {
     };
   }
 
+  // ---- Time series (daily aggregates) ----
+  const timeSeriesResult = await pool.query(
+    `SELECT date,
+            COALESCE(SUM(spend), 0) as spend,
+            COALESCE(SUM(revenue), 0) as revenue,
+            COALESCE(SUM(purchases), 0) as purchases
+     FROM metrics_cache
+     WHERE user_id = $1 AND date >= $2 AND date <= $3
+     GROUP BY date
+     ORDER BY date`,
+    [userId, startDate, endDate]
+  );
+
+  const timeSeries = timeSeriesResult.rows.map(row => ({
+    date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0],
+    spend: Math.round(parseFloat(row.spend) * 100) / 100,
+    revenue: Math.round(parseFloat(row.revenue) * 100) / 100,
+    profit: Math.round((parseFloat(row.revenue) - parseFloat(row.spend)) * 100) / 100,
+    purchases: parseInt(row.purchases, 10)
+  }));
+
   // ---- Summary ----
   totalSpend = Math.round(totalSpend * 100) / 100;
   totalRevenue = Math.round(totalRevenue * 100) / 100;
@@ -123,7 +144,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     totalPurchases
   };
 
-  return { summary, platforms, countries };
+  return { summary, platforms, countries, timeSeries };
 }
 
 module.exports = { aggregateMetrics };

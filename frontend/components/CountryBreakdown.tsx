@@ -1,3 +1,8 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
+
 interface Country {
   code: string;
   name: string;
@@ -12,68 +17,126 @@ interface CountryBreakdownProps {
   countries: Country[];
 }
 
+type SortKey = 'spend' | 'purchases' | 'profit' | 'cpa';
+type SortDir = 'asc' | 'desc';
+
+const INITIAL_SHOW = 5;
+
 export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
-  const maxSpend = Math.max(...countries.map(c => c.spend), 1);
+  const [sortKey, setSortKey] = useState<SortKey>('spend');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [showAll, setShowAll] = useState(false);
+
+  const sorted = useMemo(() => {
+    const arr = [...countries];
+    arr.sort((a, b) => {
+      let av: number, bv: number;
+      if (sortKey === 'cpa') {
+        av = a.purchases > 0 ? a.spend / a.purchases : Infinity;
+        bv = b.purchases > 0 ? b.spend / b.purchases : Infinity;
+      } else {
+        av = a[sortKey];
+        bv = b[sortKey];
+      }
+      return sortDir === 'desc' ? bv - av : av - bv;
+    });
+    return arr;
+  }, [countries, sortKey, sortDir]);
+
+  const displayed = showAll ? sorted : sorted.slice(0, INITIAL_SHOW);
+  const hasMore = countries.length > INITIAL_SHOW;
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return null;
+    return sortDir === 'desc' ? (
+      <ChevronDown size={12} className="inline ml-0.5" />
+    ) : (
+      <ChevronUp size={12} className="inline ml-0.5" />
+    );
+  }
+
+  const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">Countries</h3>
         {countries.length > 0 && (
-          <span className="text-[11px] text-text-dim bg-bg-elevated px-2 py-0.5 rounded">
+          <span className="text-[11px] text-text-dim">
             {countries.length} {countries.length === 1 ? 'country' : 'countries'}
           </span>
         )}
       </div>
-      <div>
-        {countries.length > 0 && (
-          <div className="flex items-center gap-4 px-5 py-2 border-b border-border-dim">
-            <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-text-dim">Country</span>
-            <div className="flex-1" />
-            <span className="text-[10px] uppercase tracking-wider text-text-dim w-20 text-right">Spend</span>
-            <span className="text-[10px] uppercase tracking-wider text-text-dim w-20 text-right">Profit</span>
-            <span className="text-[10px] uppercase tracking-wider text-text-dim w-10 text-right">ROAS</span>
+
+      {countries.length > 0 && (
+        <>
+          {/* Column headers */}
+          <div className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-2 border-b border-border-dim">
+            <span className="text-[10px] uppercase tracking-wider text-text-dim">Country</span>
+            <button onClick={() => handleSort('spend')} className={`${headerClass} text-right ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
+              Spend<SortIcon col="spend" />
+            </button>
+            <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
+              Purch.<SortIcon col="purchases" />
+            </button>
+            <button onClick={() => handleSort('profit')} className={`${headerClass} text-right ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
+              Profit<SortIcon col="profit" />
+            </button>
+            <button onClick={() => handleSort('cpa')} className={`${headerClass} text-right ${sortKey === 'cpa' ? 'text-text-body' : 'text-text-dim'}`}>
+              CPA<SortIcon col="cpa" />
+            </button>
           </div>
-        )}
-        {countries.map(c => {
-          const barWidth = (c.spend / maxSpend) * 100;
-          const roasColor =
-            c.roas >= 2 ? 'bg-success-bg text-success' :
-            c.roas >= 1 ? 'bg-warning-bg text-warning' :
-            'bg-error-bg text-error';
 
-          return (
-            <div key={c.code} className="flex items-center gap-4 px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors">
-              <div className="w-28 shrink-0">
-                <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
-                <span className="text-[10px] font-mono text-text-dim bg-bg-elevated px-1.5 py-0.5 rounded ml-1.5">{c.code}</span>
+          {/* Rows */}
+          {displayed.map(c => {
+            const cpa = c.purchases > 0 ? c.spend / c.purchases : 0;
+            return (
+              <div
+                key={c.code}
+                className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
+              >
+                <div>
+                  <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
+                  <span className="text-[10px] font-mono text-text-dim bg-bg-elevated px-1.5 py-0.5 rounded ml-1.5">{c.code}</span>
+                </div>
+                <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
+                <span className={`text-[12px] font-semibold text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
+                  {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
+                </span>
+                <span className="text-[12px] text-text-body text-right">
+                  {cpa > 0 ? `$${cpa.toFixed(2)}` : '—'}
+                </span>
               </div>
+            );
+          })}
 
-              <div className="flex-1 h-1 bg-bg-elevated rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent/25 rounded-full"
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
+          {/* Show all / Show less */}
+          {hasMore && (
+            <button
+              onClick={() => setShowAll(s => !s)}
+              className="w-full px-5 py-2.5 text-[12px] text-text-dim hover:text-text-body hover:bg-bg-hover transition-colors text-center"
+            >
+              {showAll ? 'Show less' : `Show all ${countries.length} countries`}
+            </button>
+          )}
+        </>
+      )}
 
-              <span className="text-[12px] text-text-body w-20 text-right">${c.spend.toLocaleString()}</span>
-
-              <span className={`text-[12px] font-semibold w-20 text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
-                {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
-              </span>
-
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${roasColor}`}>
-                {c.roas}x
-              </span>
-            </div>
-          );
-        })}
-        {countries.length === 0 && (
-          <div className="px-5 py-8 text-center text-text-dim text-[12px]">
-            No country data yet. Connect your ad accounts and PostHog.
-          </div>
-        )}
-      </div>
+      {countries.length === 0 && (
+        <div className="px-5 py-8 text-center text-text-dim text-[12px]">
+          No country data yet. Connect your ad accounts and PostHog.
+        </div>
+      )}
     </div>
   );
 }
