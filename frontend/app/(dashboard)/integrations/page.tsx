@@ -496,9 +496,7 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <h1 className="text-[20px] font-bold text-text-heading">Integrations</h1>
-
+    <div className="space-y-6">
       {/* Revenue source */}
       <div>
         <h2 className="text-[13px] font-semibold text-text-heading mb-1">Revenue</h2>

@@ -26,6 +26,15 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
         )}
       </div>
       <div>
+        {countries.length > 0 && (
+          <div className="flex items-center gap-4 px-5 py-2 border-b border-border-dim">
+            <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-text-dim">Country</span>
+            <div className="flex-1" />
+            <span className="text-[10px] uppercase tracking-wider text-text-dim w-20 text-right">Spend</span>
+            <span className="text-[10px] uppercase tracking-wider text-text-dim w-20 text-right">Profit</span>
+            <span className="text-[10px] uppercase tracking-wider text-text-dim w-10 text-right">ROAS</span>
+          </div>
+        )}
         {countries.map(c => {
           const barWidth = (c.spend / maxSpend) * 100;
           const roasColor =
@@ -37,7 +46,7 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
             <div key={c.code} className="flex items-center gap-4 px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors">
               <div className="w-28 shrink-0">
                 <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
-                <span className="text-[10px] text-text-dim ml-1.5">{c.code}</span>
+                <span className="text-[10px] font-mono text-text-dim bg-bg-elevated px-1.5 py-0.5 rounded ml-1.5">{c.code}</span>
               </div>
 
               <div className="flex-1 h-1 bg-bg-elevated rounded-full overflow-hidden">

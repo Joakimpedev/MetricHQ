@@ -31,7 +31,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
           const barWidth = (c.spend / maxSpend) * 100;
 
           return (
-            <div key={name + i} className="px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-elevated/30 transition-colors">
+            <div key={name + i} className="px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[13px] font-medium text-text-heading">{name}</span>
                 <span className="text-[12px] text-text-body">${c.spend.toLocaleString()}</span>

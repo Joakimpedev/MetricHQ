@@ -3,15 +3,19 @@ interface KPICardProps {
   value: string;
   subtitle?: string;
   valueColor?: string;
+  icon?: React.ComponentType<{ size?: number; className?: string }>;
 }
 
-export default function KPICard({ title, value, subtitle, valueColor = 'text-text-heading' }: KPICardProps) {
+export default function KPICard({ title, value, subtitle, valueColor = 'text-text-heading', icon: Icon }: KPICardProps) {
   return (
     <div className="bg-bg-surface rounded-xl p-6 border border-border-dim">
-      <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">
-        {title}
-      </span>
-      <p className={`text-[28px] font-bold tracking-tight mt-3 leading-none ${valueColor}`}>
+      <div className="flex items-center gap-2">
+        {Icon && <Icon size={18} className="text-text-dim" />}
+        <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">
+          {title}
+        </span>
+      </div>
+      <p className={`text-[28px] font-bold tracking-tight mt-2 leading-none ${valueColor}`}>
         {value}
       </p>
       {subtitle && (

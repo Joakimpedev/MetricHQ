@@ -7,9 +7,7 @@ export default function SettingsPage() {
   const { user } = useUser();
 
   return (
-    <div className="max-w-2xl space-y-5">
-      <h1 className="text-[20px] font-bold text-text-heading">Settings</h1>
-
+    <div className="max-w-3xl space-y-5">
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
         <h2 className="text-[14px] font-medium text-text-heading mb-4">Appearance</h2>
         <div className="flex items-center justify-between">
