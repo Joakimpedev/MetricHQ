@@ -11,7 +11,7 @@ export interface DateRange {
 interface DateRangeSelectorProps {
   value: DateRange;
   onChange: (range: DateRange) => void;
-  compare?: boolean;
+  compareLabel?: string;
 }
 
 /** Format Date to YYYY-MM-DD in local timezone (not UTC) */
@@ -126,7 +126,7 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
   );
 }
 
-export default function DateRangeSelector({ value, onChange, compare }: DateRangeSelectorProps) {
+export default function DateRangeSelector({ value, onChange, compareLabel }: DateRangeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(null);
@@ -288,9 +288,9 @@ export default function DateRangeSelector({ value, onChange, compare }: DateRang
       </div>
 
       {/* Compare badge — inline next to trigger */}
-      {compare && (
+      {compareLabel && (
         <span className="px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface text-[12px] text-text-dim shrink-0">
-          Compare: Previous Period
+          vs {compareLabel}
         </span>
       )}
     </div>

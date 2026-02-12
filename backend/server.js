@@ -52,10 +52,10 @@ app.get('/api/metrics', async (req, res) => {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const data = await aggregateMetrics(internalUserId, start, end);
 
-    // Comparison period
+    // Comparison period (summary + timeSeries for ghost chart)
     if (compareStartDate && compareEndDate) {
       const prev = await aggregateMetrics(internalUserId, compareStartDate, compareEndDate);
-      data.comparison = prev.summary;
+      data.comparison = { summary: prev.summary, timeSeries: prev.timeSeries };
     }
 
     // Separate chart date range (graph may show a wider range than KPIs)

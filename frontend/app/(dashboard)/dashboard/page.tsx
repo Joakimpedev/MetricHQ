@@ -49,12 +49,17 @@ interface TimeSeriesPoint {
   purchases: number;
 }
 
+interface Comparison {
+  summary: Summary;
+  timeSeries: TimeSeriesPoint[];
+}
+
 interface MetricsData {
   summary: Summary;
   platforms: Record<string, Platform>;
   countries: Country[];
   timeSeries: TimeSeriesPoint[];
-  comparison?: Summary;
+  comparison?: Comparison;
 }
 
 function fmtDate(d: Date): string {
@@ -81,18 +86,19 @@ function getComparisonRange(range: DateRange): { compareStartDate: string; compa
   return { compareStartDate: fmtDate(compStart), compareEndDate: fmtDate(compEnd) };
 }
 
-/** Determine chart date range. If dashboard range < 7 days, chart shows 7d. Otherwise matches. */
-function getChartRange(chartDays: number): { chartStartDate: string; chartEndDate: string } {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - chartDays + 1);
-  return { chartStartDate: fmtDate(start), chartEndDate: fmtDate(end) };
-}
-
 function getRangeDays(range: DateRange): number {
   const start = new Date(range.startDate + 'T00:00:00');
   const end = new Date(range.endDate + 'T00:00:00');
   return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function formatCompareLabel(range: DateRange): string {
+  const comp = getComparisonRange(range);
+  const s = new Date(comp.compareStartDate + 'T00:00:00');
+  const e = new Date(comp.compareEndDate + 'T00:00:00');
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (comp.compareStartDate === comp.compareEndDate) return fmt(s);
+  return `${fmt(s)} – ${fmt(e)}`;
 }
 
 export default function DashboardPage() {
@@ -101,21 +107,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(todayRange);
-  const [chartDays, setChartDays] = useState(7);
 
-  // If dashboard range >= 7 days, sync chart to match
-  const dashboardDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
-  const effectiveChartDays = useMemo(() => {
-    if (dashboardDays >= 7) return Math.max(chartDays, dashboardDays);
-    return Math.max(chartDays, 7);
-  }, [dashboardDays, chartDays]);
-
-  // When dashboard range changes and is >= 7d, auto-update chart
-  useEffect(() => {
-    if (dashboardDays >= 7) {
-      setChartDays(dashboardDays);
-    }
-  }, [dashboardDays]);
+  const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
+  const isSingleDay = rangeDays <= 1;
 
   const fetchMetrics = useCallback(async () => {
     if (!user?.id) return;
@@ -123,7 +117,6 @@ export default function DashboardPage() {
     setError(null);
     try {
       const comp = getComparisonRange(dateRange);
-      const chart = getChartRange(effectiveChartDays);
 
       const params = new URLSearchParams({
         userId: user.id,
@@ -131,8 +124,6 @@ export default function DashboardPage() {
         endDate: dateRange.endDate,
         compareStartDate: comp.compareStartDate,
         compareEndDate: comp.compareEndDate,
-        chartStartDate: chart.chartStartDate,
-        chartEndDate: chart.chartEndDate,
       });
       const response = await fetch(`${API_URL}/api/metrics?${params}`);
       const json = await response.json();
@@ -146,7 +137,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, dateRange, effectiveChartDays]);
+  }, [user?.id, dateRange]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -170,18 +161,20 @@ export default function DashboardPage() {
   }
 
   const summary = data?.summary || { totalSpend: 0, totalRevenue: 0, totalProfit: 0, cpa: 0, totalPurchases: 0 };
-  const comparison = data?.comparison;
+  const compSummary = data?.comparison?.summary;
+  const compTimeSeries = data?.comparison?.timeSeries || [];
   const platforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
+  const compareLabel = useMemo(() => formatCompareLabel(dateRange), [dateRange]);
 
   return (
     <div className="space-y-6">
       {/* Top bar: date range + compare badge */}
       <div className="flex items-center justify-between">
-        <div /> {/* spacer */}
+        <div />
         <div className="flex items-center gap-2">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} compare />
+          <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} />
         </div>
       </div>
 
@@ -192,28 +185,24 @@ export default function DashboardPage() {
           value={`${summary.totalProfit >= 0 ? '+' : ''}$${summary.totalProfit.toLocaleString()}`}
           valueColor={summary.totalProfit >= 0 ? 'text-success' : 'text-error'}
           currentValue={summary.totalProfit}
-          previousValue={comparison?.totalProfit}
+          previousValue={compSummary?.totalProfit}
         />
         <KPICard
           title="Revenue"
           value={`$${summary.totalRevenue.toLocaleString()}`}
           currentValue={summary.totalRevenue}
-          previousValue={comparison?.totalRevenue}
+          previousValue={compSummary?.totalRevenue}
         />
         <KPICard
           title="Ad Spend"
           value={`$${summary.totalSpend.toLocaleString()}`}
           currentValue={summary.totalSpend}
-          previousValue={comparison?.totalSpend}
+          previousValue={compSummary?.totalSpend}
         />
       </div>
 
-      {/* Profit trend chart */}
-      <ProfitTrend
-        data={timeSeries}
-        chartDays={effectiveChartDays}
-        onChartDaysChange={setChartDays}
-      />
+      {/* Profit trend chart — linked to main date range */}
+      <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
 
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -22,6 +22,18 @@ type SortDir = 'asc' | 'desc';
 
 const INITIAL_SHOW = 5;
 
+function CountryFlag({ code }: { code: string }) {
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+      srcSet={`https://flagcdn.com/w40/${code.toLowerCase()}.png 1x, https://flagcdn.com/w80/${code.toLowerCase()}.png 2x`}
+      alt={code}
+      className="w-5 h-3.5 object-cover rounded-[2px] shrink-0"
+      loading="lazy"
+    />
+  );
+}
+
 export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -104,9 +116,9 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
                 key={c.code}
                 className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
               >
-                <div>
+                <div className="flex items-center gap-2.5">
+                  <CountryFlag code={c.code} />
                   <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
-                  <span className="text-[10px] font-mono text-text-dim bg-bg-elevated px-1.5 py-0.5 rounded ml-1.5">{c.code}</span>
                 </div>
                 <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
