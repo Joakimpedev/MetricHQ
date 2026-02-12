@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { TrendingUp } from 'lucide-react';
 
 interface DataPoint {
   date: string;
@@ -70,6 +69,75 @@ function CustomTooltip(props: any) {
   );
 }
 
+const ghostData = [
+  { date: 'Jan 1', profit: 120 },
+  { date: 'Jan 2', profit: 180 },
+  { date: 'Jan 3', profit: 140 },
+  { date: 'Jan 4', profit: 250 },
+  { date: 'Jan 5', profit: 210 },
+  { date: 'Jan 6', profit: 320 },
+  { date: 'Jan 7', profit: 280 },
+  { date: 'Jan 8', profit: 350 },
+  { date: 'Jan 9', profit: 310 },
+  { date: 'Jan 10', profit: 400 },
+];
+
+function GhostChart() {
+  return (
+    <div className="h-[240px] relative">
+      {/* Faded, blurred chart */}
+      <div className="absolute inset-0 opacity-[0.35] blur-[1.5px] pointer-events-none select-none">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={ghostData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="ghostGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--border-dim)"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={8}
+            />
+            <YAxis
+              tickFormatter={formatDollar}
+              tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
+              axisLine={false}
+              tickLine={false}
+              tickMargin={4}
+              width={48}
+            />
+            <Area
+              type="monotone"
+              dataKey="profit"
+              stroke="var(--accent)"
+              strokeWidth={2}
+              fill="url(#ghostGradient)"
+              isAnimationActive={true}
+              animationDuration={2000}
+              animationEasing="ease-in-out"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      {/* Overlay message */}
+      <div className="absolute inset-0 flex items-center justify-center z-10">
+        <p className="text-text-dim text-[12px] font-medium bg-bg-surface/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border-dim/50">
+          Choose a date range with at least two days
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrendProps) {
   // Merge current and previous period data by index (day 1 → day 1, etc.)
   const merged = useMemo<MergedPoint[]>(() => {
@@ -88,12 +156,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrend
       <h3 className="text-[13px] font-medium text-text-heading mb-4">Profit Trend</h3>
 
       {isSingleDay || data.length < 2 ? (
-        <div className="h-[240px] flex flex-col items-center justify-center gap-3">
-          <TrendingUp size={28} className="text-text-dim/40" />
-          <p className="text-text-dim text-[12px] text-center max-w-[260px]">
-            Choose a date range with at least two days to view your profit trend.
-          </p>
-        </div>
+        <GhostChart />
       ) : (
         <div className="h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
