@@ -127,6 +127,20 @@ app.post('/api/waitlist', async (req, res) => {
   }
 });
 
+/**
+ * Normalize PostHog host: convert ingestion URLs (us.i.posthog.com)
+ * to API URLs (us.posthog.com) since the REST API lives on the non-.i. host.
+ */
+function normalizePostHogHost(host) {
+  if (!host) return 'https://us.posthog.com';
+  let h = host.trim().replace(/\/+$/, '');
+  // us.i.posthog.com → us.posthog.com  /  eu.i.posthog.com → eu.posthog.com
+  h = h.replace(/\.i\.posthog\.com/, '.posthog.com');
+  // Ensure https://
+  if (!h.startsWith('http')) h = 'https://' + h;
+  return h;
+}
+
 // Connect PostHog: store API key, project ID, host, and purchase event name
 app.post('/api/settings/posthog', async (req, res) => {
   const { userId, apiKey, projectId, purchaseEvent, posthogHost } = req.body || {};
@@ -141,7 +155,7 @@ app.post('/api/settings/posthog', async (req, res) => {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const settings = {};
     if (purchaseEvent) settings.purchaseEvent = purchaseEvent;
-    if (posthogHost) settings.posthogHost = posthogHost.replace(/\/+$/, '');
+    if (posthogHost) settings.posthogHost = normalizePostHogHost(posthogHost);
 
     await pool.query(
       `INSERT INTO connected_accounts (user_id, platform, account_id, access_token, settings)
@@ -204,9 +218,10 @@ app.get('/api/posthog/events', async (req, res) => {
 
     const { access_token: apiKey, account_id: projectId, settings } = account.rows[0];
 
-    // Use stored host first, then try fallbacks
-    const hostsToTry = settings.posthogHost
-      ? [settings.posthogHost, ...POSTHOG_HOSTS.filter(h => h !== settings.posthogHost)]
+    // Use stored host first (normalized), then try fallbacks
+    const storedHost = settings.posthogHost ? normalizePostHogHost(settings.posthogHost) : null;
+    const hostsToTry = storedHost
+      ? [storedHost, ...POSTHOG_HOSTS.filter(h => h !== storedHost)]
       : POSTHOG_HOSTS;
 
     let lastError = null;

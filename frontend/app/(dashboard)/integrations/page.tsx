@@ -162,7 +162,7 @@ function PostHogModal({
   const [editing, setEditing] = useState(!isConnected);
   const [apiKey, setApiKey] = useState('');
   const [projectId, setProjectId] = useState(connection?.accountId || '');
-  const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.i.posthog.com');
+  const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.posthog.com');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -304,7 +304,7 @@ function PostHogModal({
             editing={editing}
             editValue={posthogHost}
             onEditChange={setPosthogHost}
-            placeholder="https://us.i.posthog.com"
+            placeholder="https://us.posthog.com"
           />
 
           {/* Save / Cancel when editing */}
