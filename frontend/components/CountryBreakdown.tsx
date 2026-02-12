@@ -29,12 +29,12 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
         {countries.map(c => {
           const barWidth = (c.spend / maxSpend) * 100;
           const roasColor =
-            c.roas >= 2 ? 'bg-emerald-500/10 text-emerald-400' :
-            c.roas >= 1 ? 'bg-amber-500/10 text-amber-400' :
-            'bg-red-500/10 text-red-400';
+            c.roas >= 2 ? 'bg-success-bg text-success' :
+            c.roas >= 1 ? 'bg-warning-bg text-warning' :
+            'bg-error-bg text-error';
 
           return (
-            <div key={c.code} className="flex items-center gap-4 px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-elevated/30 transition-colors">
+            <div key={c.code} className="flex items-center gap-4 px-5 py-3.5 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors">
               <div className="w-28 shrink-0">
                 <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
                 <span className="text-[10px] text-text-dim ml-1.5">{c.code}</span>
@@ -49,7 +49,7 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
 
               <span className="text-[12px] text-text-body w-20 text-right">${c.spend.toLocaleString()}</span>
 
-              <span className={`text-[12px] font-semibold w-20 text-right ${c.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <span className={`text-[12px] font-semibold w-20 text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
                 {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
               </span>
 

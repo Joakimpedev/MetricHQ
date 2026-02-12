@@ -69,14 +69,14 @@ function IntegrationCard({
       onClick={onClick}
       className={`flex items-center gap-3.5 w-full text-left p-4 rounded-xl border transition-colors ${
         connected
-          ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10'
+          ? 'bg-success-bg border-success/20 hover:bg-success-bg'
           : 'bg-bg-surface border-border-dim hover:bg-bg-elevated'
       }`}
     >
       {logo}
       <div className="min-w-0">
         <p className="text-[13px] font-medium text-text-heading">{name}</p>
-        <p className={`text-[11px] ${connected ? 'text-emerald-400' : 'text-text-dim'}`}>
+        <p className={`text-[11px] ${connected ? 'text-success' : 'text-text-dim'}`}>
           {connected ? 'Connected' : description}
         </p>
       </div>
@@ -250,7 +250,7 @@ function PostHogModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-bg-overlay" onClick={onClose} />
       <div className="relative bg-bg-surface border border-border rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-5 pb-0">
@@ -265,13 +265,13 @@ function PostHogModal({
             {isConnected && !editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="p-1.5 rounded-md hover:bg-white/5 text-text-dim hover:text-text-heading transition-colors"
+                className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-heading transition-colors"
                 title="Edit credentials"
               >
                 <Pencil size={14} />
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-white/5 text-text-dim hover:text-text-body transition-colors">
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-body transition-colors">
               <X size={16} />
             </button>
           </div>
@@ -312,7 +312,7 @@ function PostHogModal({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-white transition-colors"
+                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
               >
                 {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                 {saving ? 'Saving...' : 'Save'}
@@ -332,7 +332,7 @@ function PostHogModal({
                 </button>
               )}
               {message && (
-                <p className={`text-[12px] ${message.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-[12px] ${message.type === 'success' ? 'text-success' : 'text-error'}`}>
                   {message.text}
                 </p>
               )}
@@ -370,7 +370,7 @@ function PostHogModal({
             ) : (
               <div className="space-y-2">
                 {eventsError && (
-                  <p className="text-[11px] text-red-400">{eventsError}</p>
+                  <p className="text-[11px] text-error">{eventsError}</p>
                 )}
                 <p className="text-[11px] text-text-dim">
                   {isConnected ? 'Could not load events. Enter the event name manually:' : 'Connect PostHog above to load events, or enter manually:'}
@@ -386,7 +386,7 @@ function PostHogModal({
                   <button
                     onClick={() => { if (manualEvent.trim()) handleSaveEvent(manualEvent.trim()); }}
                     disabled={!manualEvent.trim() || savingEvent}
-                    className="bg-accent hover:bg-accent-hover disabled:opacity-50 px-3 py-2 rounded-lg text-[12px] font-medium text-white transition-colors"
+                    className="bg-accent hover:bg-accent-hover disabled:opacity-50 px-3 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
                   >
                     Save
                   </button>
@@ -395,7 +395,7 @@ function PostHogModal({
             )}
 
             {selectedEvent && (
-              <p className="mt-2.5 text-[11px] text-emerald-400 flex items-center gap-1.5">
+              <p className="mt-2.5 text-[11px] text-success flex items-center gap-1.5">
                 <Check size={12} /> Using: <span className="font-mono">{selectedEvent}</span>
               </p>
             )}
@@ -428,7 +428,7 @@ function OAuthModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-bg-overlay" onClick={onClose} />
       <div className="relative bg-bg-surface border border-border rounded-xl p-6 w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -452,7 +452,7 @@ function OAuthModal({
 
         <a
           href={`${API_URL}/auth/${platform}?userId=${encodeURIComponent(userId)}`}
-          className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-4 py-2.5 rounded-lg text-[12px] font-medium text-white transition-colors"
+          className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-4 py-2.5 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
         >
           {isConnected ? 'Reconnect' : 'Connect'} {name}
         </a>

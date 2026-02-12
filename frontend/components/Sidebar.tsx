@@ -32,7 +32,7 @@ export default function Sidebar() {
       {/* Brand */}
       <div className="px-5 pt-6 pb-5">
         <span className="text-[14px] font-semibold text-text-heading tracking-tight">
-          Profit Tracker
+          MetricHQ
         </span>
       </div>
 
@@ -51,7 +51,7 @@ export default function Sidebar() {
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] transition-colors ${
                   active
                     ? 'bg-accent-muted text-text-heading font-medium'
-                    : 'text-text-dim hover:text-text-body hover:bg-bg-elevated/40'
+                    : 'text-text-dim hover:text-text-body hover:bg-bg-hover'
                 }`}
               >
                 <Icon size={16} strokeWidth={active ? 2 : 1.5} />
@@ -70,14 +70,14 @@ export default function Sidebar() {
             <Link
               href="/settings"
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2.5 text-[12px] text-text-body hover:text-text-heading hover:bg-bg-elevated/50 transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2.5 text-[12px] text-text-body hover:text-text-heading hover:bg-bg-hover transition-colors"
             >
               <Settings size={14} />
               Settings
             </Link>
             <div className="border-t border-border-dim" />
             <SignOutButton>
-              <button className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[12px] text-text-dim hover:text-red-400 hover:bg-red-400/5 transition-colors">
+              <button className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[12px] text-text-dim hover:text-error hover:bg-error-bg transition-colors">
                 <LogOut size={14} />
                 Sign out
               </button>
@@ -87,7 +87,7 @@ export default function Sidebar() {
 
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg hover:bg-bg-elevated/40 transition-colors"
+          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg hover:bg-bg-hover transition-colors"
         >
           {user?.imageUrl ? (
             <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full" />

@@ -1,25 +1,69 @@
 @import "tailwindcss";
 
-:root {
-  /* Background layers — neutral dark with minimal cool tint, 5-6% spacing */
+/* Dark mode (default) */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
   --bg-body:      #09090f;
   --bg-sidebar:   #0c0c13;
   --bg-surface:   #15151e;
   --bg-elevated:  #1d1d28;
+  --bg-hover:     rgba(255,255,255,0.04);
+  --bg-overlay:   rgba(0,0,0,0.65);
 
-  /* Borders — visible in dark mode */
   --border:       #2a2a36;
   --border-dim:   #1c1c26;
 
-  /* Text — dimmed hierarchy, never pure white */
   --text-heading:  #e2e2ea;
   --text-body:     #9898a8;
   --text-dim:      #5c5c70;
 
-  /* Accent — subtle indigo for interactive elements only */
-  --accent:        #7c7cf5;
-  --accent-hover:  #6565e0;
-  --accent-muted:  rgba(124, 124, 245, 0.08);
+  --accent:        #818cf8;
+  --accent-hover:  #6366f1;
+  --accent-muted:  rgba(129,140,248,0.08);
+  --accent-text:   #ffffff;
+
+  --color-success:    #34d399;
+  --color-success-bg: rgba(52,211,153,0.08);
+  --color-error:      #f87171;
+  --color-error-bg:   rgba(248,113,113,0.08);
+  --color-warning:    #fbbf24;
+  --color-warning-bg: rgba(251,191,36,0.08);
+
+  --foreground: var(--text-body);
+  --background: var(--bg-body);
+}
+
+/* Light mode */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-body:      #f5f3ef;
+  --bg-sidebar:   #edeae4;
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #edeae4;
+  --bg-hover:     rgba(0,0,0,0.03);
+  --bg-overlay:   rgba(0,0,0,0.40);
+
+  --border:       #ddd9d1;
+  --border-dim:   #e8e5de;
+
+  --text-heading:  #1a1917;
+  --text-body:     #403e39;
+  --text-dim:      #78756d;
+
+  --accent:        #4f46e5;
+  --accent-hover:  #4338ca;
+  --accent-muted:  rgba(79,70,229,0.06);
+  --accent-text:   #ffffff;
+
+  --color-success:    #059669;
+  --color-success-bg: rgba(5,150,105,0.06);
+  --color-error:      #dc2626;
+  --color-error-bg:   rgba(220,38,38,0.06);
+  --color-warning:    #d97706;
+  --color-warning-bg: rgba(217,119,6,0.06);
 
   --foreground: var(--text-body);
   --background: var(--bg-body);
@@ -32,6 +76,8 @@
   --color-bg-sidebar: var(--bg-sidebar);
   --color-bg-surface: var(--bg-surface);
   --color-bg-elevated: var(--bg-elevated);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-overlay: var(--bg-overlay);
   --color-border: var(--border);
   --color-border-dim: var(--border-dim);
   --color-text-heading: var(--text-heading);
@@ -40,6 +86,13 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-muted: var(--accent-muted);
+  --color-accent-text: var(--accent-text);
+  --color-success: var(--color-success);
+  --color-success-bg: var(--color-success-bg);
+  --color-error: var(--color-error);
+  --color-error-bg: var(--color-error-bg);
+  --color-warning: var(--color-warning);
+  --color-warning-bg: var(--color-warning-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -47,7 +100,7 @@
 body {
   background: var(--bg-body);
   color: var(--text-body);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

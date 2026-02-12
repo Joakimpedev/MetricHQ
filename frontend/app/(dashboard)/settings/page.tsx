@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
+import ThemeSwitcher from '../../../components/ThemeSwitcher';
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -8,6 +9,17 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-5">
       <h1 className="text-[20px] font-bold text-text-heading">Settings</h1>
+
+      <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+        <h2 className="text-[14px] font-medium text-text-heading mb-4">Appearance</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[12px] text-text-body">Theme</p>
+            <p className="text-[11px] text-text-dim mt-0.5">Choose light or dark mode</p>
+          </div>
+          <ThemeSwitcher />
+        </div>
+      </div>
 
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
         <h2 className="text-[14px] font-medium text-text-heading mb-4">Account</h2>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
+import { BarChart3, TrendingUp, Globe } from 'lucide-react';
 
 const CLERK_ENABLED =
   typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'string' &&
@@ -76,7 +77,7 @@ export default function LandingPage() {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">💰 Profit Tracker</h1>
+          <h1 className="text-4xl font-bold mb-4">MetricHQ</h1>
           <p className="text-slate-400 mb-8">You&apos;re signed in. Go to your dashboard.</p>
           <Link
             href="/dashboard"
@@ -95,7 +96,7 @@ export default function LandingPage() {
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(245,158,11,0.15),transparent)]" />
         <nav className="relative max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
-          <span className="text-xl font-bold">💰 Profit Tracker</span>
+          <span className="text-xl font-bold">MetricHQ</span>
           {CLERK_ENABLED && (
             <SignInButton mode="modal">
               <button className="text-slate-400 hover:text-white text-sm font-medium transition-colors">
@@ -149,19 +150,19 @@ export default function LandingPage() {
         <h2 className="text-2xl font-bold text-center mb-12">One dashboard for all your ad data</h2>
         <div className="grid md:grid-cols-3 gap-8">
           <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="text-2xl mb-3">📊</div>
+            <div className="mb-3"><BarChart3 size={28} className="text-amber-400" /></div>
             <h3 className="font-semibold text-lg mb-2">TikTok & Meta Ads</h3>
             <p className="text-slate-400 text-sm">Connect your ad accounts. We pull spend, impressions, and clicks by country.</p>
           </div>
           <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="text-2xl mb-3">📈</div>
+            <div className="mb-3"><TrendingUp size={28} className="text-amber-400" /></div>
             <h3 className="font-semibold text-lg mb-2">PostHog revenue</h3>
             <p className="text-slate-400 text-sm">Link PostHog to get revenue and purchases. Profit = revenue − ad spend.</p>
           </div>
           <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="text-2xl mb-3">🌍</div>
+            <div className="mb-3"><Globe size={28} className="text-amber-400" /></div>
             <h3 className="font-semibold text-lg mb-2">Country-level breakdown</h3>
-            <p className="text-slate-400 text-sm">See which countries are profitable. Stop wasting spend where it doesn’t pay off.</p>
+            <p className="text-slate-400 text-sm">See which countries are profitable. Stop wasting spend where it doesn't pay off.</p>
           </div>
         </div>
       </section>
@@ -180,7 +181,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-slate-800 py-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-slate-500 text-sm">Profit Tracker</span>
+          <span className="text-slate-500 text-sm">MetricHQ</span>
           <div className="flex gap-6">
             <Link href="/dashboard" className="text-slate-500 hover:text-slate-400 text-sm transition-colors">
               Dashboard

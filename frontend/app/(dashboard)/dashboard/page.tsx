@@ -143,7 +143,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-red-400 text-[13px]">{error}</p>
+        <p className="text-error text-[13px]">{error}</p>
       </div>
     );
   }
@@ -165,7 +165,7 @@ export default function DashboardPage() {
           <button
             onClick={handleRefresh}
             disabled={syncing}
-            className="p-1.5 rounded-md hover:bg-white/5 text-text-dim hover:text-text-heading transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-heading transition-colors disabled:opacity-50"
             title="Refresh data"
           >
             <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
@@ -178,7 +178,7 @@ export default function DashboardPage() {
         <KPICard
           title="Total Profit"
           value={`${summary.totalProfit >= 0 ? '+' : ''}$${summary.totalProfit.toLocaleString()}`}
-          valueColor={summary.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}
+          valueColor={summary.totalProfit >= 0 ? 'text-success' : 'text-error'}
           subtitle={`${summary.totalPurchases} purchases · $${summary.cpa} CPA`}
         />
         <KPICard
