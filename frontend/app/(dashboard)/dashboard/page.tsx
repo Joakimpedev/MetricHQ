@@ -107,6 +107,7 @@ export default function DashboardPage() {
 
   const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
   const isSingleDay = rangeDays <= 1;
+  const compareLabel = useMemo(() => formatCompareLabel(dateRange), [dateRange]);
 
   const fetchMetrics = useCallback(async () => {
     if (!user?.id) return;
@@ -165,7 +166,6 @@ export default function DashboardPage() {
   const platforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
-  const compareLabel = useMemo(() => formatCompareLabel(dateRange), [dateRange]);
 
   return (
     <div className="space-y-6">
