@@ -26,7 +26,7 @@ function fmt(n: number): string {
 function Box({ label, spend, revenue, profit }: PlatformSummaryItem) {
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-4">
-      <p className="text-[11px] uppercase tracking-wider text-text-dim mb-2">{label}</p>
+      <p className="text-[13px] font-semibold text-text-heading mb-2">{label}</p>
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-text-dim">Spend</span>
@@ -55,7 +55,7 @@ export default function PlatformSummary({ platforms, unattributedRevenue = 0 }: 
       ))}
       {unattributedRevenue > 0 && (
         <div className="bg-bg-surface rounded-xl border border-border-dim p-4">
-          <p className="text-[11px] uppercase tracking-wider text-text-dim mb-2">Unattributed</p>
+          <p className="text-[13px] font-semibold text-text-heading mb-2">Unattributed</p>
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-text-dim">Revenue</span>
