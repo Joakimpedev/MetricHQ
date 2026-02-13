@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
-import PlatformSummary from '../../../components/PlatformSummary';
+import { PlatformSummaryBox, UnattributedBox } from '../../../components/PlatformSummary';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
@@ -283,19 +283,7 @@ export default function DashboardPage() {
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
 
-  const PLATFORM_LABELS: Record<string, string> = {
-    tiktok: 'TikTok Ads',
-    meta: 'Meta Ads',
-    google_ads: 'Google Ads',
-    linkedin: 'LinkedIn Ads',
-  };
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
-  const platformSummaryData = adPlatforms.map(([key, pData]) => ({
-    label: PLATFORM_LABELS[key] || key,
-    spend: pData.totalSpend,
-    revenue: pData.totalRevenue || 0,
-    profit: (pData.totalRevenue || 0) - pData.totalSpend,
-  }));
 
   return (
     <div className="space-y-6">
@@ -333,20 +321,24 @@ export default function DashboardPage() {
       {/* Profit trend chart — linked to main date range */}
       <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
 
-      {/* Platform summary boxes */}
-      <PlatformSummary platforms={platformSummaryData} unattributedRevenue={unattributedRevenue} />
-
-      {/* Campaign tables */}
+      {/* Campaign tables with summary boxes */}
       {adPlatforms.length > 0 ? (
         <div className="space-y-4">
-          {adPlatforms.map(([platform, pData]) => (
-            <CampaignTable
-              key={platform}
-              platform={platform}
-              totalSpend={pData.totalSpend}
-              campaigns={pData.campaigns}
-            />
-          ))}
+          {adPlatforms.map(([platform, pData]) => {
+            const rev = pData.totalRevenue || 0;
+            return (
+              <div key={platform} className="grid grid-cols-[12rem_1fr] gap-4">
+                <PlatformSummaryBox spend={pData.totalSpend} revenue={rev} profit={rev - pData.totalSpend} />
+                <CampaignTable platform={platform} totalSpend={pData.totalSpend} campaigns={pData.campaigns} />
+              </div>
+            );
+          })}
+          {unattributedRevenue > 0 && (
+            <div className="grid grid-cols-[12rem_1fr] gap-4">
+              <UnattributedBox revenue={unattributedRevenue} />
+              <div />
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
