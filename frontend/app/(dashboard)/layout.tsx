@@ -101,7 +101,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen bg-bg-body flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-text-heading mb-2">MetricHQ</h1>
+          <div className="flex items-center justify-center gap-2.5 mb-2">
+            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+              <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+              <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+              <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+            </svg>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
+            </h1>
+          </div>
           <p className="text-text-dim text-[13px] mb-8">Sign in to access your dashboard</p>
           <SignInButton mode="modal">
             <button className="bg-accent hover:bg-accent-hover px-8 py-3 rounded-lg text-[13px] font-semibold text-accent-text transition-colors">
