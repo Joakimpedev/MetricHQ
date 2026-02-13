@@ -88,7 +88,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   if (hasAttribution) colDefs.push('2.5rem');
   colDefs.push('5rem', '5rem', '4.5rem', '4rem');
   if (hasRevenue) colDefs.push('5rem', '5rem');
-  const gridCols = `grid-cols-[${colDefs.join('_')}]`;
+  const gridTemplate = colDefs.join(' ');
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
@@ -100,7 +100,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
       {campaigns.length > 0 && (
         <>
           {/* Column headers */}
-          <div className={`col-striped grid ${gridCols} gap-2 px-5 py-2 border-b border-border-dim bg-accent-muted`}>
+          <div className="col-striped grid gap-2 px-5 py-2 border-b border-border-dim bg-accent-muted" style={{ gridTemplateColumns: gridTemplate }}>
             <span className="text-[10px] uppercase tracking-wider text-text-dim">Campaign</span>
             {hasAttribution && (
               <span className="text-[10px] uppercase tracking-wider text-text-dim text-center">Attr.</span>
@@ -137,7 +137,8 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             return (
               <div
                 key={name + i}
-                className={`col-striped grid ${gridCols} gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center`}
+                className="col-striped grid gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
+                style={{ gridTemplateColumns: gridTemplate }}
               >
                 <span className="text-[13px] font-medium text-text-heading truncate">{name}</span>
                 {hasAttribution && (
