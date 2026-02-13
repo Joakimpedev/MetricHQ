@@ -1,13 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock } from 'lucide-react';
+import { Clock, AlertTriangle } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
 
 export default function TrialBanner() {
   const { subscription, loading } = useSubscription();
 
-  if (loading || !subscription || subscription.status !== 'trialing' || !subscription.trialEnd) {
+  if (loading || !subscription) return null;
+
+  if (subscription.status === 'past_due') {
+    return (
+      <div className="bg-error/10 border-b border-error/20 px-4 py-2 flex items-center justify-center gap-2 text-[12px]">
+        <AlertTriangle size={13} className="text-error shrink-0" />
+        <span className="text-error">
+          Payment failed. Please update your billing info.
+        </span>
+        <Link
+          href="/settings"
+          className="text-error hover:text-error/80 font-medium transition-colors ml-1 underline underline-offset-2"
+        >
+          Update billing
+        </Link>
+      </div>
+    );
+  }
+
+  if (subscription.status !== 'trialing' || !subscription.trialEnd) {
     return null;
   }
 

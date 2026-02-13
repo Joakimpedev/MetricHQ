@@ -12,6 +12,7 @@ interface DateRangeSelectorProps {
   value: DateRange;
   onChange: (range: DateRange) => void;
   compareLabel?: string;
+  dataRetentionDays?: number;
 }
 
 function fmtDate(d: Date): string {
@@ -73,10 +74,11 @@ function inRange(day: Date, start: Date | null, end: Date | null): boolean {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
+function MiniCalendar({ year, month, selStart, selEnd, onDayClick, minDate }: {
   year: number; month: number;
   selStart: Date | null; selEnd: Date | null;
   onDayClick: (d: Date) => void;
+  minDate?: Date;
 }) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -102,17 +104,19 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
           const isSelected = (selStart && isSameDay(d, selStart)) || (selEnd && isSameDay(d, selEnd));
           const isInRange = inRange(d, selStart, selEnd) && !isSelected;
           const isFuture = d.getTime() > today.getTime();
+          const isTooOld = minDate ? d.getTime() < minDate.getTime() : false;
+          const isDisabled = isFuture || isTooOld;
 
           return (
             <button
               key={day}
-              disabled={isFuture}
+              disabled={isDisabled}
               onClick={() => onDayClick(d)}
               className={`w-7 h-7 text-[11px] rounded transition-colors flex items-center justify-center ${
                 isSelected ? 'bg-accent text-accent-text font-medium' :
                 isInRange ? 'bg-accent/10 text-text-heading' :
                 isToday ? 'text-accent font-medium ring-1 ring-accent/30' :
-                isFuture ? 'text-text-dim/30 cursor-not-allowed' :
+                isDisabled ? 'text-text-dim/30 cursor-not-allowed' :
                 'text-text-body hover:bg-bg-hover'
               }`}
             >
@@ -125,7 +129,7 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
   );
 }
 
-export default function DateRangeSelector({ value, onChange, compareLabel }: DateRangeSelectorProps) {
+export default function DateRangeSelector({ value, onChange, compareLabel, dataRetentionDays }: DateRangeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(null);
@@ -136,6 +140,23 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
 
   const cal2Month = calMonth === 11 ? 0 : calMonth + 1;
   const cal2Year = calMonth === 11 ? calYear + 1 : calYear;
+
+  // Retention limit: earliest allowed date
+  const retentionMinDate = useMemo(() => {
+    if (!dataRetentionDays || !isFinite(dataRetentionDays)) return undefined;
+    const d = localToday();
+    d.setDate(d.getDate() - dataRetentionDays);
+    return d;
+  }, [dataRetentionDays]);
+
+  // Filter presets that exceed retention limit
+  const availablePresets = useMemo(() => {
+    if (!retentionMinDate) return PRESETS;
+    return PRESETS.filter(p => {
+      const { startDate } = p.getDates();
+      return parseDate(startDate).getTime() >= retentionMinDate.getTime();
+    });
+  }, [retentionMinDate]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -223,7 +244,7 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
           <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex">
             {/* Presets sidebar */}
             <div className="w-36 border-r border-border-dim py-2 shrink-0">
-              {PRESETS.map(p => (
+              {availablePresets.map(p => (
                 <button
                   key={p.label}
                   onClick={() => handlePreset(p)}
@@ -236,6 +257,12 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
                   {p.label}
                 </button>
               ))}
+              {retentionMinDate && availablePresets.length < PRESETS.length && (
+                <p className="px-4 py-2 text-[10px] text-text-dim leading-snug">
+                  Your plan includes {dataRetentionDays}-day history.{' '}
+                  <a href="/pricing" className="text-accent hover:text-accent-hover">Upgrade</a> for more.
+                </p>
+              )}
             </div>
 
             {/* Calendar area */}
@@ -256,8 +283,8 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
                 <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
                   <ChevronLeft size={16} />
                 </button>
-                <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
-                <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+                <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} minDate={retentionMinDate} />
+                <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} minDate={retentionMinDate} />
                 <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
                   <ChevronRight size={16} />
                 </button>

@@ -59,7 +59,7 @@ async function getOrCreateUserByClerkId(clerkUserId) {
 // ----- TikTok OAuth -----
 
 router.get('/tiktok', async (req, res) => {
-  const { userId } = req.query; // Clerk user id from frontend
+  const { userId, returnTo } = req.query; // Clerk user id from frontend
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
@@ -70,13 +70,15 @@ router.get('/tiktok', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const internalUserId = await getOrCreateUserByClerkId(userId);
   if (!(await canConnectAdPlatform(internalUserId))) {
-    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
+    const limitRedirect = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
+    return res.redirect(`${limitRedirect}?error=platform_limit`);
   }
 
+  const statePayload = returnTo ? `${userId}::${returnTo}` : userId;
   const authUrl = 'https://business-api.tiktok.com/portal/auth';
   const params = new URLSearchParams({
     app_id: process.env.TIKTOK_APP_ID,
-    state: userId,
+    state: statePayload,
     redirect_uri: `${process.env.BACKEND_URL}/auth/tiktok/callback`,
     rid: Date.now().toString()
   });
@@ -85,11 +87,13 @@ router.get('/tiktok', async (req, res) => {
 });
 
 router.get('/tiktok/callback', async (req, res) => {
-  const { auth_code, state: clerkUserId } = req.query;
+  const { auth_code, state } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const [clerkUserId, returnTo] = (state || '').split('::');
+  const redirectBase = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
 
   if (!auth_code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}/integrations?error=tiktok_missing_params`);
+    return res.redirect(`${redirectBase}?error=tiktok_missing_params`);
   }
 
   try {
@@ -121,17 +125,17 @@ router.get('/tiktok/callback', async (req, res) => {
       [internalUserId, 'tiktok', accountId, access_token]
     );
 
-    res.redirect(`${frontendUrl}/integrations?tiktok=connected`);
+    res.redirect(`${redirectBase}?tiktok=connected`);
   } catch (error) {
     console.error('TikTok OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/integrations?error=tiktok_failed`);
+    res.redirect(`${redirectBase}?error=tiktok_failed`);
   }
 });
 
 // ----- Meta OAuth -----
 
 router.get('/meta', async (req, res) => {
-  const { userId } = req.query;
+  const { userId, returnTo } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
@@ -142,14 +146,16 @@ router.get('/meta', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const internalUserId = await getOrCreateUserByClerkId(userId);
   if (!(await canConnectAdPlatform(internalUserId))) {
-    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
+    const limitRedirect = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
+    return res.redirect(`${limitRedirect}?error=platform_limit`);
   }
 
+  const statePayload = returnTo ? `${userId}::${returnTo}` : userId;
   const authUrl = 'https://www.facebook.com/v19.0/dialog/oauth';
   const params = new URLSearchParams({
     client_id: process.env.META_APP_ID,
     redirect_uri: `${process.env.BACKEND_URL}/auth/meta/callback`,
-    state: userId,
+    state: statePayload,
     scope: 'ads_read,read_insights'
   });
 
@@ -157,11 +163,13 @@ router.get('/meta', async (req, res) => {
 });
 
 router.get('/meta/callback', async (req, res) => {
-  const { code, state: clerkUserId } = req.query;
+  const { code, state } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const [clerkUserId, returnTo] = (state || '').split('::');
+  const redirectBase = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
 
   if (!code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}/integrations?error=meta_missing_params`);
+    return res.redirect(`${redirectBase}?error=meta_missing_params`);
   }
 
   try {
@@ -197,17 +205,17 @@ router.get('/meta/callback', async (req, res) => {
       [internalUserId, 'meta', adAccountId, access_token]
     );
 
-    res.redirect(`${frontendUrl}/integrations?meta=connected`);
+    res.redirect(`${redirectBase}?meta=connected`);
   } catch (error) {
     console.error('Meta OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/integrations?error=meta_failed`);
+    res.redirect(`${redirectBase}?error=meta_failed`);
   }
 });
 
 // ----- Google Ads OAuth -----
 
 router.get('/google', async (req, res) => {
-  const { userId } = req.query;
+  const { userId, returnTo } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
@@ -218,9 +226,11 @@ router.get('/google', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const internalUserId = await getOrCreateUserByClerkId(userId);
   if (!(await canConnectAdPlatform(internalUserId))) {
-    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
+    const limitRedirect = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
+    return res.redirect(`${limitRedirect}?error=platform_limit`);
   }
 
+  const statePayload = returnTo ? `${userId}::${returnTo}` : userId;
   const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
@@ -229,18 +239,20 @@ router.get('/google', async (req, res) => {
     scope: 'https://www.googleapis.com/auth/adwords',
     access_type: 'offline',
     prompt: 'consent',
-    state: userId,
+    state: statePayload,
   });
 
   res.redirect(`${authUrl}?${params}`);
 });
 
 router.get('/google/callback', async (req, res) => {
-  const { code, state: clerkUserId } = req.query;
+  const { code, state } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const [clerkUserId, returnTo] = (state || '').split('::');
+  const redirectBase = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
 
   if (!code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}/integrations?error=google_missing_params`);
+    return res.redirect(`${redirectBase}?error=google_missing_params`);
   }
 
   try {
@@ -284,17 +296,17 @@ router.get('/google/callback', async (req, res) => {
       [internalUserId, 'google_ads', customerId, access_token, refresh_token, expiresAt]
     );
 
-    res.redirect(`${frontendUrl}/integrations?google_ads=connected`);
+    res.redirect(`${redirectBase}?google_ads=connected`);
   } catch (error) {
     console.error('Google OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/integrations?error=google_failed`);
+    res.redirect(`${redirectBase}?error=google_failed`);
   }
 });
 
 // ----- LinkedIn Ads OAuth -----
 
 router.get('/linkedin', async (req, res) => {
-  const { userId } = req.query;
+  const { userId, returnTo } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
@@ -305,27 +317,31 @@ router.get('/linkedin', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const internalUserId = await getOrCreateUserByClerkId(userId);
   if (!(await canConnectAdPlatform(internalUserId))) {
-    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
+    const limitRedirect = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
+    return res.redirect(`${limitRedirect}?error=platform_limit`);
   }
 
+  const statePayload = returnTo ? `${userId}::${returnTo}` : userId;
   const authUrl = 'https://www.linkedin.com/oauth/v2/authorization';
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.LINKEDIN_CLIENT_ID,
     redirect_uri: `${process.env.BACKEND_URL}/auth/linkedin/callback`,
-    state: userId,
-    scope: 'r_ads,r_ads_reporting',
+    state: statePayload,
+    scope: 'r_ads',
   });
 
   res.redirect(`${authUrl}?${params}`);
 });
 
 router.get('/linkedin/callback', async (req, res) => {
-  const { code, state: clerkUserId } = req.query;
+  const { code, state } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const [clerkUserId, returnTo] = (state || '').split('::');
+  const redirectBase = returnTo ? `${frontendUrl}${returnTo}` : `${frontendUrl}/integrations`;
 
   if (!code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}/integrations?error=linkedin_missing_params`);
+    return res.redirect(`${redirectBase}?error=linkedin_missing_params`);
   }
 
   try {
@@ -374,10 +390,10 @@ router.get('/linkedin/callback', async (req, res) => {
       [internalUserId, 'linkedin', accountId, access_token, refresh_token, expiresAt]
     );
 
-    res.redirect(`${frontendUrl}/integrations?linkedin=connected`);
+    res.redirect(`${redirectBase}?linkedin=connected`);
   } catch (error) {
     console.error('LinkedIn OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}/integrations?error=linkedin_failed`);
+    res.redirect(`${redirectBase}?error=linkedin_failed`);
   }
 });
 

@@ -945,38 +945,44 @@ Or run the full schema (fresh installs include the waitlist table).
 
 ### Step 1: Deploy Backend (Railway)
 
-1. **Push code to GitHub:**
+1. **Push code to GitHub** (monorepo — frontend + backend in one repo):
 
 ```bash
-cd backend
-git init
 git add .
-git commit -m "Initial backend commit"
-git branch -M main
-
-# Create repo on GitHub, then:
-git remote add origin https://github.com/yourusername/profit-tracker-backend.git
+git commit -m "Initial commit"
 git push -u origin main
 ```
 
+> **Note:** This project uses a monorepo (both `frontend/` and `backend/` in one repo). No need to create separate repos.
+
 2. **Deploy to Railway:**
 
+   **If you already have a Railway project with PostgreSQL:**
+   - Open your existing project
+   - Click **"+ New"** or **"Add a Service"**
+   - Choose **"GitHub Repo"** → select your repo
+   - Go to the new service's **Settings** → set **Root Directory** to `/backend`
+   - Railway auto-detects Node.js and deploys
+
+   **If starting fresh:**
    - Go to https://railway.app
    - Click "New Project" → "Deploy from GitHub repo"
-   - Select your backend repo
-   - Railway auto-detects Node.js
-   - Add environment variables:
-     - `DATABASE_URL` (auto-added from PostgreSQL)
-     - `TIKTOK_APP_ID`
-     - `TIKTOK_APP_SECRET`
-     - `META_APP_ID`
-     - `META_APP_SECRET`
-     - `CLERK_SECRET_KEY`
-     - `FRONTEND_URL` = https://your-app.vercel.app
-   - Click "Deploy"
+   - Select your repo
+   - Set **Root Directory** to `/backend`
+   - Add a PostgreSQL service to the same project
 
-3. **Get backend URL:**
-   - Railway provides: `https://profit-tracker-backend-production.up.railway.app`
+3. **Add environment variables** on the GitHub/Node.js service (not on PostgreSQL):
+   - `DATABASE_URL` (auto-added if PostgreSQL is in the same project)
+   - `BACKEND_URL` = the public URL Railway gives your service (Settings → Networking)
+   - `FRONTEND_URL` = https://your-app.vercel.app
+   - `CLERK_SECRET_KEY`
+   - `NODE_ENV` = production
+   - `TIKTOK_APP_ID` / `TIKTOK_APP_SECRET` (when you have them)
+   - `META_APP_ID` / `META_APP_SECRET` (when you have them)
+
+4. **Get backend URL:**
+   - Go to your service's **Settings → Networking**
+   - Railway provides a URL like: `https://profit-tracker-production.up.railway.app`
    - Save this URL!
 
 ---
