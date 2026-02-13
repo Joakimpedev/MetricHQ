@@ -7,7 +7,6 @@ import { useSearchParams } from 'next/navigation';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
-import { PlatformSummaryBox, UnattributedBox } from '../../../components/PlatformSummary';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
@@ -321,33 +320,27 @@ export default function DashboardPage() {
       {/* Profit trend chart — linked to main date range */}
       <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
 
-      {/* Campaign tables with summary boxes */}
-      {adPlatforms.length > 0 ? (
-        <div className="space-y-4">
-          {adPlatforms.map(([platform, pData]) => {
-            const rev = pData.totalRevenue || 0;
-            return (
-              <div key={platform} className="grid grid-cols-[12rem_1fr] gap-4">
-                <PlatformSummaryBox spend={pData.totalSpend} revenue={rev} profit={rev - pData.totalSpend} />
-                <CampaignTable platform={platform} totalSpend={pData.totalSpend} campaigns={pData.campaigns} />
-              </div>
-            );
-          })}
-          {unattributedRevenue > 0 && (
-            <div className="grid grid-cols-[12rem_1fr] gap-4">
-              <UnattributedBox revenue={unattributedRevenue} />
-              <div />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
-          <p className="text-text-dim text-[12px]">No campaign data yet. Connect your ad accounts.</p>
-        </div>
-      )}
+      {/* Countries + Campaigns side by side */}
+      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+        <CountryBreakdown countries={countries} />
 
-      {/* Countries */}
-      <CountryBreakdown countries={countries} />
+        {adPlatforms.length > 0 ? (
+          <div className="space-y-4">
+            {adPlatforms.map(([platform, pData]) => (
+              <CampaignTable
+                key={platform}
+                platform={platform}
+                totalSpend={pData.totalSpend}
+                campaigns={pData.campaigns}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
+            <p className="text-text-dim text-[12px]">No campaign data yet. Connect your ad accounts.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -101,7 +101,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim bg-accent-tint">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
       </div>
 
