@@ -59,14 +59,24 @@ async function createCheckout(req, res) {
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const session = await stripe.checkout.sessions.create({
+
+    // Give 14-day free trial if user has no existing Stripe subscription
+    const isNewSubscriber = !sub.stripeSubscriptionId || sub.status === 'trial' || sub.status === 'cancelled';
+
+    const sessionParams = {
       customer: customerId,
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${frontendUrl}/dashboard?billing=success`,
       cancel_url: `${frontendUrl}/pricing?billing=cancelled`,
       metadata: { internalUserId: String(internalUserId) },
-    });
+    };
+
+    if (isNewSubscriber) {
+      sessionParams.subscription_data = { trial_period_days: 14 };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({ url: session.url });
   } catch (error) {
