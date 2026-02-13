@@ -135,7 +135,7 @@ const PLANS = [
     name: 'Starter',
     monthlyPrice: 29,
     yearlyPrice: 24,
-    description: 'For solo founders getting started with paid ads.',
+    description: 'For solo founders testing paid ads.',
     features: [
       '1 ad platform (Google, Meta, or LinkedIn)',
       'Stripe revenue tracking',
@@ -145,11 +145,24 @@ const PLANS = [
     ],
   },
   {
-    name: 'Pro',
-    monthlyPrice: 79,
-    yearlyPrice: 66,
+    name: 'Growth',
+    monthlyPrice: 49,
+    yearlyPrice: 41,
     popular: true,
-    description: 'For teams scaling across multiple ad channels.',
+    description: 'For founders scaling across multiple channels.',
+    features: [
+      'All ad platforms',
+      'Stripe revenue tracking',
+      'Country + campaign P&L',
+      'Sync every 4 hours',
+      '90-day data retention',
+    ],
+  },
+  {
+    name: 'Pro',
+    monthlyPrice: 99,
+    yearlyPrice: 82,
+    description: 'For teams that need the full picture.',
     features: [
       'All ad platforms',
       'Stripe revenue tracking',
@@ -157,9 +170,39 @@ const PLANS = [
       'Sync every 4 hours',
       'Unlimited data retention',
       'Team access (up to 5)',
+      'API access',
     ],
   },
 ];
+
+function RollingDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
+  const isNum = /\d/.test(digit);
+  if (!isNum) return <span>{digit}</span>;
+
+  return (
+    <span className="inline-block relative overflow-hidden" style={{ width: '0.6em', height: '1em' }}>
+      <span
+        key={digit}
+        className="absolute inset-0 flex items-center justify-center animate-roll-in"
+        style={{ animationDelay: `${delay}ms` }}
+      >
+        {digit}
+      </span>
+    </span>
+  );
+}
+
+function RollingPrice({ value }: { value: number }) {
+  const chars = String(value).split('');
+  return (
+    <span className="inline-flex text-4xl font-bold text-text-heading">
+      $
+      {chars.map((ch, i) => (
+        <RollingDigit key={`${i}-${ch}`} digit={ch} delay={i * 60} />
+      ))}
+    </span>
+  );
+}
 
 function PricingSection() {
   const [yearly, setYearly] = useState(false);
@@ -187,7 +230,7 @@ function PricingSection() {
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {PLANS.map(plan => {
             const price = yearly ? plan.yearlyPrice : plan.monthlyPrice;
             return (
@@ -209,7 +252,7 @@ function PricingSection() {
                 </div>
                 <p className="text-text-dim text-sm mb-4">{plan.description}</p>
                 <div className="mb-6">
-                  <span className="text-4xl font-bold text-text-heading">${price}</span>
+                  <RollingPrice value={price} />
                   <span className="text-text-dim text-sm">/mo</span>
                   {yearly && (
                     <span className="text-text-dim text-[12px] ml-2">billed yearly</span>
@@ -245,7 +288,7 @@ function PricingSection() {
                     Start free trial
                   </Link>
                 )}
-                <p className="text-[12px] text-text-dim text-center mt-2">30 days free. No card required.</p>
+                <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
               </div>
             );
           })}
@@ -360,7 +403,7 @@ export default function LandingPage() {
               See demo
             </a>
           </div>
-          <p className="text-[13px] text-text-dim mt-4">30 days free. No credit card required.</p>
+          <p className="text-[13px] text-text-dim mt-4">14-day free trial. No credit card required.</p>
         </div>
       </header>
 

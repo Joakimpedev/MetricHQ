@@ -124,3 +124,14 @@ input:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px oklch(from var(--accent) l c h / 0.4);
 }
+
+/* Rolling digit animation for pricing */
+@keyframes roll-in {
+  0%   { transform: translateY(100%); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(0); }
+}
+
+.animate-roll-in {
+  animation: roll-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
