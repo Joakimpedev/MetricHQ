@@ -16,7 +16,7 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-screen w-52 bg-bg-sidebar border-r border-border-dim flex flex-col z-50">
       {/* Brand */}
-      <div className="h-14 px-5 flex items-center justify-center bg-[rgba(0,0,0,0.04)] border-b border-border-dim">
+      <div className="h-14 px-5 flex items-center justify-center bg-accent-muted border-b border-border-dim">
         <div className="flex items-center gap-2">
           <svg width="26" height="26" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
