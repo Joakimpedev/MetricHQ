@@ -223,7 +223,7 @@ export default function LandingPage() {
       </header>
 
       {/* Dashboard Preview */}
-      <section id="dashboard-preview" className="max-w-5xl mx-auto px-6 py-20 scroll-mt-8">
+      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-20 scroll-mt-8">
         <h2 className="text-2xl font-bold text-center mb-3 text-text-heading">Your profit dashboard</h2>
         <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
           Ad spend from every platform, revenue from Stripe — profit calculated automatically.

@@ -137,8 +137,29 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (isEmbed) {
     return (
-      <div className="min-h-screen bg-bg-body">
-        <main className="p-6 overflow-auto">{children}</main>
+      <div className="min-h-screen bg-bg-body embed-mode">
+        <style>{`
+          /* Embed-only overrides — scoped via .embed-mode */
+
+          /* Compact date picker row */
+          .embed-mode .flex.justify-end {
+            transform: scale(0.85);
+            transform-origin: top right;
+          }
+
+          /* 2-col country/campaign split at lower breakpoint */
+          @media (min-width: 700px) {
+            .embed-mode .xl\\:grid-cols-2 {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          /* Slightly narrower attribution cards to fit 3 across */
+          .embed-mode .w-\\[220px\\] {
+            width: 190px;
+          }
+        `}</style>
+        <main className="p-4 overflow-auto">{children}</main>
       </div>
     );
   }
