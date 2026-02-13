@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
+import PlatformSummary from '../../../components/PlatformSummary';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
@@ -30,6 +31,7 @@ interface Campaign {
   revenue?: number;
   purchases?: number;
   profit?: number;
+  attributed?: boolean;
 }
 
 interface Platform {
@@ -62,6 +64,7 @@ interface MetricsData {
   countries: Country[];
   timeSeries: TimeSeriesPoint[];
   comparison?: { summary: Summary; timeSeries: TimeSeriesPoint[] } | Summary;
+  unattributedRevenue?: number;
 }
 
 function fmtDate(d: Date): string {
@@ -163,39 +166,31 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     platforms: {
       google_ads: {
         totalSpend: Math.round(totalSpend * 0.5),
-        totalRevenue: 0,
+        totalRevenue: Math.round(totalRevenue * 0.35),
         campaigns: [
-          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.2), impressions: 14200, clicks: 890, revenue: 0, purchases: 0, profit: 0 },
-          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.15), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: 0 },
-          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.15), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: 0 },
+          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.2), impressions: 14200, clicks: 890, revenue: Math.round(totalRevenue * 0.35), purchases: Math.round(totalPurchases * 0.3), profit: Math.round(totalRevenue * 0.35) - Math.round(totalSpend * 0.2), attributed: true },
+          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.15), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.15), attributed: false },
+          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.15), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.15), attributed: false },
         ],
       },
       meta: {
         totalSpend: Math.round(totalSpend * 0.3),
-        totalRevenue: 0,
+        totalRevenue: Math.round(totalRevenue * 0.35),
         campaigns: [
-          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.18), impressions: 22000, clicks: 440, revenue: 0, purchases: 0, profit: 0 },
-          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.12), impressions: 9500, clicks: 380, revenue: 0, purchases: 0, profit: 0 },
+          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.18), impressions: 22000, clicks: 440, revenue: Math.round(totalRevenue * 0.2), purchases: Math.round(totalPurchases * 0.2), profit: Math.round(totalRevenue * 0.2) - Math.round(totalSpend * 0.18), attributed: true },
+          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.12), impressions: 9500, clicks: 380, revenue: Math.round(totalRevenue * 0.15), purchases: Math.round(totalPurchases * 0.15), profit: Math.round(totalRevenue * 0.15) - Math.round(totalSpend * 0.12), attributed: true },
         ],
       },
       linkedin: {
         totalSpend: Math.round(totalSpend * 0.2),
         totalRevenue: 0,
         campaigns: [
-          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: 0, purchases: 0, profit: 0 },
-          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: 0, purchases: 0, profit: 0 },
-        ],
-      },
-      stripe: {
-        totalSpend: 0,
-        totalRevenue: Math.round(totalRevenue * 0.7),
-        campaigns: [
-          { campaignId: 'brand_search_us', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.35), purchases: Math.round(totalPurchases * 0.3), profit: Math.round(totalRevenue * 0.35) },
-          { campaignId: 'lookalike_saas', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.2), purchases: Math.round(totalPurchases * 0.2), profit: Math.round(totalRevenue * 0.2) },
-          { campaignId: 'retargeting_site', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.15), purchases: Math.round(totalPurchases * 0.15), profit: Math.round(totalRevenue * 0.15) },
+          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.12), attributed: false },
+          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.08), attributed: false },
         ],
       },
     },
+    unattributedRevenue: Math.round(totalRevenue * 0.3),
     timeSeries,
   };
 }
@@ -279,6 +274,21 @@ export default function DashboardPage() {
   const platforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
+  const unattributedRevenue = data?.unattributedRevenue || 0;
+
+  const PLATFORM_LABELS: Record<string, string> = {
+    tiktok: 'TikTok Ads',
+    meta: 'Meta Ads',
+    google_ads: 'Google Ads',
+    linkedin: 'LinkedIn Ads',
+  };
+  const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
+  const platformSummaryData = adPlatforms.map(([key, pData]) => ({
+    label: PLATFORM_LABELS[key] || key,
+    spend: pData.totalSpend,
+    revenue: pData.totalRevenue || 0,
+    profit: (pData.totalRevenue || 0) - pData.totalSpend,
+  }));
 
   return (
     <div className="space-y-6">
@@ -316,13 +326,16 @@ export default function DashboardPage() {
       {/* Profit trend chart — linked to main date range */}
       <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
 
+      {/* Platform summary boxes */}
+      <PlatformSummary platforms={platformSummaryData} unattributedRevenue={unattributedRevenue} />
+
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CountryBreakdown countries={countries} />
 
-        {Object.keys(platforms).length > 0 ? (
+        {adPlatforms.length > 0 ? (
           <div className="space-y-4">
-            {Object.entries(platforms).map(([platform, pData]) => (
+            {adPlatforms.map(([platform, pData]) => (
               <CampaignTable
                 key={platform}
                 platform={platform}

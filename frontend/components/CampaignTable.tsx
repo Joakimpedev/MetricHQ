@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Check, Minus } from 'lucide-react';
 
 interface Campaign {
   campaignId?: string;
@@ -12,6 +12,7 @@ interface Campaign {
   revenue?: number;
   purchases?: number;
   profit?: number;
+  attributed?: boolean;
 }
 
 interface CampaignTableProps {
@@ -27,7 +28,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   meta: 'Meta Ads',
   google_ads: 'Google Ads',
   linkedin: 'LinkedIn Ads',
-  stripe: 'Stripe',
 };
 type SortDir = 'asc' | 'desc';
 
@@ -38,6 +38,7 @@ function getCtr(c: Campaign): number {
 export default function CampaignTable({ platform, totalSpend, campaigns }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
   const hasRevenue = campaigns.some(c => (c.revenue || 0) > 0);
+  const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -82,26 +83,28 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   }
 
   const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
-  const gridCols = hasRevenue
-    ? 'grid-cols-[1fr_5rem_5rem_4.5rem_4rem_5rem_5rem]'
-    : 'grid-cols-[1fr_5rem_5rem_4.5rem_4rem]';
+
+  const colDefs: string[] = ['1fr'];
+  if (hasAttribution) colDefs.push('2.5rem');
+  colDefs.push('5rem', '5rem', '4.5rem', '4rem');
+  if (hasRevenue) colDefs.push('5rem', '5rem');
+  const gridCols = `grid-cols-[${colDefs.join('_')}]`;
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
-        <span className="text-[12px] font-semibold text-text-heading">
-          ${totalSpend.toLocaleString()}
-          <span className="text-text-dim font-normal ml-1">total spend</span>
-        </span>
       </div>
 
       {campaigns.length > 0 && (
         <>
           {/* Column headers */}
-          <div className={`grid ${gridCols} gap-2 px-5 py-2 border-b border-border-dim`}>
+          <div className={`col-striped grid ${gridCols} gap-2 px-5 py-2 border-b border-border-dim bg-accent-muted`}>
             <span className="text-[10px] uppercase tracking-wider text-text-dim">Campaign</span>
+            {hasAttribution && (
+              <span className="text-[10px] uppercase tracking-wider text-text-dim text-center">Attr.</span>
+            )}
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
@@ -134,9 +137,18 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             return (
               <div
                 key={name + i}
-                className={`grid ${gridCols} gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center`}
+                className={`col-striped grid ${gridCols} gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center`}
               >
                 <span className="text-[13px] font-medium text-text-heading truncate">{name}</span>
+                {hasAttribution && (
+                  <span className="flex items-center justify-center">
+                    {c.attributed ? (
+                      <Check size={13} className="text-success" />
+                    ) : (
+                      <Minus size={13} className="text-text-dim" />
+                    )}
+                  </span>
+                )}
                 <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{c.impressions.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{c.clicks.toLocaleString()}</span>

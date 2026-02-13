@@ -32,6 +32,8 @@
   --color-warning:    #fbbf24;
   --color-warning-bg: rgba(251,191,36,0.08);
 
+  --bg-col-alt: rgba(255,255,255,0.03);
+
   --foreground: var(--text-body);
   --background: var(--bg-body);
 }
@@ -67,6 +69,8 @@
   --color-warning:    #d97706;
   --color-warning-bg: rgba(217,119,6,0.06);
 
+  --bg-col-alt: rgba(0,0,0,0.025);
+
   --foreground: var(--text-body);
   --background: var(--bg-body);
 }
@@ -95,6 +99,7 @@
   --color-error-bg: var(--color-error-bg);
   --color-warning: var(--color-warning);
   --color-warning-bg: var(--color-warning-bg);
+  --color-bg-col-alt: var(--bg-col-alt);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -108,3 +113,7 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.col-striped > *:nth-child(even) {
+  background-color: var(--bg-col-alt);
+}
