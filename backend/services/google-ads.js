@@ -41,7 +41,7 @@ async function fetchAdSpend(accessToken, customerId, developerToken, startDate, 
   `;
 
   const response = await axios.post(
-    `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:searchStream`,
+    `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:searchStream`,
     { query },
     {
       headers: {

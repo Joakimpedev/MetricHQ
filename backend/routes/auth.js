@@ -207,7 +207,7 @@ router.get('/google/callback', async (req, res) => {
 
     // Fetch accessible customer IDs
     const customersResponse = await axios.get(
-      'https://googleads.googleapis.com/v17/customers:listAccessibleCustomers',
+      'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers',
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
