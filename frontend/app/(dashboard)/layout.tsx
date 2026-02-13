@@ -141,8 +141,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <style>{`
           /* Embed-only overrides — scoped via .embed-mode */
 
-          /* Compact date picker row */
-          .embed-mode .flex.justify-end {
+          /* Scale down only the calendar dropdown, not the trigger button */
+          .embed-mode .absolute.shadow-2xl {
             transform: scale(0.85);
             transform-origin: top right;
           }
@@ -159,7 +159,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             width: 190px;
           }
         `}</style>
-        <main className="p-4 overflow-auto">{children}</main>
+        <main className="p-4">{children}</main>
       </div>
     );
   }
