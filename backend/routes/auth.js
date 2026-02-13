@@ -50,7 +50,7 @@ router.get('/tiktok/callback', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
   if (!auth_code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}?error=tiktok_missing_params`);
+    return res.redirect(`${frontendUrl}/integrations?error=tiktok_missing_params`);
   }
 
   try {
@@ -82,10 +82,10 @@ router.get('/tiktok/callback', async (req, res) => {
       [internalUserId, 'tiktok', accountId, access_token]
     );
 
-    res.redirect(`${frontendUrl}?tiktok=connected`);
+    res.redirect(`${frontendUrl}/integrations?tiktok=connected`);
   } catch (error) {
     console.error('TikTok OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}?error=tiktok_failed`);
+    res.redirect(`${frontendUrl}/integrations?error=tiktok_failed`);
   }
 });
 
@@ -116,7 +116,7 @@ router.get('/meta/callback', async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
   if (!code || !clerkUserId) {
-    return res.redirect(`${frontendUrl}?error=meta_missing_params`);
+    return res.redirect(`${frontendUrl}/integrations?error=meta_missing_params`);
   }
 
   try {
@@ -152,10 +152,175 @@ router.get('/meta/callback', async (req, res) => {
       [internalUserId, 'meta', adAccountId, access_token]
     );
 
-    res.redirect(`${frontendUrl}?meta=connected`);
+    res.redirect(`${frontendUrl}/integrations?meta=connected`);
   } catch (error) {
     console.error('Meta OAuth error:', error.response?.data || error.message);
-    res.redirect(`${frontendUrl}?error=meta_failed`);
+    res.redirect(`${frontendUrl}/integrations?error=meta_failed`);
+  }
+});
+
+// ----- Google Ads OAuth -----
+
+router.get('/google', (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: 'Google Ads not configured' });
+  }
+
+  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: `${process.env.BACKEND_URL}/auth/google/callback`,
+    response_type: 'code',
+    scope: 'https://www.googleapis.com/auth/adwords',
+    access_type: 'offline',
+    prompt: 'consent',
+    state: userId,
+  });
+
+  res.redirect(`${authUrl}?${params}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+  const { code, state: clerkUserId } = req.query;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  if (!code || !clerkUserId) {
+    return res.redirect(`${frontendUrl}/integrations?error=google_missing_params`);
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: `${process.env.BACKEND_URL}/auth/google/callback`,
+      grant_type: 'authorization_code',
+    });
+
+    const { access_token, refresh_token, expires_in } = tokenResponse.data;
+    if (!access_token) throw new Error('No access_token');
+
+    // Fetch accessible customer IDs
+    const customersResponse = await axios.get(
+      'https://googleads.googleapis.com/v17/customers:listAccessibleCustomers',
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+        },
+      }
+    );
+
+    const resourceNames = customersResponse.data?.resourceNames || [];
+    // Extract first customer ID (format: "customers/1234567890")
+    const customerId = resourceNames[0]
+      ? resourceNames[0].replace('customers/', '')
+      : null;
+
+    const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000);
+
+    const internalUserId = await getOrCreateUserByClerkId(clerkUserId);
+    await pool.query(
+      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token, refresh_token, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, platform) DO UPDATE
+       SET account_id = $3, access_token = $4, refresh_token = $5, expires_at = $6, updated_at = NOW()`,
+      [internalUserId, 'google_ads', customerId, access_token, refresh_token, expiresAt]
+    );
+
+    res.redirect(`${frontendUrl}/integrations?google_ads=connected`);
+  } catch (error) {
+    console.error('Google OAuth error:', error.response?.data || error.message);
+    res.redirect(`${frontendUrl}/integrations?error=google_failed`);
+  }
+});
+
+// ----- LinkedIn Ads OAuth -----
+
+router.get('/linkedin', (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+  if (!process.env.LINKEDIN_CLIENT_ID) {
+    return res.status(503).json({ error: 'LinkedIn Ads not configured' });
+  }
+
+  const authUrl = 'https://www.linkedin.com/oauth/v2/authorization';
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: process.env.LINKEDIN_CLIENT_ID,
+    redirect_uri: `${process.env.BACKEND_URL}/auth/linkedin/callback`,
+    state: userId,
+    scope: 'r_ads,r_ads_reporting',
+  });
+
+  res.redirect(`${authUrl}?${params}`);
+});
+
+router.get('/linkedin/callback', async (req, res) => {
+  const { code, state: clerkUserId } = req.query;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  if (!code || !clerkUserId) {
+    return res.redirect(`${frontendUrl}/integrations?error=linkedin_missing_params`);
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenParams = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: process.env.LINKEDIN_CLIENT_ID,
+      client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+      redirect_uri: `${process.env.BACKEND_URL}/auth/linkedin/callback`,
+    });
+
+    const tokenResponse = await axios.post(
+      'https://www.linkedin.com/oauth/v2/accessToken',
+      tokenParams.toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const { access_token, refresh_token, expires_in } = tokenResponse.data;
+    if (!access_token) throw new Error('No access_token');
+
+    // Fetch ad accounts
+    const accountsResponse = await axios.get(
+      'https://api.linkedin.com/rest/adAccounts',
+      {
+        params: { q: 'search' },
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'LinkedIn-Version': '202402',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      }
+    );
+
+    const accounts = accountsResponse.data?.elements || [];
+    const accountId = accounts[0]?.id ? String(accounts[0].id) : null;
+
+    const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000);
+
+    const internalUserId = await getOrCreateUserByClerkId(clerkUserId);
+    await pool.query(
+      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token, refresh_token, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, platform) DO UPDATE
+       SET account_id = $3, access_token = $4, refresh_token = $5, expires_at = $6, updated_at = NOW()`,
+      [internalUserId, 'linkedin', accountId, access_token, refresh_token, expiresAt]
+    );
+
+    res.redirect(`${frontendUrl}/integrations?linkedin=connected`);
+  } catch (error) {
+    console.error('LinkedIn OAuth error:', error.response?.data || error.message);
+    res.redirect(`${frontendUrl}/integrations?error=linkedin_failed`);
   }
 });
 

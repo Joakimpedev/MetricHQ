@@ -77,7 +77,9 @@ async function aggregateMetrics(userId, startDate, endDate) {
     `SELECT platform, campaign_id,
             COALESCE(SUM(spend), 0) as spend,
             COALESCE(SUM(impressions), 0) as impressions,
-            COALESCE(SUM(clicks), 0) as clicks
+            COALESCE(SUM(clicks), 0) as clicks,
+            COALESCE(SUM(revenue), 0) as revenue,
+            COALESCE(SUM(purchases), 0) as purchases
      FROM campaign_metrics
      WHERE user_id = $1 AND date >= $2 AND date <= $3
      GROUP BY platform, campaign_id`,
@@ -89,15 +91,21 @@ async function aggregateMetrics(userId, startDate, endDate) {
   for (const row of campaignResult.rows) {
     const plat = row.platform;
     if (!platformData[plat]) {
-      platformData[plat] = { totalSpend: 0, campaigns: [] };
+      platformData[plat] = { totalSpend: 0, totalRevenue: 0, campaigns: [] };
     }
     const spend = parseFloat(row.spend);
+    const revenue = parseFloat(row.revenue);
+    const purchases = parseInt(row.purchases, 10);
     platformData[plat].totalSpend += spend;
+    platformData[plat].totalRevenue += revenue;
     platformData[plat].campaigns.push({
       ...(plat === 'meta' ? { campaignName: row.campaign_id } : { campaignId: row.campaign_id }),
       spend: Math.round(spend * 100) / 100,
       impressions: parseInt(row.impressions, 10),
-      clicks: parseInt(row.clicks, 10)
+      clicks: parseInt(row.clicks, 10),
+      revenue: Math.round(revenue * 100) / 100,
+      purchases,
+      profit: Math.round((revenue - spend) * 100) / 100,
     });
   }
 
@@ -106,6 +114,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
   for (const [plat, data] of Object.entries(platformData)) {
     platforms[plat] = {
       totalSpend: Math.round(data.totalSpend * 100) / 100,
+      totalRevenue: Math.round(data.totalRevenue * 100) / 100,
       campaigns: data.campaigns
     };
   }

@@ -3,6 +3,10 @@ const { pool } = require('../db/database');
 const { fetchAdSpend: fetchTikTokSpend } = require('./tiktok');
 const { fetchAdSpend: fetchMetaSpend } = require('./meta');
 const { fetchRevenueData } = require('./posthog');
+const { fetchRevenueData: fetchStripeRevenue } = require('./stripe');
+const { fetchAdSpend: fetchGoogleAdSpend } = require('./google-ads');
+const { fetchAdSpend: fetchLinkedInSpend } = require('./linkedin');
+const { refreshGoogleToken, refreshLinkedInToken } = require('./token-refresh');
 
 // ---- Lock helpers ----
 
@@ -259,6 +263,205 @@ async function syncPostHog(userId, apiKey, projectId, settings = {}) {
   }
 }
 
+async function syncGoogleAds(userId, accessToken, customerId) {
+  const { startDate, endDate } = await getSyncDateRange(userId, 'google_ads');
+  const locked = await acquireLock(userId, 'google_ads');
+  if (!locked) return;
+
+  try {
+    // Refresh token if needed
+    const freshToken = await refreshGoogleToken(userId);
+    const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    if (!developerToken) throw new Error('GOOGLE_ADS_DEVELOPER_TOKEN not set');
+
+    const rows = await fetchGoogleAdSpend(freshToken, customerId, developerToken, startDate, endDate);
+    const data = rows || [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'google_ads' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+      await client.query(
+        `DELETE FROM campaign_metrics WHERE user_id = $1 AND platform = 'google_ads' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+
+      for (const row of data) {
+        const country = (row.country || '').toUpperCase().slice(0, 2);
+        const spend = parseFloat(row.spend || 0);
+        const impressions = parseInt(row.impressions || 0, 10);
+        const clicks = parseInt(row.clicks || 0, 10);
+        const campaignId = row.campaign_id || 'unknown';
+        const dateStr = String(row.date).slice(0, 10);
+
+        if (country) {
+          await client.query(
+            `INSERT INTO metrics_cache (user_id, country_code, date, platform, spend, impressions, clicks)
+             VALUES ($1, $2, $3, 'google_ads', $4, $5, $6)
+             ON CONFLICT (user_id, country_code, date, platform) DO UPDATE
+               SET spend = metrics_cache.spend + $4,
+                   impressions = metrics_cache.impressions + $5,
+                   clicks = metrics_cache.clicks + $6,
+                   cached_at = NOW()`,
+            [userId, country, dateStr, spend, impressions, clicks]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO campaign_metrics (user_id, platform, campaign_id, country_code, date, spend, impressions, clicks)
+           VALUES ($1, 'google_ads', $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (user_id, platform, campaign_id, country_code, date) DO UPDATE
+             SET spend = $5, impressions = $6, clicks = $7`,
+          [userId, campaignId, country || '', dateStr, spend, impressions, clicks]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await releaseLock(userId, 'google_ads', { success: true, recordsSynced: data.length });
+  } catch (err) {
+    console.error(`[sync] Google Ads sync failed for user ${userId}:`, err.message);
+    await releaseLock(userId, 'google_ads', { success: false, errorMessage: err.message });
+  }
+}
+
+async function syncLinkedIn(userId, accessToken, accountId) {
+  const { startDate, endDate } = await getSyncDateRange(userId, 'linkedin');
+  const locked = await acquireLock(userId, 'linkedin');
+  if (!locked) return;
+
+  try {
+    // Refresh token if needed
+    const freshToken = await refreshLinkedInToken(userId);
+
+    const rows = await fetchLinkedInSpend(freshToken, accountId, startDate, endDate);
+    const data = rows || [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'linkedin' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+      await client.query(
+        `DELETE FROM campaign_metrics WHERE user_id = $1 AND platform = 'linkedin' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+
+      for (const row of data) {
+        // LinkedIn does NOT support geographic breakdown
+        const spend = parseFloat(row.spend || 0);
+        const impressions = parseInt(row.impressions || 0, 10);
+        const clicks = parseInt(row.clicks || 0, 10);
+        const campaignId = row.campaign_id || 'unknown';
+        const dateStr = String(row.date).slice(0, 10);
+
+        await client.query(
+          `INSERT INTO campaign_metrics (user_id, platform, campaign_id, country_code, date, spend, impressions, clicks)
+           VALUES ($1, 'linkedin', $2, '', $3, $4, $5, $6)
+           ON CONFLICT (user_id, platform, campaign_id, country_code, date) DO UPDATE
+             SET spend = $4, impressions = $5, clicks = $6`,
+          [userId, campaignId, dateStr, spend, impressions, clicks]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await releaseLock(userId, 'linkedin', { success: true, recordsSynced: data.length });
+  } catch (err) {
+    console.error(`[sync] LinkedIn sync failed for user ${userId}:`, err.message);
+    await releaseLock(userId, 'linkedin', { success: false, errorMessage: err.message });
+  }
+}
+
+async function syncStripe(userId, apiKey) {
+  const { startDate, endDate } = await getSyncDateRange(userId, 'stripe');
+  const locked = await acquireLock(userId, 'stripe');
+  if (!locked) return;
+
+  try {
+    const rows = await fetchStripeRevenue(apiKey, startDate, endDate);
+    const data = rows || [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'stripe' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+      await client.query(
+        `DELETE FROM campaign_metrics WHERE user_id = $1 AND platform = 'stripe' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+
+      for (const row of data) {
+        const country = (row.country || '').toUpperCase().slice(0, 2);
+        const revenue = parseFloat(row.revenue || 0);
+        const purchases = parseInt(row.purchases || 0, 10);
+        const campaign = row.campaign || '';
+        const dateStr = String(row.date).slice(0, 10);
+
+        // Country-level revenue in metrics_cache
+        if (country) {
+          await client.query(
+            `INSERT INTO metrics_cache (user_id, country_code, date, platform, revenue, purchases)
+             VALUES ($1, $2, $3, 'stripe', $4, $5)
+             ON CONFLICT (user_id, country_code, date, platform) DO UPDATE
+               SET revenue = metrics_cache.revenue + $4,
+                   purchases = metrics_cache.purchases + $5,
+                   cached_at = NOW()`,
+            [userId, country, dateStr, revenue, purchases]
+          );
+        }
+
+        // Campaign-level revenue in campaign_metrics (when UTM data exists)
+        if (campaign) {
+          await client.query(
+            `INSERT INTO campaign_metrics (user_id, platform, campaign_id, country_code, date, revenue, purchases)
+             VALUES ($1, 'stripe', $2, $3, $4, $5, $6)
+             ON CONFLICT (user_id, platform, campaign_id, country_code, date) DO UPDATE
+               SET revenue = campaign_metrics.revenue + $5,
+                   purchases = campaign_metrics.purchases + $6`,
+            [userId, campaign, country || '', dateStr, revenue, purchases]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await releaseLock(userId, 'stripe', { success: true, recordsSynced: data.length });
+  } catch (err) {
+    console.error(`[sync] Stripe sync failed for user ${userId}:`, err.message);
+    await releaseLock(userId, 'stripe', { success: false, errorMessage: err.message });
+  }
+}
+
 // ---- Sync all platforms for one user ----
 
 async function syncForUser(userId) {
@@ -278,6 +481,15 @@ async function syncForUser(userId) {
         break;
       case 'posthog':
         promises.push(syncPostHog(userId, acc.access_token, acc.account_id, acc.settings));
+        break;
+      case 'stripe':
+        promises.push(syncStripe(userId, acc.access_token));
+        break;
+      case 'google_ads':
+        promises.push(syncGoogleAds(userId, acc.access_token, acc.account_id));
+        break;
+      case 'linkedin':
+        promises.push(syncLinkedIn(userId, acc.access_token, acc.account_id));
         break;
     }
   }

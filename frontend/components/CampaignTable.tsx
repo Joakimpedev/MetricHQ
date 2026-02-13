@@ -9,6 +9,9 @@ interface Campaign {
   spend: number;
   impressions: number;
   clicks: number;
+  revenue?: number;
+  purchases?: number;
+  profit?: number;
 }
 
 interface CampaignTableProps {
@@ -17,7 +20,15 @@ interface CampaignTableProps {
   campaigns: Campaign[];
 }
 
-type SortKey = 'spend' | 'impressions' | 'clicks' | 'ctr';
+type SortKey = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'revenue' | 'profit';
+
+const PLATFORM_LABELS: Record<string, string> = {
+  tiktok: 'TikTok Ads',
+  meta: 'Meta Ads',
+  google_ads: 'Google Ads',
+  linkedin: 'LinkedIn Ads',
+  stripe: 'Stripe',
+};
 type SortDir = 'asc' | 'desc';
 
 function getCtr(c: Campaign): number {
@@ -25,7 +36,8 @@ function getCtr(c: Campaign): number {
 }
 
 export default function CampaignTable({ platform, totalSpend, campaigns }: CampaignTableProps) {
-  const label = platform === 'tiktok' ? 'TikTok Ads' : platform === 'meta' ? 'Meta Ads' : platform;
+  const label = PLATFORM_LABELS[platform] || platform;
+  const hasRevenue = campaigns.some(c => (c.revenue || 0) > 0);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -36,6 +48,12 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
       if (sortKey === 'ctr') {
         av = getCtr(a);
         bv = getCtr(b);
+      } else if (sortKey === 'revenue') {
+        av = a.revenue || 0;
+        bv = b.revenue || 0;
+      } else if (sortKey === 'profit') {
+        av = a.profit || 0;
+        bv = b.profit || 0;
       } else {
         av = a[sortKey];
         bv = b[sortKey];
@@ -64,6 +82,9 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   }
 
   const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
+  const gridCols = hasRevenue
+    ? 'grid-cols-[1fr_5rem_5rem_4.5rem_4rem_5rem_5rem]'
+    : 'grid-cols-[1fr_5rem_5rem_4.5rem_4rem]';
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
@@ -79,7 +100,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
       {campaigns.length > 0 && (
         <>
           {/* Column headers */}
-          <div className="grid grid-cols-[1fr_5rem_5rem_4.5rem_4rem] gap-2 px-5 py-2 border-b border-border-dim">
+          <div className={`grid ${gridCols} gap-2 px-5 py-2 border-b border-border-dim`}>
             <span className="text-[10px] uppercase tracking-wider text-text-dim">Campaign</span>
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
@@ -93,6 +114,16 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             <button onClick={() => handleSort('ctr')} className={`${headerClass} text-right ${sortKey === 'ctr' ? 'text-text-body' : 'text-text-dim'}`}>
               CTR<SortIcon col="ctr" />
             </button>
+            {hasRevenue && (
+              <>
+                <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
+                  Revenue<SortIcon col="revenue" />
+                </button>
+                <button onClick={() => handleSort('profit')} className={`${headerClass} text-right ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
+                  Profit<SortIcon col="profit" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Rows */}
@@ -103,13 +134,21 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             return (
               <div
                 key={name + i}
-                className="grid grid-cols-[1fr_5rem_5rem_4.5rem_4rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
+                className={`grid ${gridCols} gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center`}
               >
                 <span className="text-[13px] font-medium text-text-heading truncate">{name}</span>
                 <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{c.impressions.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{c.clicks.toLocaleString()}</span>
                 <span className="text-[12px] text-text-body text-right">{ctr.toFixed(2)}%</span>
+                {hasRevenue && (
+                  <>
+                    <span className="text-[12px] text-text-body text-right">${(c.revenue || 0).toLocaleString()}</span>
+                    <span className={`text-[12px] text-right font-medium ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
+                      ${(c.profit || 0).toLocaleString()}
+                    </span>
+                  </>
+                )}
               </div>
             );
           })}

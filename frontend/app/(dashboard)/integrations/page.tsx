@@ -51,6 +51,177 @@ function MetaLogo() {
   );
 }
 
+function StripeLogo() {
+  return (
+    <div className="w-10 h-10 rounded-lg bg-[#635bff] flex items-center justify-center flex-shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#fff"/>
+      </svg>
+    </div>
+  );
+}
+
+function GoogleAdsLogo() {
+  return (
+    <div className="w-10 h-10 rounded-lg bg-[#4285f4] flex items-center justify-center flex-shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3.272 20.1l4.29-16.2c.36-1.36 1.78-2.18 3.14-1.82l1.36.36c1.36.36 2.18 1.78 1.82 3.14l-4.29 16.2c-.36 1.36-1.78 2.18-3.14 1.82l-1.36-.36c-1.36-.36-2.18-1.78-1.82-3.14z" fill="#fff" opacity="0.7"/>
+        <path d="M10.272 20.1l4.29-16.2c.36-1.36 1.78-2.18 3.14-1.82l1.36.36c1.36.36 2.18 1.78 1.82 3.14l-4.29 16.2c-.36 1.36-1.78 2.18-3.14 1.82l-1.36-.36c-1.36-.36-2.18-1.78-1.82-3.14z" fill="#fff"/>
+        <circle cx="6" cy="20" r="2.5" fill="#fff"/>
+      </svg>
+    </div>
+  );
+}
+
+function LinkedInLogo() {
+  return (
+    <div className="w-10 h-10 rounded-lg bg-[#0a66c2] flex items-center justify-center flex-shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" fill="#fff"/>
+      </svg>
+    </div>
+  );
+}
+
+// Stripe configuration modal (API key pattern, like PostHog but simpler)
+function StripeModal({
+  userId,
+  connection,
+  onClose,
+  onSaved,
+}: {
+  userId: string;
+  connection?: Connection;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isConnected = !!connection?.connected;
+  const [editing, setEditing] = useState(!isConnected);
+  const [apiKey, setApiKey] = useState(connection?.fullKey || '');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleSave = async () => {
+    if (!apiKey.trim()) {
+      setMessage({ type: 'error', text: 'API Key is required.' });
+      return;
+    }
+    if (!/^(sk|rk)_(test|live)_/.test(apiKey.trim())) {
+      setMessage({ type: 'error', text: 'Must start with sk_ or rk_ (test or live).' });
+      return;
+    }
+    setMessage(null);
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/api/settings/stripe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, apiKey: apiKey.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save.' });
+        return;
+      }
+      setMessage({ type: 'success', text: 'Saved!' });
+      setEditing(false);
+      onSaved();
+    } catch {
+      setMessage({ type: 'error', text: 'Network error.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-bg-overlay" onClick={onClose} />
+      <div className="relative bg-bg-surface border border-border rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-0">
+          <div className="flex items-center gap-3">
+            <StripeLogo />
+            <div>
+              <h2 className="text-[15px] font-semibold text-text-heading">Stripe</h2>
+              <p className="text-[11px] text-text-dim">Revenue and customer data</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {isConnected && !editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-heading transition-colors"
+                title="Edit credentials"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-body transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* API Key */}
+        <div className="p-5 space-y-2">
+          <CredentialField
+            label="Stripe API Key"
+            value={connection?.fullKey || ''}
+            maskedValue={connection?.maskedKey}
+            sensitive
+            editing={editing}
+            editValue={apiKey}
+            onEditChange={setApiKey}
+            placeholder="rk_live_... or sk_test_..."
+          />
+
+          {editing && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              {isConnected && (
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    setMessage(null);
+                    setApiKey(connection?.fullKey || '');
+                  }}
+                  className="px-4 py-2 rounded-lg text-[12px] font-medium text-text-dim hover:text-text-body transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              {message && (
+                <p className={`text-[12px] ${message.type === 'success' ? 'text-success' : 'text-error'}`}>
+                  {message.text}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Campaign Attribution Hint */}
+        <div className="px-5 pb-5 pt-0">
+          <div className="border-t border-border-dim pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Campaign Attribution</p>
+            <p className="text-[11px] text-text-dim leading-relaxed">
+              To track profit per campaign, store UTM data in Stripe customer metadata. When a user signs up, save{' '}
+              <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">utm_campaign</code>{' '}
+              from the URL to the Stripe customer&apos;s metadata field. MetricHQ reads this to attribute revenue to campaigns.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IntegrationCard({
   name,
   description,
@@ -509,6 +680,13 @@ export default function IntegrationsPage() {
             connected={!!connections.posthog}
             onClick={() => setOpenModal('posthog')}
           />
+          <IntegrationCard
+            name="Stripe"
+            description="Configure integration"
+            logo={<StripeLogo />}
+            connected={!!connections.stripe}
+            onClick={() => setOpenModal('stripe')}
+          />
         </div>
       </div>
 
@@ -530,6 +708,20 @@ export default function IntegrationsPage() {
             logo={<MetaLogo />}
             connected={!!connections.meta}
             onClick={() => setOpenModal('meta')}
+          />
+          <IntegrationCard
+            name="Google Ads"
+            description="Configure integration"
+            logo={<GoogleAdsLogo />}
+            connected={!!connections.google_ads}
+            onClick={() => setOpenModal('google_ads')}
+          />
+          <IntegrationCard
+            name="LinkedIn Ads"
+            description="Configure integration"
+            logo={<LinkedInLogo />}
+            connected={!!connections.linkedin}
+            onClick={() => setOpenModal('linkedin')}
           />
         </div>
       </div>
@@ -562,6 +754,36 @@ export default function IntegrationsPage() {
           description="Facebook & Instagram ad spend"
           userId={user.id}
           connection={connections.meta}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === 'stripe' && user?.id && (
+        <StripeModal
+          userId={user.id}
+          connection={connections.stripe}
+          onClose={() => setOpenModal(null)}
+          onSaved={fetchConnections}
+        />
+      )}
+      {openModal === 'google_ads' && user?.id && (
+        <OAuthModal
+          platform="google"
+          logo={<GoogleAdsLogo />}
+          name="Google Ads"
+          description="Search and display ad spend"
+          userId={user.id}
+          connection={connections.google_ads}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === 'linkedin' && user?.id && (
+        <OAuthModal
+          platform="linkedin"
+          logo={<LinkedInLogo />}
+          name="LinkedIn Ads"
+          description="B2B campaign spend"
+          userId={user.id}
+          connection={connections.linkedin}
           onClose={() => setOpenModal(null)}
         />
       )}

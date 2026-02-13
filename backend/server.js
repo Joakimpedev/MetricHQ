@@ -102,6 +102,14 @@ app.get('/api/connections', async (req, res) => {
           : '••••••••••••';
         conn.fullKey = key;
       }
+      // Return masked + full API key for Stripe
+      if (row.platform === 'stripe' && row.access_token) {
+        const key = row.access_token;
+        conn.maskedKey = key.length > 8
+          ? key.slice(0, 6) + '••••••••' + key.slice(-4)
+          : '••••••••••••';
+        conn.fullKey = key;
+      }
       connections[row.platform] = conn;
     });
 
@@ -181,6 +189,34 @@ app.post('/api/settings/posthog', async (req, res) => {
   } catch (error) {
     console.error('PostHog settings error:', error);
     res.status(500).json({ error: 'Failed to save PostHog settings' });
+  }
+});
+
+// Connect Stripe: store API key
+app.post('/api/settings/stripe', async (req, res) => {
+  const { userId, apiKey } = req.body || {};
+
+  if (!userId || !apiKey) {
+    return res.status(400).json({ error: 'userId and apiKey are required' });
+  }
+
+  if (!/^(sk|rk)_(test|live)_/.test(apiKey.trim())) {
+    return res.status(400).json({ error: 'Invalid Stripe key format. Must start with sk_ or rk_' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    await pool.query(
+      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, platform) DO UPDATE
+       SET access_token = $4, updated_at = NOW()`,
+      [internalUserId, 'stripe', 'stripe_account', apiKey.trim()]
+    );
+    res.json({ ok: true, message: 'Stripe connected' });
+  } catch (error) {
+    console.error('Stripe settings error:', error);
+    res.status(500).json({ error: 'Failed to save Stripe settings' });
   }
 });
 

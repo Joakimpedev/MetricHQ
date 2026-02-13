@@ -61,6 +61,8 @@ CREATE TABLE campaign_metrics (
   spend DECIMAL(10,2) DEFAULT 0,
   impressions INT DEFAULT 0,
   clicks INT DEFAULT 0,
+  revenue DECIMAL(10,2) DEFAULT 0,
+  purchases INT DEFAULT 0,
   UNIQUE(user_id, platform, campaign_id, country_code, date)
 );
 
