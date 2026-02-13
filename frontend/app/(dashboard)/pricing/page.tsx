@@ -182,11 +182,11 @@ export default function PricingPage() {
                   }`}
                 >
                   {isLoading && <Loader2 size={14} className="animate-spin" />}
-                  {isActive ? 'Switch to this plan' : 'Start free trial'}
+                  {isActive ? 'Switch to this plan' : 'Subscribe'}
                 </button>
               )}
 
-              {!isActive && (
+              {!isCurrent && subscription?.status === 'trialing' && (
                 <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
               )}
             </div>

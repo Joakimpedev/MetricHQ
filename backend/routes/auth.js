@@ -32,18 +32,18 @@ async function getOrCreateUserByClerkId(clerkUserId) {
     'SELECT id FROM users WHERE clerk_user_id = $1',
     [clerkUserId]
   );
-  if (existing.rows.length > 0) return existing.rows[0].id;
 
-  const placeholderEmail = `${String(clerkUserId).replace(/^user_/, '')}@placeholder.local`;
-  const insert = await pool.query(
-    `INSERT INTO users (clerk_user_id, email) VALUES ($1, $2)
-     ON CONFLICT (clerk_user_id) DO UPDATE SET updated_at = NOW()
-     RETURNING id`,
-    [clerkUserId, placeholderEmail]
-  );
-  const userId = insert.rows[0]?.id;
+  const userId = existing.rows.length > 0
+    ? existing.rows[0].id
+    : (await pool.query(
+        `INSERT INTO users (clerk_user_id, email) VALUES ($1, $2)
+         ON CONFLICT (clerk_user_id) DO UPDATE SET updated_at = NOW()
+         RETURNING id`,
+        [clerkUserId, `${String(clerkUserId).replace(/^user_/, '')}@placeholder.local`]
+      )).rows[0]?.id;
 
-  // Auto-create 14-day trial with full Pro access
+  // Ensure subscription row exists (14-day Pro trial).
+  // ON CONFLICT DO NOTHING = one trial per user, no gaming.
   if (userId) {
     const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
     await pool.query(
