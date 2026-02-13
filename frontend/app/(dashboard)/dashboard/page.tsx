@@ -80,6 +80,13 @@ function todayRange(): DateRange {
   return { startDate: today, endDate: today };
 }
 
+function last7DaysRange(): DateRange {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - 6);
+  return { startDate: fmtDate(start), endDate: fmtDate(today) };
+}
+
 /** Calculate comparison period: same length, immediately preceding */
 function getComparisonRange(range: DateRange): { compareStartDate: string; compareEndDate: string } {
   const start = new Date(range.startDate + 'T00:00:00');
@@ -207,10 +214,11 @@ export default function DashboardPage() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get('demo') === 'true';
+  const isEmbed = searchParams.get('embed') === 'true';
   const [data, setData] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(todayRange);
+  const [dateRange, setDateRange] = useState<DateRange>(isEmbed ? last7DaysRange : todayRange);
 
   const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
   const isSingleDay = rangeDays <= 1;

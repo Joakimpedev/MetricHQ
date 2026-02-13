@@ -112,7 +112,7 @@ export default function MarketingAttribution({ platforms, unattributedRevenue }:
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap gap-4 justify-center">
       {adPlatforms.map(([platform, data]) => (
         <PlatformCard
           key={platform}
