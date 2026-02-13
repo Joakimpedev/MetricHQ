@@ -35,7 +35,7 @@ function WaitlistForm() {
       }
       setMessage({ type: 'success', text: data.message || "You're on the list!" });
       setEmail('');
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
     } finally {
       setLoading(false);
@@ -51,17 +51,17 @@ function WaitlistForm() {
         placeholder="you@company.com"
         required
         disabled={loading}
-        className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 disabled:opacity-50"
+        className="flex-1 px-4 py-3 rounded-lg bg-bg-elevated border border-border-dim text-text-heading placeholder-text-dim focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-50"
       />
       <button
         type="submit"
         disabled={loading}
-        className="px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-6 py-3 rounded-lg bg-accent hover:bg-accent-hover text-accent-text font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Joining…' : 'Join waitlist'}
       </button>
       {message && (
-        <p className={`text-sm sm:col-span-2 ${message.type === 'success' ? 'text-amber-400' : 'text-red-400'}`}>
+        <p className={`text-sm sm:col-span-2 ${message.type === 'success' ? 'text-success' : 'text-error'}`}>
           {message.text}
         </p>
       )}
@@ -72,16 +72,25 @@ function WaitlistForm() {
 export default function LandingPage() {
   const { isSignedIn, isLoaded } = useUser();
 
-  // If signed in, show a simple redirect prompt to dashboard
   if (CLERK_ENABLED && isLoaded && isSignedIn) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-bg-body flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">MetricHQ</h1>
-          <p className="text-slate-400 mb-8">You&apos;re signed in. Go to your dashboard.</p>
+          <div className="flex items-center justify-center gap-2.5 mb-4">
+            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+              <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+              <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+              <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+            </svg>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
+            </h1>
+          </div>
+          <p className="text-text-dim mb-8">You&apos;re signed in. Go to your dashboard.</p>
           <Link
             href="/dashboard"
-            className="inline-block bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors"
+            className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors"
           >
             Open Dashboard
           </Link>
@@ -91,44 +100,54 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-bg-body">
       {/* Hero */}
       <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(245,158,11,0.15),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,oklch(from_var(--accent)_l_c_h_/_0.12),transparent)]" />
         <nav className="relative max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
-          <span className="text-xl font-bold">MetricHQ</span>
+          <div className="flex items-center gap-2">
+            <svg width="24" height="24" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+              <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+              <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+              <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+            </svg>
+            <span className="text-lg font-bold tracking-tight">
+              <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
+            </span>
+          </div>
           {CLERK_ENABLED && (
             <SignInButton mode="modal">
-              <button className="text-slate-400 hover:text-white text-sm font-medium transition-colors">
+              <button className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
                 Sign in
               </button>
             </SignInButton>
           )}
           {!CLERK_ENABLED && (
-            <Link href="/dashboard" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">
+            <Link href="/dashboard" className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
               Dashboard
             </Link>
           )}
         </nav>
 
         <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-24 text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 text-text-heading">
             See your real profit{' '}
-            <span className="text-amber-400">by country</span>
+            <span className="text-accent">by country</span>
           </h1>
-          <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10">
+          <p className="text-lg sm:text-xl text-text-dim max-w-2xl mx-auto mb-10">
             Connect TikTok, Meta, and PostHog. Get ad spend and revenue in one dashboard. Know exactly where you make or lose money.
           </p>
           {CLERK_ENABLED && (
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
               <SignInButton mode="modal">
-                <button className="bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors">
+                <button className="bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors">
                   Try it free
                 </button>
               </SignInButton>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center border border-white/20 hover:border-white/40 px-8 py-3 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center justify-center border border-border-dim hover:border-border px-8 py-3 rounded-lg font-medium text-text-body hover:text-text-heading transition-colors"
               >
                 Open dashboard
               </Link>
@@ -137,7 +156,7 @@ export default function LandingPage() {
           {!CLERK_ENABLED && (
             <Link
               href="/dashboard"
-              className="inline-block bg-amber-500 hover:bg-amber-400 text-slate-900 px-8 py-3 rounded-lg font-semibold transition-colors mb-4"
+              className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors mb-4"
             >
               Open dashboard
             </Link>
@@ -147,31 +166,31 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-2xl font-bold text-center mb-12">One dashboard for all your ad data</h2>
+        <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">One dashboard for all your ad data</h2>
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="mb-3"><BarChart3 size={28} className="text-amber-400" /></div>
-            <h3 className="font-semibold text-lg mb-2">TikTok & Meta Ads</h3>
-            <p className="text-slate-400 text-sm">Connect your ad accounts. We pull spend, impressions, and clicks by country.</p>
+          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
+            <div className="mb-3"><BarChart3 size={28} className="text-accent" /></div>
+            <h3 className="font-semibold text-lg mb-2 text-text-heading">TikTok & Meta Ads</h3>
+            <p className="text-text-dim text-sm">Connect your ad accounts. We pull spend, impressions, and clicks by country.</p>
           </div>
-          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="mb-3"><TrendingUp size={28} className="text-amber-400" /></div>
-            <h3 className="font-semibold text-lg mb-2">PostHog revenue</h3>
-            <p className="text-slate-400 text-sm">Link PostHog to get revenue and purchases. Profit = revenue − ad spend.</p>
+          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
+            <div className="mb-3"><TrendingUp size={28} className="text-accent" /></div>
+            <h3 className="font-semibold text-lg mb-2 text-text-heading">PostHog revenue</h3>
+            <p className="text-text-dim text-sm">Link PostHog to get revenue and purchases. Profit = revenue − ad spend.</p>
           </div>
-          <div className="p-6 rounded-xl bg-slate-900/50 border border-slate-800">
-            <div className="mb-3"><Globe size={28} className="text-amber-400" /></div>
-            <h3 className="font-semibold text-lg mb-2">Country-level breakdown</h3>
-            <p className="text-slate-400 text-sm">See which countries are profitable. Stop wasting spend where it doesn't pay off.</p>
+          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
+            <div className="mb-3"><Globe size={28} className="text-accent" /></div>
+            <h3 className="font-semibold text-lg mb-2 text-text-heading">Country-level breakdown</h3>
+            <p className="text-text-dim text-sm">See which countries are profitable. Stop wasting spend where it doesn&apos;t pay off.</p>
           </div>
         </div>
       </section>
 
       {/* Waitlist */}
-      <section className="border-t border-slate-800">
+      <section className="border-t border-border-dim">
         <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-          <h2 className="text-2xl font-bold mb-4">Get early access</h2>
-          <p className="text-slate-400 mb-8">
+          <h2 className="text-2xl font-bold mb-4 text-text-heading">Get early access</h2>
+          <p className="text-text-dim mb-8">
             Join the waitlist and we&apos;ll let you know when new features drop.
           </p>
           <WaitlistForm />
@@ -179,11 +198,11 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 py-8">
+      <footer className="border-t border-border-dim py-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-slate-500 text-sm">MetricHQ</span>
+          <span className="text-text-dim text-sm">MetricHQ</span>
           <div className="flex gap-6">
-            <Link href="/dashboard" className="text-slate-500 hover:text-slate-400 text-sm transition-colors">
+            <Link href="/dashboard" className="text-text-dim hover:text-text-body text-sm transition-colors">
               Dashboard
             </Link>
           </div>
