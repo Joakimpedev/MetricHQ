@@ -192,7 +192,7 @@ function PricingSection() {
             return (
               <div
                 key={plan.name}
-                className={`rounded-xl border p-6 ${
+                className={`rounded-xl border p-6 flex flex-col ${
                   plan.popular
                     ? 'border-accent bg-accent-muted'
                     : 'border-border-dim bg-bg-surface'
@@ -214,7 +214,7 @@ function PricingSection() {
                     <span className="text-text-dim text-[12px] ml-2">billed yearly</span>
                   )}
                 </div>
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features.map(f => (
                     <li key={f} className="flex items-start gap-2 text-sm text-text-body">
                       <Check size={16} className="text-success mt-0.5 shrink-0" />
@@ -222,29 +222,31 @@ function PricingSection() {
                     </li>
                   ))}
                 </ul>
-                {CLERK_ENABLED ? (
-                  <SignInButton mode="modal">
-                    <button className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                      plan.popular
-                        ? 'bg-accent hover:bg-accent-hover text-accent-text'
-                        : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
-                    }`}>
+                <div className="mt-auto">
+                  {CLERK_ENABLED ? (
+                    <SignInButton mode="modal">
+                      <button className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                        plan.popular
+                          ? 'bg-accent hover:bg-accent-hover text-accent-text'
+                          : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
+                      }`}>
+                        Start free trial
+                      </button>
+                    </SignInButton>
+                  ) : (
+                    <Link
+                      href="/dashboard"
+                      className={`block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-colors ${
+                        plan.popular
+                          ? 'bg-accent hover:bg-accent-hover text-accent-text'
+                          : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
+                      }`}
+                    >
                       Start free trial
-                    </button>
-                  </SignInButton>
-                ) : (
-                  <Link
-                    href="/dashboard"
-                    className={`block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-colors ${
-                      plan.popular
-                        ? 'bg-accent hover:bg-accent-hover text-accent-text'
-                        : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
-                    }`}
-                  >
-                    Start free trial
-                  </Link>
-                )}
-                <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
+                    </Link>
+                  )}
+                  <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
+                </div>
               </div>
             );
           })}

@@ -123,7 +123,7 @@ export default function PricingPage() {
           return (
             <div
               key={plan.name}
-              className={`rounded-xl border p-6 relative ${
+              className={`rounded-xl border p-6 relative flex flex-col ${
                 plan.popular
                   ? 'border-accent bg-accent-muted'
                   : 'border-border-dim bg-bg-surface'
@@ -153,7 +153,7 @@ export default function PricingPage() {
                 )}
               </div>
 
-              <ul className="space-y-2.5 mb-6">
+              <ul className="space-y-2.5 mb-6 flex-1">
                 {plan.features.map(f => (
                   <li key={f} className="flex items-start gap-2 text-sm text-text-body">
                     <Check size={16} className="text-success mt-0.5 shrink-0" />
@@ -162,33 +162,31 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              {isCurrent ? (
-                <button
-                  onClick={handlePortal}
-                  disabled={portalLoading}
-                  className="w-full py-2.5 rounded-lg text-sm font-semibold bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim transition-colors flex items-center justify-center gap-2"
-                >
-                  {portalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
-                  Manage subscription
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleCheckout(priceId)}
-                  disabled={isLoading || !priceId || subLoading}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
-                    plan.popular
-                      ? 'bg-accent hover:bg-accent-hover text-accent-text'
-                      : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
-                  }`}
-                >
-                  {isLoading && <Loader2 size={14} className="animate-spin" />}
-                  {isActive ? 'Switch to this plan' : 'Subscribe'}
-                </button>
-              )}
-
-              {!isCurrent && subscription?.status === 'trialing' && (
-                <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
-              )}
+              <div className="mt-auto">
+                {isCurrent ? (
+                  <button
+                    onClick={handlePortal}
+                    disabled={portalLoading}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim transition-colors flex items-center justify-center gap-2"
+                  >
+                    {portalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                    Manage subscription
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleCheckout(priceId)}
+                    disabled={isLoading || !priceId || subLoading}
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                      plan.popular
+                        ? 'bg-accent hover:bg-accent-hover text-accent-text'
+                        : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
+                    }`}
+                  >
+                    {isLoading && <Loader2 size={14} className="animate-spin" />}
+                    {isActive ? 'Switch to this plan' : 'Subscribe'}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
