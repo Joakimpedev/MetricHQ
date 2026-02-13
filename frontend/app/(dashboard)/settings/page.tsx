@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import ThemeSwitcher from '../../../components/ThemeSwitcher';
 import { useSubscription } from '../../../components/SubscriptionProvider';
+import TeamSection from '../../../components/TeamSection';
+import ApiKeysSection from '../../../components/ApiKeysSection';
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '-';
@@ -94,6 +96,9 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <TeamSection />
+      <ApiKeysSection />
 
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
         <h2 className="text-[14px] font-medium text-text-heading mb-4">Account</h2>

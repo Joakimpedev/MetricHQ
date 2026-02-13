@@ -2,20 +2,26 @@ const PLAN_LIMITS = {
   starter: {
     maxAdPlatforms: 1,
     syncIntervalHours: 24,
-    dataRetentionDays: 30,
-    campaignPL: false,
+    dataRetentionDays: 180,
+    campaignPL: true,
+    teamAccess: false,
+    apiAccess: false,
   },
   growth: {
     maxAdPlatforms: Infinity,
     syncIntervalHours: 4,
-    dataRetentionDays: 90,
+    dataRetentionDays: 365,
     campaignPL: true,
+    teamAccess: false,
+    apiAccess: false,
   },
   pro: {
     maxAdPlatforms: Infinity,
     syncIntervalHours: 4,
     dataRetentionDays: Infinity,
     campaignPL: true,
+    teamAccess: true,
+    apiAccess: true,
   },
 };
 

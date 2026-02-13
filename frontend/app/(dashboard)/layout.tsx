@@ -30,9 +30,10 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function SyncIndicator({ userId }: { userId: string }) {
+function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncIntervalHours?: number }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -50,13 +51,23 @@ function SyncIndicator({ userId }: { userId: string }) {
 
   const handleRefresh = async () => {
     if (syncing) return;
+    setCooldownError(null);
     setSyncing(true);
     try {
-      await fetch(`${API_URL}/api/sync`, {
+      const res = await fetch(`${API_URL}/api/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
+      if (res.status === 429) {
+        const data = await res.json();
+        const next = data.nextSyncAt ? new Date(data.nextSyncAt) : null;
+        const label = next ? `Next sync available ${timeAgo(next.toISOString()).replace(' ago', '')} from now` : 'Try again later';
+        setCooldownError(label);
+        setSyncing(false);
+        setTimeout(() => setCooldownError(null), 5000);
+        return;
+      }
       setTimeout(() => {
         fetchSyncStatus();
         setSyncing(false);
@@ -75,7 +86,13 @@ function SyncIndicator({ userId }: { userId: string }) {
       {lastSynced && (
         <span className="text-text-dim text-[12px]">
           Last synced {timeAgo(lastSynced)}
+          {syncIntervalHours && isFinite(syncIntervalHours) && (
+            <span className="text-text-dim/60"> · syncs every {syncIntervalHours}h</span>
+          )}
         </span>
+      )}
+      {cooldownError && (
+        <span className="text-[11px] text-warning">{cooldownError}</span>
       )}
       <button
         onClick={handleRefresh}
@@ -174,9 +191,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   const pageTitle = PAGE_TITLES[pathname] || 'MetricHQ';
-  const syncSlot = !isDemo && pathname === '/dashboard' && user?.id ? (
-    <SyncIndicator userId={user.id} />
-  ) : undefined;
 
   return (
     <SubscriptionProvider>
@@ -184,8 +198,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         pageTitle={pageTitle}
-        syncSlot={syncSlot}
         pathname={pathname}
+        userId={!isDemo ? user?.id : undefined}
       >
         {children}
       </DashboardContent>
@@ -197,21 +211,25 @@ function DashboardContent({
   sidebarOpen,
   setSidebarOpen,
   pageTitle,
-  syncSlot,
   pathname,
+  userId,
   children,
 }: {
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   pageTitle: string;
-  syncSlot: React.ReactNode;
   pathname: string;
+  userId?: string;
   children: React.ReactNode;
 }) {
   const { subscription, loading } = useSubscription();
   const isExpired = !loading && subscription && ['expired', 'none', 'cancelled'].includes(subscription.status);
-  // Allow pricing page even if expired
-  const showPaywall = isExpired && pathname !== '/pricing';
+  // Allow pricing and invite pages even if expired
+  const showPaywall = isExpired && pathname !== '/pricing' && pathname !== '/invite';
+
+  const syncSlot = pathname === '/dashboard' && userId ? (
+    <SyncIndicator userId={userId} syncIntervalHours={subscription?.limits?.syncIntervalHours} />
+  ) : undefined;
 
   return (
     <div className="min-h-screen bg-bg-body">

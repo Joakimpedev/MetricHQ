@@ -31,6 +31,8 @@ app.use('/auth', authRoutes);
 
 const { aggregateMetrics } = require('./services/aggregator');
 const { syncForUser, startCronJob, getSyncStatus } = require('./services/sync');
+const { getUserSubscription } = require('./services/subscription');
+const { resolveDataOwner } = require('./services/team');
 const { pool } = require('./db/database');
 const billing = require('./routes/billing');
 
@@ -56,17 +58,21 @@ app.get('/api/metrics', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
-    const data = await aggregateMetrics(internalUserId, start, end);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    const data = await aggregateMetrics(dataOwnerId, start, end);
 
     // Comparison period (summary + timeSeries for ghost chart)
     if (compareStartDate && compareEndDate) {
-      const prev = await aggregateMetrics(internalUserId, compareStartDate, compareEndDate);
+      const prev = await aggregateMetrics(dataOwnerId, compareStartDate, compareEndDate);
       data.comparison = { summary: prev.summary, timeSeries: prev.timeSeries };
     }
 
     // Separate chart date range (graph may show a wider range than KPIs)
     if (chartStartDate && chartEndDate) {
-      const chartData = await aggregateMetrics(internalUserId, chartStartDate, chartEndDate);
+      const chartData = await aggregateMetrics(dataOwnerId, chartStartDate, chartEndDate);
       data.timeSeries = chartData.timeSeries;
     }
 
@@ -87,9 +93,13 @@ app.get('/api/connections', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
     const result = await pool.query(
       'SELECT platform, account_id, access_token, settings, updated_at FROM connected_accounts WHERE user_id = $1',
-      [internalUserId]
+      [dataOwnerId]
     );
 
     const connections = {};
@@ -120,7 +130,7 @@ app.get('/api/connections', async (req, res) => {
     });
 
     let sync = { lastSynced: null, isSyncing: false, platforms: {} };
-    try { sync = await getSyncStatus(internalUserId); } catch {}
+    try { sync = await getSyncStatus(dataOwnerId); } catch {}
     res.json({ connections, sync });
   } catch (error) {
     console.error('Error fetching connections:', error);
@@ -180,6 +190,13 @@ app.post('/api/settings/posthog', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can modify integrations' });
+    }
     const settings = {};
     if (purchaseEvent) settings.purchaseEvent = purchaseEvent;
     if (posthogHost) settings.posthogHost = normalizePostHogHost(posthogHost);
@@ -212,6 +229,13 @@ app.post('/api/settings/stripe', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can modify integrations' });
+    }
     await pool.query(
       `INSERT INTO connected_accounts (user_id, platform, account_id, access_token)
        VALUES ($1, $2, $3, $4)
@@ -236,6 +260,13 @@ app.post('/api/settings/posthog/event', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can modify integrations' });
+    }
     await pool.query(
       `UPDATE connected_accounts
        SET settings = COALESCE(settings, '{}'::jsonb) || $1, updated_at = NOW()
@@ -262,9 +293,13 @@ app.get('/api/posthog/events', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
     const account = await pool.query(
       "SELECT access_token, account_id, COALESCE(settings, '{}'::jsonb) as settings FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'",
-      [internalUserId]
+      [dataOwnerId]
     );
 
     if (account.rows.length === 0) {
@@ -300,7 +335,7 @@ app.get('/api/posthog/events', async (req, res) => {
         if (!settings.posthogHost || settings.posthogHost !== host) {
           await pool.query(
             `UPDATE connected_accounts SET settings = COALESCE(settings, '{}'::jsonb) || $1 WHERE user_id = $2 AND platform = 'posthog'`,
-            [JSON.stringify({ posthogHost: host }), internalUserId]
+            [JSON.stringify({ posthogHost: host }), dataOwnerId]
           );
         }
 
@@ -334,6 +369,31 @@ app.post('/api/sync', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can trigger syncs' });
+    }
+
+    // Enforce sync interval based on subscription tier
+    const sub = await getUserSubscription(internalUserId);
+    const intervalHours = sub.limits.syncIntervalHours;
+    if (intervalHours && isFinite(intervalHours)) {
+      const lastSync = await pool.query(
+        `SELECT MAX(last_synced_at) as last FROM sync_log WHERE user_id = $1 AND status = 'done'`,
+        [internalUserId]
+      );
+      const lastSyncedAt = lastSync.rows[0]?.last;
+      if (lastSyncedAt) {
+        const nextSyncAt = new Date(new Date(lastSyncedAt).getTime() + intervalHours * 3600000);
+        if (nextSyncAt > new Date()) {
+          return res.status(429).json({ ok: false, error: 'sync_cooldown', nextSyncAt: nextSyncAt.toISOString() });
+        }
+      }
+    }
+
     // Fire-and-forget: start sync in background, respond immediately
     syncForUser(internalUserId).catch(err => {
       console.error('Background sync error:', err.message);
@@ -355,7 +415,11 @@ app.get('/api/sync/status', async (req, res) => {
 
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
-    const status = await getSyncStatus(internalUserId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    const status = await getSyncStatus(dataOwnerId);
     res.json(status);
   } catch (error) {
     console.error('Sync status error:', error);
@@ -367,6 +431,20 @@ app.get('/api/sync/status', async (req, res) => {
 app.get('/api/billing/subscription', billing.getSubscription);
 app.post('/api/billing/checkout', billing.createCheckout);
 app.post('/api/billing/portal', billing.createPortal);
+
+// Team routes
+const teamRoutes = require('./routes/team');
+app.use('/api/team', teamRoutes);
+
+// API key management routes (Clerk-authed)
+const apiKeys = require('./routes/api-keys');
+app.post('/api/settings/api-keys', apiKeys.createApiKey);
+app.get('/api/settings/api-keys', apiKeys.listApiKeys);
+app.delete('/api/settings/api-keys/:id', apiKeys.revokeApiKey);
+
+// Public API v1 routes (API key auth)
+const apiV1Routes = require('./routes/api-v1');
+app.use('/api/v1', apiV1Routes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);

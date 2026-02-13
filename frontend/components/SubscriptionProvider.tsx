@@ -10,6 +10,8 @@ interface SubscriptionLimits {
   syncIntervalHours: number;
   dataRetentionDays: number;
   campaignPL: boolean;
+  teamAccess: boolean;
+  apiAccess: boolean;
 }
 
 export interface Subscription {
@@ -32,7 +34,7 @@ const defaultSub: Subscription = {
   plan: null,
   status: 'none',
   isActive: false,
-  limits: { maxAdPlatforms: 1, syncIntervalHours: 24, dataRetentionDays: 30, campaignPL: false },
+  limits: { maxAdPlatforms: 1, syncIntervalHours: 24, dataRetentionDays: 180, campaignPL: true, teamAccess: false, apiAccess: false },
   trialEnd: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
