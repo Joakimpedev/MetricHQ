@@ -147,13 +147,20 @@ function generateDemoData(dateRange: DateRange): MetricsData {
         cpa: 28.5,
         totalPurchases: Math.round(totalPurchases * 0.8),
       },
-      timeSeries: timeSeries.map(p => ({
-        ...p,
-        spend: Math.round(p.spend * 0.85),
-        revenue: Math.round(p.revenue * 0.72),
-        profit: Math.round(p.revenue * 0.72 - p.spend * 0.85),
-        purchases: Math.max(1, p.purchases - 2),
-      })),
+      timeSeries: timeSeries.map((p, i) => {
+        const seed = i * 7 + 3;
+        const spendJitter = 0.7 + ((seed * 13 + 7) % 30) / 100;
+        const revJitter = 0.55 + ((seed * 17 + 11) % 35) / 100;
+        const prevSpend = Math.round(p.spend * spendJitter);
+        const prevRevenue = Math.round(p.revenue * revJitter);
+        return {
+          ...p,
+          spend: prevSpend,
+          revenue: prevRevenue,
+          profit: prevRevenue - prevSpend,
+          purchases: Math.max(1, Math.round(p.purchases * (0.6 + ((seed * 11) % 40) / 100))),
+        };
+      }),
     },
     countries: [
       { code: 'US', name: 'United States', spend: Math.round(totalSpend * 0.45), revenue: Math.round(totalRevenue * 0.5), profit: Math.round(totalRevenue * 0.5 - totalSpend * 0.45), roas: 2.1, purchases: Math.round(totalPurchases * 0.4) },
