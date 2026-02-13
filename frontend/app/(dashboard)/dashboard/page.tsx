@@ -99,12 +99,11 @@ function getRangeDays(range: DateRange): number {
 }
 
 function formatCompareLabel(range: DateRange): string {
-  const csDate = range.compareStartDate || getComparisonRange(range).compareStartDate;
-  const ceDate = range.compareEndDate || getComparisonRange(range).compareEndDate;
-  const s = new Date(csDate + 'T00:00:00');
-  const e = new Date(ceDate + 'T00:00:00');
+  const comp = getComparisonRange(range);
+  const s = new Date(comp.compareStartDate + 'T00:00:00');
+  const e = new Date(comp.compareEndDate + 'T00:00:00');
   const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (csDate === ceDate) return fmt(s);
+  if (comp.compareStartDate === comp.compareEndDate) return fmt(s);
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
@@ -227,13 +226,13 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const autoComp = getComparisonRange(dateRange);
+      const comp = getComparisonRange(dateRange);
       const params = new URLSearchParams({
         userId: user.id,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
-        compareStartDate: dateRange.compareStartDate || autoComp.compareStartDate,
-        compareEndDate: dateRange.compareEndDate || autoComp.compareEndDate,
+        compareStartDate: comp.compareStartDate,
+        compareEndDate: comp.compareEndDate,
       });
       const response = await fetch(`${API_URL}/api/metrics?${params}`);
       const json = await response.json();

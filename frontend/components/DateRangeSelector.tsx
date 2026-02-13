@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface DateRange {
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
-  compareStartDate?: string;
-  compareEndDate?: string;
 }
 
 interface DateRangeSelectorProps {
@@ -127,10 +125,8 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
   );
 }
 
-type OpenPanel = 'main' | 'compare' | null;
-
 export default function DateRangeSelector({ value, onChange, compareLabel }: DateRangeSelectorProps) {
-  const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
+  const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(null);
   const [pickingStart, setPickingStart] = useState(true);
@@ -141,43 +137,22 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
   const cal2Month = calMonth === 11 ? 0 : calMonth + 1;
   const cal2Year = calMonth === 11 ? calYear + 1 : calYear;
 
-  const isCustomCompare = !!value.compareStartDate;
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenPanel(null);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    if (openPanel) document.addEventListener('mousedown', handler);
+    if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [openPanel]);
+  }, [open]);
 
-  function openMain() {
+  function openDropdown() {
     setDraftStart(parseDate(value.startDate));
     setDraftEnd(parseDate(value.endDate));
     setPickingStart(true);
     const s = parseDate(value.startDate);
     setCalMonth(s.getMonth());
     setCalYear(s.getFullYear());
-    setOpenPanel('main');
-  }
-
-  function openCompare() {
-    if (value.compareStartDate && value.compareEndDate) {
-      setDraftStart(parseDate(value.compareStartDate));
-      setDraftEnd(parseDate(value.compareEndDate));
-      const s = parseDate(value.compareStartDate);
-      setCalMonth(s.getMonth());
-      setCalYear(s.getFullYear());
-    } else {
-      // Start from the auto comparison range
-      setDraftStart(null);
-      setDraftEnd(null);
-      const s = parseDate(value.startDate);
-      setCalMonth(s.getMonth() === 0 ? 11 : s.getMonth() - 1);
-      setCalYear(s.getMonth() === 0 ? s.getFullYear() - 1 : s.getFullYear());
-    }
-    setPickingStart(true);
-    setOpenPanel('compare');
+    setOpen(true);
   }
 
   function handleDayClick(d: Date) {
@@ -207,35 +182,12 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
   }
 
   function handleDone() {
-    if (openPanel === 'main') {
-      const result: DateRange = {
-        startDate: draftStart ? fmtDate(draftStart) : value.startDate,
-        endDate: (draftEnd || draftStart) ? fmtDate(draftEnd || draftStart!) : value.endDate,
-      };
-      // Preserve existing custom compare
-      if (value.compareStartDate) {
-        result.compareStartDate = value.compareStartDate;
-        result.compareEndDate = value.compareEndDate;
-      }
-      onChange(result);
-    } else if (openPanel === 'compare') {
-      if (draftStart && draftEnd) {
-        onChange({
-          ...value,
-          compareStartDate: fmtDate(draftStart),
-          compareEndDate: fmtDate(draftEnd),
-        });
-      }
+    if (draftStart && draftEnd) {
+      onChange({ startDate: fmtDate(draftStart), endDate: fmtDate(draftEnd) });
+    } else if (draftStart) {
+      onChange({ startDate: fmtDate(draftStart), endDate: fmtDate(draftStart) });
     }
-    setOpenPanel(null);
-  }
-
-  function resetCompare() {
-    onChange({
-      startDate: value.startDate,
-      endDate: value.endDate,
-    });
-    setOpenPanel(null);
+    setOpen(false);
   }
 
   function prevMonth() {
@@ -254,107 +206,88 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     return PRESETS.find(p => { const pd = p.getDates(); return pd.startDate === ds && pd.endDate === de; })?.label || null;
   }, [draftStart, draftEnd]);
 
-  // Shared dropdown panel
-  const dropdownPanel = openPanel && (
-    <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex">
-      {/* Presets sidebar */}
-      <div className="w-36 border-r border-border-dim py-2 shrink-0">
-        {PRESETS.map(p => (
-          <button
-            key={p.label}
-            onClick={() => handlePreset(p)}
-            className={`block w-full text-left px-4 py-2 text-[12px] transition-colors ${
-              activePreset === p.label
-                ? 'text-accent font-medium bg-accent-muted'
-                : 'text-text-body hover:bg-bg-hover hover:text-text-heading'
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Calendar area */}
-      <div className="p-4">
-        {/* Date inputs row */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
-            {draftStart ? draftStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-          </div>
-          <span className="text-text-dim text-[12px]">&rarr;</span>
-          <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
-            {draftEnd ? draftEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-          </div>
-        </div>
-
-        {/* Navigation + 2 calendars */}
-        <div className="flex items-start gap-4">
-          <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
-            <ChevronLeft size={16} />
-          </button>
-          <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
-          <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
-          <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-dim">
-          {openPanel === 'compare' && isCustomCompare && (
-            <button
-              onClick={resetCompare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors mr-auto"
-            >
-              <RotateCcw size={12} />
-              Reset to auto
-            </button>
-          )}
-          <button
-            onClick={() => setOpenPanel(null)}
-            className="px-4 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDone}
-            disabled={!draftStart || !draftEnd}
-            className="px-4 py-1.5 rounded-md text-[12px] font-medium bg-accent text-accent-text hover:bg-accent-hover transition-colors disabled:opacity-40"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex items-center gap-2" ref={ref}>
-      {/* Main date range trigger */}
+      {/* Trigger button */}
       <div className="relative">
         <button
-          onClick={openMain}
+          onClick={openDropdown}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface hover:bg-bg-hover text-[12px] text-text-heading transition-colors"
         >
           <CalendarIcon size={14} className="text-text-dim" />
           {displayLabel(value)}
         </button>
-        {openPanel === 'main' && dropdownPanel}
+
+        {/* Dropdown */}
+        {open && (
+          <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex">
+            {/* Presets sidebar */}
+            <div className="w-36 border-r border-border-dim py-2 shrink-0">
+              {PRESETS.map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => handlePreset(p)}
+                  className={`block w-full text-left px-4 py-2 text-[12px] transition-colors ${
+                    activePreset === p.label
+                      ? 'text-accent font-medium bg-accent-muted'
+                      : 'text-text-body hover:bg-bg-hover hover:text-text-heading'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Calendar area */}
+            <div className="p-4">
+              {/* Date inputs row */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
+                  {draftStart ? draftStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </div>
+                <span className="text-text-dim text-[12px]">&rarr;</span>
+                <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
+                  {draftEnd ? draftEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </div>
+              </div>
+
+              {/* Navigation + 2 calendars */}
+              <div className="flex items-start gap-4">
+                <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
+                  <ChevronLeft size={16} />
+                </button>
+                <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+                <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+                <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-dim">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDone}
+                  className="px-4 py-1.5 rounded-md text-[12px] font-medium bg-accent text-accent-text hover:bg-accent-hover transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Compare trigger — clickable badge */}
+      {/* Compare badge — static label */}
       {compareLabel && (
-        <div className="relative">
-          <button
-            onClick={openCompare}
-            className={`px-3 py-1.5 rounded-lg border bg-bg-surface text-[12px] shrink-0 transition-colors hover:bg-bg-hover ${
-              isCustomCompare ? 'border-accent/40 text-text-heading' : 'border-border-dim text-text-dim'
-            }`}
-          >
-            vs {compareLabel}
-          </button>
-          {openPanel === 'compare' && dropdownPanel}
-        </div>
+        <span className="px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface text-[12px] text-text-dim shrink-0">
+          vs {compareLabel}
+        </span>
       )}
     </div>
   );
