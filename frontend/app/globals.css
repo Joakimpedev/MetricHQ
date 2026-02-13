@@ -22,7 +22,7 @@
   --accent:        #818cf8;
   --accent-hover:  #6366f1;
   --accent-muted:  rgba(129,140,248,0.08);
-  --accent-tint:   rgba(129,140,248,0.04);
+  --accent-tint:   rgba(200,180,150,0.04);
   --accent-text:   #ffffff;
   --bg-logo:       #10101a;
 
@@ -60,7 +60,7 @@
   --accent:        #4f46e5;
   --accent-hover:  #4338ca;
   --accent-muted:  rgba(79,70,229,0.06);
-  --accent-tint:   rgba(79,70,229,0.03);
+  --accent-tint:   rgba(80,60,30,0.04);
   --accent-text:   #ffffff;
   --bg-logo:       #f3f0ed;
 
