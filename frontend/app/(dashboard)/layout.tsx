@@ -98,6 +98,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get('demo') === 'true';
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!isDemo && !isLoaded) {
     return (
@@ -140,9 +141,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg-body">
-      <Sidebar />
-      <div className="ml-52 flex flex-col min-h-screen">
-        <TopBar title={pageTitle} syncSlot={syncSlot} />
+      <Sidebar mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
+      <div className="md:ml-52 flex flex-col min-h-screen">
+        <TopBar title={pageTitle} syncSlot={syncSlot} onMenuToggle={() => setSidebarOpen(true)} />
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>
     </div>

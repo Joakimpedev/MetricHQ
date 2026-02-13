@@ -153,8 +153,6 @@ export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrend
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-      <h3 className="text-[13px] font-medium text-text-heading mb-4">Profit Trend</h3>
-
       {isSingleDay || data.length < 2 ? (
         <GhostChart />
       ) : (

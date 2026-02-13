@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Globe } from 'lucide-react';
+import Link from 'next/link';
 
 interface Country {
   code: string;
@@ -145,8 +146,12 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
       )}
 
       {countries.length === 0 && (
-        <div className="px-5 py-8 text-center text-text-dim text-[12px]">
-          No country data yet. Connect your ad accounts and PostHog.
+        <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
+          <Globe size={24} className="text-text-dim" />
+          <p className="text-text-dim text-[12px]">No country data yet</p>
+          <Link href="/integrations" className="text-accent text-[12px] hover:underline">
+            Connect a platform
+          </Link>
         </div>
       )}
     </div>

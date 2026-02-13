@@ -7,9 +7,10 @@ interface KPICardProps {
   valueColor?: string;
   previousValue?: number;
   currentValue?: number;
+  invertComparison?: boolean;
 }
 
-function ComparisonBadge({ current, previous }: { current: number; previous: number }) {
+function ComparisonBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
   if (previous === 0 && current === 0) return null;
 
   let pctChange: number;
@@ -20,11 +21,12 @@ function ComparisonBadge({ current, previous }: { current: number; previous: num
   }
 
   const isPositive = pctChange >= 0;
+  const isGood = invert ? !isPositive : isPositive;
   const Icon = isPositive ? TrendingUp : TrendingDown;
 
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-      isPositive ? 'text-success' : 'text-error'
+      isGood ? 'text-success' : 'text-error'
     }`}>
       <Icon size={12} />
       {isPositive ? '+' : ''}{pctChange.toFixed(1)}%
@@ -32,7 +34,7 @@ function ComparisonBadge({ current, previous }: { current: number; previous: num
   );
 }
 
-export default function KPICard({ title, value, subtitle, valueColor = 'text-text-heading', previousValue, currentValue }: KPICardProps) {
+export default function KPICard({ title, value, subtitle, valueColor = 'text-text-heading', previousValue, currentValue, invertComparison }: KPICardProps) {
   return (
     <div className="bg-bg-surface rounded-xl p-5 border border-border-dim">
       <div className="flex items-center justify-between">
@@ -40,7 +42,7 @@ export default function KPICard({ title, value, subtitle, valueColor = 'text-tex
           {title}
         </span>
         {previousValue !== undefined && currentValue !== undefined && (
-          <ComparisonBadge current={currentValue} previous={previousValue} />
+          <ComparisonBadge current={currentValue} previous={previousValue} invert={invertComparison} />
         )}
       </div>
       <p className={`text-[28px] font-bold tracking-tight mt-1.5 leading-none ${valueColor}`}>

@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
+import MarketingAttribution from '../../../components/MarketingAttribution';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
@@ -258,8 +260,53 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-text-dim text-[13px]">Loading metrics...</p>
+      <div className="max-w-[1400px] mx-auto space-y-6">
+        {/* Date selector skeleton */}
+        <div className="flex justify-end">
+          <div className="w-40 h-8 bg-bg-elevated animate-pulse rounded-lg" />
+        </div>
+        {/* KPI cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-bg-surface rounded-xl border border-border-dim p-5">
+              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-3" />
+              <div className="w-28 h-7 bg-bg-elevated animate-pulse rounded-lg" />
+            </div>
+          ))}
+        </div>
+        {/* Chart skeleton */}
+        <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+          <div className="h-[240px] bg-bg-elevated animate-pulse rounded-lg" />
+        </div>
+        {/* Attribution cards skeleton */}
+        <div className="flex flex-wrap gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="w-[220px] bg-bg-surface rounded-xl border border-border-dim p-4">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 bg-bg-elevated animate-pulse rounded-lg" />
+                <div className="w-20 h-3 bg-bg-elevated animate-pulse rounded-lg" />
+              </div>
+              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-1.5" />
+              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-3" />
+              <div className="w-24 h-6 bg-bg-elevated animate-pulse rounded-lg" />
+            </div>
+          ))}
+        </div>
+        {/* Tables skeleton */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
+              <div className="px-5 py-4 border-b border-border-dim">
+                <div className="w-24 h-4 bg-bg-elevated animate-pulse rounded-lg" />
+              </div>
+              {[...Array(4)].map((_, j) => (
+                <div key={j} className="px-5 py-3 border-b border-border-dim/40 last:border-0">
+                  <div className="w-full h-3 bg-bg-elevated animate-pulse rounded-lg" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -284,14 +331,54 @@ export default function DashboardPage() {
 
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
-  return (
-    <div className="space-y-6">
-      {/* Top bar: date range + compare badge */}
-      <div className="flex items-center justify-between">
-        <div />
-        <div className="flex items-center gap-2">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} />
+  const hasAnyData = summary.totalSpend > 0 || summary.totalRevenue > 0 || countries.length > 0 || timeSeries.length > 0;
+
+  if (!hasAnyData && !isDemo) {
+    return (
+      <div className="max-w-[1400px] mx-auto flex flex-col items-center justify-center py-24">
+        <div className="relative mb-8">
+          <div className="absolute inset-0 blur-3xl opacity-20 bg-accent rounded-full scale-150" />
+          <svg width="64" height="64" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="relative">
+            <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+            <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+            <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+            <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+          </svg>
         </div>
+        <h2 className="text-[20px] font-semibold text-text-heading mb-2">Connect your first platform</h2>
+        <p className="text-[13px] text-text-dim max-w-md text-center mb-8">
+          MetricHQ combines your ad spend with revenue data to show you where your money goes and what it returns.
+        </p>
+        <div className="flex items-center gap-6 mb-10">
+          {[
+            { step: 1, label: 'Connect ads' },
+            { step: 2, label: 'Connect revenue' },
+            { step: 3, label: 'See profit' },
+          ].map(({ step, label }, i) => (
+            <div key={step} className="flex items-center gap-2">
+              {i > 0 && <div className="w-6 h-px bg-border-dim -ml-4 mr-0" />}
+              <div className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center text-[11px] font-semibold text-text-dim">
+                {step}
+              </div>
+              <span className="text-[12px] text-text-body">{label}</span>
+            </div>
+          ))}
+        </div>
+        <Link
+          href="/integrations"
+          className="bg-accent hover:bg-accent-hover px-6 py-2.5 rounded-lg text-[13px] font-semibold text-accent-text transition-colors"
+        >
+          Get started
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-6">
+      {/* Top bar: date range */}
+      <div className="flex justify-end">
+        <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} />
       </div>
 
       {/* 3 KPI cards */}
@@ -314,14 +401,20 @@ export default function DashboardPage() {
           value={`$${summary.totalSpend.toLocaleString()}`}
           currentValue={summary.totalSpend}
           previousValue={compSummary?.totalSpend}
+          invertComparison
         />
       </div>
 
       {/* Profit trend chart — linked to main date range */}
       <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
 
+      {/* Marketing Attribution */}
+      {(adPlatforms.length > 0 || unattributedRevenue > 0) && (
+        <MarketingAttribution platforms={platforms} unattributedRevenue={unattributedRevenue} />
+      )}
+
       {/* Countries + Campaigns side by side */}
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <CountryBreakdown countries={countries} />
 
         {adPlatforms.length > 0 ? (

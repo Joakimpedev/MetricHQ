@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Check, Minus } from 'lucide-react';
+import { ChevronUp, ChevronDown, Check, Minus, BarChart3 } from 'lucide-react';
 
 interface Campaign {
   campaignId?: string;
@@ -21,7 +21,7 @@ interface CampaignTableProps {
   campaigns: Campaign[];
 }
 
-type SortKey = 'spend' | 'impressions' | 'clicks' | 'ctr' | 'revenue' | 'profit' | 'purchases' | 'cpa';
+type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa' | 'roas';
 
 const PLATFORM_LABELS: Record<string, string> = {
   tiktok: 'TikTok Ads',
@@ -30,10 +30,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   linkedin: 'LinkedIn Ads',
 };
 type SortDir = 'asc' | 'desc';
-
-function getCtr(c: Campaign): number {
-  return c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
-}
 
 export default function CampaignTable({ platform, totalSpend, campaigns }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
@@ -46,12 +42,12 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
     const arr = [...campaigns];
     arr.sort((a, b) => {
       let av: number, bv: number;
-      if (sortKey === 'ctr') {
-        av = getCtr(a);
-        bv = getCtr(b);
-      } else if (sortKey === 'cpa') {
+      if (sortKey === 'cpa') {
         av = (a.purchases || 0) > 0 ? a.spend / (a.purchases || 1) : Infinity;
         bv = (b.purchases || 0) > 0 ? b.spend / (b.purchases || 1) : Infinity;
+      } else if (sortKey === 'roas') {
+        av = a.spend > 0 ? (a.revenue || 0) / a.spend : 0;
+        bv = b.spend > 0 ? (b.revenue || 0) / b.spend : 0;
       } else if (sortKey === 'revenue') {
         av = a.revenue || 0;
         bv = b.revenue || 0;
@@ -93,9 +89,9 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   const hasPurchases = campaigns.some(c => (c.purchases || 0) > 0);
   const colDefs: string[] = ['1fr'];
   if (hasAttribution) colDefs.push('2.5rem');
-  colDefs.push('5rem', '5rem', '4.5rem', '4rem');
+  colDefs.push('5rem');
   if (hasPurchases) colDefs.push('4rem', '4.5rem');
-  if (hasRevenue) colDefs.push('5rem', '5rem');
+  if (hasRevenue) colDefs.push('5rem', '5rem', '4.5rem');
   const gridTemplate = colDefs.join(' ');
 
   return (
@@ -116,15 +112,6 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
-            <button onClick={() => handleSort('impressions')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'impressions' ? 'text-text-body' : 'text-text-dim'}`}>
-              Impr.<SortIcon col="impressions" />
-            </button>
-            <button onClick={() => handleSort('clicks')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'clicks' ? 'text-text-body' : 'text-text-dim'}`}>
-              Clicks<SortIcon col="clicks" />
-            </button>
-            <button onClick={() => handleSort('ctr')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'ctr' ? 'text-text-body' : 'text-text-dim'}`}>
-              CTR<SortIcon col="ctr" />
-            </button>
             {hasPurchases && (
               <>
                 <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
@@ -143,6 +130,9 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                 <button onClick={() => handleSort('profit')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
                   Profit<SortIcon col="profit" />
                 </button>
+                <button onClick={() => handleSort('roas')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'roas' ? 'text-text-body' : 'text-text-dim'}`}>
+                  ROAS<SortIcon col="roas" />
+                </button>
               </>
             )}
           </div>
@@ -150,7 +140,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
           {/* Rows */}
           {sorted.map((c, i) => {
             const name = c.campaignName || c.campaignId || `Campaign ${i + 1}`;
-            const ctr = getCtr(c);
+            const roas = c.spend > 0 ? (c.revenue || 0) / c.spend : 0;
 
             return (
               <div
@@ -169,9 +159,6 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                   </span>
                 )}
                 <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${c.spend.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{c.impressions.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{c.clicks.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{ctr.toFixed(2)}%</span>
                 {hasPurchases && (
                   <>
                     <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
@@ -186,6 +173,9 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                     <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
                       ${(c.profit || 0).toLocaleString()}
                     </span>
+                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
+                      {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+                    </span>
                   </>
                 )}
               </div>
@@ -195,8 +185,9 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
       )}
 
       {campaigns.length === 0 && (
-        <div className="px-5 py-8 text-center text-text-dim text-[12px]">
-          No campaign data available
+        <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
+          <BarChart3 size={24} className="text-text-dim" />
+          <p className="text-text-dim text-[12px]">No campaign data</p>
         </div>
       )}
     </div>

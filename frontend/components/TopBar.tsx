@@ -3,15 +3,16 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useUser, SignOutButton } from '@clerk/nextjs';
-import { Sun, Moon, Settings, LogOut } from 'lucide-react';
+import { Sun, Moon, Settings, LogOut, Menu } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 
 interface TopBarProps {
   title: string;
   syncSlot?: React.ReactNode;
+  onMenuToggle?: () => void;
 }
 
-export default function TopBar({ title, syncSlot }: TopBarProps) {
+export default function TopBar({ title, syncSlot, onMenuToggle }: TopBarProps) {
   const { user } = useUser();
   const { theme, setTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -29,8 +30,15 @@ export default function TopBar({ title, syncSlot }: TopBarProps) {
 
   return (
     <div className="h-14 border-b border-border-dim bg-bg-body px-6 flex items-center justify-between shrink-0">
-      {/* Left: page title */}
-      <h1 className="text-[15px] font-semibold text-text-heading">{title}</h1>
+      {/* Left: hamburger + page title */}
+      <div className="flex items-center gap-3">
+        {onMenuToggle && (
+          <button onClick={onMenuToggle} className="md:hidden p-1 rounded-md hover:bg-bg-hover text-text-dim">
+            <Menu size={20} />
+          </button>
+        )}
+        <h1 className="text-[15px] font-semibold text-text-heading">{title}</h1>
+      </div>
 
       {/* Right cluster */}
       <div className="flex items-center gap-2">
