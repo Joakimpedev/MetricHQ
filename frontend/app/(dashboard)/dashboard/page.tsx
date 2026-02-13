@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ComparisonBadge } from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import MarketingAttribution from '../../../components/MarketingAttribution';
+import { useSubscription } from '../../../components/SubscriptionProvider';
+import OnboardingWizard from '../../../components/OnboardingWizard';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
@@ -214,6 +215,7 @@ function generateDemoData(dateRange: DateRange): MetricsData {
 export default function DashboardPage() {
   const { user } = useUser();
   const searchParams = useSearchParams();
+  const { subscription } = useSubscription();
   const isDemo = searchParams.get('demo') === 'true';
   const isEmbed = searchParams.get('embed') === 'true';
   const [data, setData] = useState<MetricsData | null>(null);
@@ -343,41 +345,8 @@ export default function DashboardPage() {
 
   if (!hasAnyData && !isDemo) {
     return (
-      <div className="max-w-[1400px] mx-auto flex flex-col items-center justify-center py-24">
-        <div className="relative mb-8">
-          <div className="absolute inset-0 blur-3xl opacity-20 bg-accent rounded-full scale-150" />
-          <svg width="64" height="64" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="relative">
-            <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
-            <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
-            <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
-            <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
-          </svg>
-        </div>
-        <h2 className="text-[20px] font-semibold text-text-heading mb-2">Connect your first platform</h2>
-        <p className="text-[13px] text-text-dim max-w-md text-center mb-8">
-          MetricHQ combines your ad spend with revenue data to show you where your money goes and what it returns.
-        </p>
-        <div className="flex items-center gap-6 mb-10">
-          {[
-            { step: 1, label: 'Connect ads' },
-            { step: 2, label: 'Connect revenue' },
-            { step: 3, label: 'See profit' },
-          ].map(({ step, label }, i) => (
-            <div key={step} className="flex items-center gap-2">
-              {i > 0 && <div className="w-6 h-px bg-border-dim -ml-4 mr-0" />}
-              <div className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center text-[11px] font-semibold text-text-dim">
-                {step}
-              </div>
-              <span className="text-[12px] text-text-body">{label}</span>
-            </div>
-          ))}
-        </div>
-        <Link
-          href="/integrations"
-          className="bg-accent hover:bg-accent-hover px-6 py-2.5 rounded-lg text-[13px] font-semibold text-accent-text transition-colors"
-        >
-          Get started
-        </Link>
+      <div className="max-w-[1400px] mx-auto">
+        <OnboardingWizard userId={user!.id} onComplete={() => fetchMetrics()} />
       </div>
     );
   }
@@ -386,7 +355,7 @@ export default function DashboardPage() {
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Top bar: date range */}
       <div className="flex justify-end">
-        <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} />
+        <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} dataRetentionDays={isDemo ? undefined : subscription?.limits?.dataRetentionDays} />
       </div>
 
       {/* KPI bar */}
