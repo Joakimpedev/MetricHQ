@@ -371,6 +371,17 @@ export default function DashboardPage() {
 
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
+  const hasAnyData = summary.totalSpend > 0 || summary.totalRevenue > 0 || countries.length > 0 || timeSeries.length > 0;
+
+  // Fallback: if data loaded but everything is empty, show wizard as a second chance
+  if (!hasAnyData && !isDemo && user?.id) {
+    return (
+      <div className="max-w-[1400px] mx-auto">
+        <OnboardingWizard userId={user.id} onComplete={() => { setShowOnboarding(false); fetchMetrics(); }} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Top bar: date range */}
