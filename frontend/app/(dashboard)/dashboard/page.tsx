@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import KPICard from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
@@ -26,10 +27,14 @@ interface Campaign {
   spend: number;
   impressions: number;
   clicks: number;
+  revenue?: number;
+  purchases?: number;
+  profit?: number;
 }
 
 interface Platform {
   totalSpend: number;
+  totalRevenue?: number;
   campaigns: Campaign[];
 }
 
@@ -98,8 +103,107 @@ function formatCompareLabel(range: DateRange): string {
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
+function generateDemoData(dateRange: DateRange): MetricsData {
+  const start = new Date(dateRange.startDate + 'T00:00:00');
+  const end = new Date(dateRange.endDate + 'T00:00:00');
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+
+  const timeSeries: TimeSeriesPoint[] = [];
+  let totalSpend = 0, totalRevenue = 0;
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const spend = 120 + Math.round(Math.random() * 80);
+    const revenue = 180 + Math.round(Math.random() * 150);
+    totalSpend += spend;
+    totalRevenue += revenue;
+    timeSeries.push({
+      date: fmtDate(d),
+      spend,
+      revenue,
+      profit: revenue - spend,
+      purchases: 3 + Math.floor(Math.random() * 8),
+    });
+  }
+
+  const totalPurchases = timeSeries.reduce((s, p) => s + p.purchases, 0);
+
+  return {
+    summary: {
+      totalSpend,
+      totalRevenue,
+      totalProfit: totalRevenue - totalSpend,
+      cpa: totalPurchases > 0 ? Math.round(totalSpend / totalPurchases * 100) / 100 : 0,
+      totalPurchases,
+    },
+    comparison: {
+      summary: {
+        totalSpend: Math.round(totalSpend * 0.85),
+        totalRevenue: Math.round(totalRevenue * 0.72),
+        totalProfit: Math.round(totalRevenue * 0.72 - totalSpend * 0.85),
+        cpa: 28.5,
+        totalPurchases: Math.round(totalPurchases * 0.8),
+      },
+      timeSeries: timeSeries.map(p => ({
+        ...p,
+        spend: Math.round(p.spend * 0.85),
+        revenue: Math.round(p.revenue * 0.72),
+        profit: Math.round(p.revenue * 0.72 - p.spend * 0.85),
+        purchases: Math.max(1, p.purchases - 2),
+      })),
+    },
+    countries: [
+      { code: 'US', name: 'United States', spend: Math.round(totalSpend * 0.45), revenue: Math.round(totalRevenue * 0.5), profit: Math.round(totalRevenue * 0.5 - totalSpend * 0.45), roas: 2.1, purchases: Math.round(totalPurchases * 0.4) },
+      { code: 'GB', name: 'United Kingdom', spend: Math.round(totalSpend * 0.18), revenue: Math.round(totalRevenue * 0.2), profit: Math.round(totalRevenue * 0.2 - totalSpend * 0.18), roas: 1.8, purchases: Math.round(totalPurchases * 0.2) },
+      { code: 'DE', name: 'Germany', spend: Math.round(totalSpend * 0.12), revenue: Math.round(totalRevenue * 0.12), profit: Math.round(totalRevenue * 0.12 - totalSpend * 0.12), roas: 1.5, purchases: Math.round(totalPurchases * 0.15) },
+      { code: 'NO', name: 'Norway', spend: Math.round(totalSpend * 0.08), revenue: Math.round(totalRevenue * 0.1), profit: Math.round(totalRevenue * 0.1 - totalSpend * 0.08), roas: 2.4, purchases: Math.round(totalPurchases * 0.1) },
+      { code: 'CA', name: 'Canada', spend: Math.round(totalSpend * 0.1), revenue: Math.round(totalRevenue * 0.05), profit: Math.round(totalRevenue * 0.05 - totalSpend * 0.1), roas: 0.8, purchases: Math.round(totalPurchases * 0.08) },
+      { code: 'AU', name: 'Australia', spend: Math.round(totalSpend * 0.07), revenue: Math.round(totalRevenue * 0.03), profit: Math.round(totalRevenue * 0.03 - totalSpend * 0.07), roas: 0.6, purchases: Math.round(totalPurchases * 0.07) },
+    ],
+    platforms: {
+      google_ads: {
+        totalSpend: Math.round(totalSpend * 0.5),
+        totalRevenue: 0,
+        campaigns: [
+          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.2), impressions: 14200, clicks: 890, revenue: 0, purchases: 0, profit: 0 },
+          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.15), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: 0 },
+          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.15), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: 0 },
+        ],
+      },
+      meta: {
+        totalSpend: Math.round(totalSpend * 0.3),
+        totalRevenue: 0,
+        campaigns: [
+          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.18), impressions: 22000, clicks: 440, revenue: 0, purchases: 0, profit: 0 },
+          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.12), impressions: 9500, clicks: 380, revenue: 0, purchases: 0, profit: 0 },
+        ],
+      },
+      linkedin: {
+        totalSpend: Math.round(totalSpend * 0.2),
+        totalRevenue: 0,
+        campaigns: [
+          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: 0, purchases: 0, profit: 0 },
+          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: 0, purchases: 0, profit: 0 },
+        ],
+      },
+      stripe: {
+        totalSpend: 0,
+        totalRevenue: Math.round(totalRevenue * 0.7),
+        campaigns: [
+          { campaignId: 'brand_search_us', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.35), purchases: Math.round(totalPurchases * 0.3), profit: Math.round(totalRevenue * 0.35) },
+          { campaignId: 'lookalike_saas', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.2), purchases: Math.round(totalPurchases * 0.2), profit: Math.round(totalRevenue * 0.2) },
+          { campaignId: 'retargeting_site', spend: 0, impressions: 0, clicks: 0, revenue: Math.round(totalRevenue * 0.15), purchases: Math.round(totalPurchases * 0.15), profit: Math.round(totalRevenue * 0.15) },
+        ],
+      },
+    },
+    timeSeries,
+  };
+}
+
 export default function DashboardPage() {
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get('demo') === 'true';
   const [data, setData] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +214,11 @@ export default function DashboardPage() {
   const compareLabel = useMemo(() => formatCompareLabel(dateRange), [dateRange]);
 
   const fetchMetrics = useCallback(async () => {
+    if (isDemo) {
+      setData(generateDemoData(dateRange));
+      setLoading(false);
+      return;
+    }
     if (!user?.id) return;
     setLoading(true);
     setError(null);
@@ -135,12 +244,16 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, dateRange]);
+  }, [user?.id, dateRange, isDemo]);
 
   useEffect(() => {
+    if (isDemo) {
+      fetchMetrics();
+      return;
+    }
     if (!user?.id) return;
     fetchMetrics();
-  }, [user?.id, fetchMetrics]);
+  }, [user?.id, fetchMetrics, isDemo]);
 
   if (loading) {
     return (
