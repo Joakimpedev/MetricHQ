@@ -60,9 +60,9 @@ async function createCheckout(req, res) {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-    // Give 14-day free trial if user has no existing Stripe subscription
-    const isNewSubscriber = !sub.stripeSubscriptionId || sub.status === 'trial' || sub.status === 'cancelled';
-
+    // Trial is configured on the Price itself in Stripe Dashboard (14 days).
+    // No trial_period_days here — letting the Price-level trial handle it
+    // so Stripe shows "$0.00 due today" instead of "X days free".
     const sessionParams = {
       customer: customerId,
       mode: 'subscription',
@@ -71,15 +71,6 @@ async function createCheckout(req, res) {
       cancel_url: `${frontendUrl}/pricing?billing=cancelled`,
       metadata: { internalUserId: String(internalUserId) },
     };
-
-    if (isNewSubscriber && sub.trialEnd) {
-      const remaining = Math.ceil((new Date(sub.trialEnd) - Date.now()) / 86400000);
-      if (remaining > 0) {
-        sessionParams.subscription_data = { trial_period_days: remaining };
-      }
-    } else if (isNewSubscriber) {
-      sessionParams.subscription_data = { trial_period_days: 14 };
-    }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
