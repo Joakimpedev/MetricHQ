@@ -72,7 +72,12 @@ async function createCheckout(req, res) {
       metadata: { internalUserId: String(internalUserId) },
     };
 
-    if (isNewSubscriber) {
+    if (isNewSubscriber && sub.trialEnd) {
+      const remaining = Math.ceil((new Date(sub.trialEnd) - Date.now()) / 86400000);
+      if (remaining > 0) {
+        sessionParams.subscription_data = { trial_period_days: remaining };
+      }
+    } else if (isNewSubscriber) {
       sessionParams.subscription_data = { trial_period_days: 14 };
     }
 
