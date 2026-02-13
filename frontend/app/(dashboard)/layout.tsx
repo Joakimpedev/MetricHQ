@@ -158,6 +158,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           .embed-mode .w-\\[220px\\] {
             width: 190px;
           }
+
+          /* Hide "Connect platform" card in embed */
+          .embed-mode a[href="/integrations"] {
+            display: none;
+          }
         `}</style>
         <main className="p-4">{children}</main>
       </div>

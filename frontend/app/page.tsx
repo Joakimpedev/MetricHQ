@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import { BarChart3, TrendingUp, Globe } from 'lucide-react';
+import { BarChart3, TrendingUp, Globe, Sun, Moon, Check } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import DashboardPreview from '@/components/DashboardPreview';
 
 const CLERK_ENABLED =
@@ -127,8 +128,136 @@ function MetricHQLogo() {
   );
 }
 
+/* ── Pricing ── */
+
+const PLANS = [
+  {
+    name: 'Starter',
+    monthlyPrice: 29,
+    yearlyPrice: 24,
+    description: 'For solo founders getting started with paid ads.',
+    features: [
+      '1 ad platform (Google, Meta, or LinkedIn)',
+      'Stripe revenue tracking',
+      'Country-level breakdown',
+      'Daily sync',
+      '30-day data retention',
+    ],
+  },
+  {
+    name: 'Pro',
+    monthlyPrice: 79,
+    yearlyPrice: 66,
+    popular: true,
+    description: 'For teams scaling across multiple ad channels.',
+    features: [
+      'All ad platforms',
+      'Stripe revenue tracking',
+      'Country + campaign P&L',
+      'Sync every 4 hours',
+      'Unlimited data retention',
+      'Team access (up to 5)',
+    ],
+  },
+];
+
+function PricingSection() {
+  const [yearly, setYearly] = useState(false);
+
+  return (
+    <section id="pricing" className="border-t border-border-dim">
+      <div className="max-w-4xl mx-auto px-6 py-20">
+        <h2 className="text-2xl font-bold text-center mb-3 text-text-heading">Simple, transparent pricing</h2>
+        <p className="text-text-dim text-center mb-8 max-w-lg mx-auto">
+          A fraction of what Triple Whale or Hyros charge. No hidden fees.
+        </p>
+
+        {/* Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-12">
+          <span className={`text-sm ${!yearly ? 'text-text-heading font-medium' : 'text-text-dim'}`}>Monthly</span>
+          <button
+            onClick={() => setYearly(y => !y)}
+            className="relative w-12 h-6 rounded-full bg-bg-elevated border border-border-dim transition-colors"
+          >
+            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-accent transition-transform ${yearly ? 'translate-x-6' : 'translate-x-0.5'}`} />
+          </button>
+          <span className={`text-sm ${yearly ? 'text-text-heading font-medium' : 'text-text-dim'}`}>
+            Yearly <span className="text-success text-[12px] font-medium">Save 17%</span>
+          </span>
+        </div>
+
+        {/* Cards */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {PLANS.map(plan => {
+            const price = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+            return (
+              <div
+                key={plan.name}
+                className={`rounded-xl border p-6 ${
+                  plan.popular
+                    ? 'border-accent bg-accent-muted'
+                    : 'border-border-dim bg-bg-surface'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-semibold text-text-heading">{plan.name}</h3>
+                  {plan.popular && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wider bg-accent text-accent-text px-2 py-0.5 rounded-full">
+                      Popular
+                    </span>
+                  )}
+                </div>
+                <p className="text-text-dim text-sm mb-4">{plan.description}</p>
+                <div className="mb-6">
+                  <span className="text-4xl font-bold text-text-heading">${price}</span>
+                  <span className="text-text-dim text-sm">/mo</span>
+                  {yearly && (
+                    <span className="text-text-dim text-[12px] ml-2">billed yearly</span>
+                  )}
+                </div>
+                <ul className="space-y-2.5 mb-6">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-text-body">
+                      <Check size={16} className="text-success mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                {CLERK_ENABLED ? (
+                  <SignInButton mode="modal">
+                    <button className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      plan.popular
+                        ? 'bg-accent hover:bg-accent-hover text-accent-text'
+                        : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
+                    }`}>
+                      Start free trial
+                    </button>
+                  </SignInButton>
+                ) : (
+                  <Link
+                    href="/dashboard"
+                    className={`block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-colors ${
+                      plan.popular
+                        ? 'bg-accent hover:bg-accent-hover text-accent-text'
+                        : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
+                    }`}
+                  >
+                    Start free trial
+                  </Link>
+                )}
+                <p className="text-[12px] text-text-dim text-center mt-2">30 days free. No card required.</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const { isSignedIn, isLoaded } = useUser();
+  const { theme, setTheme } = useTheme();
 
   if (CLERK_ENABLED && isLoaded && isSignedIn) {
     return (
@@ -174,33 +303,45 @@ export default function LandingPage() {
               <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
             </span>
           </div>
-          {CLERK_ENABLED && (
-            <SignInButton mode="modal">
-              <button className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
-                Sign in
-              </button>
-            </SignInButton>
-          )}
-          {!CLERK_ENABLED && (
-            <Link href="/dashboard" className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
-              Dashboard
-            </Link>
-          )}
+          <div className="flex items-center gap-4">
+            <a href="#pricing" className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors hidden sm:block">
+              Pricing
+            </a>
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-lg hover:bg-bg-hover text-text-dim hover:text-text-heading transition-colors"
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            {CLERK_ENABLED && (
+              <SignInButton mode="modal">
+                <button className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
+                  Sign in
+                </button>
+              </SignInButton>
+            )}
+            {!CLERK_ENABLED && (
+              <Link href="/dashboard" className="text-text-dim hover:text-text-heading text-sm font-medium transition-colors">
+                Dashboard
+              </Link>
+            )}
+          </div>
         </nav>
 
         <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-24 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 text-text-heading">
-            See your real profit{' '}
-            <span className="text-accent">by country</span>
+            Running ads on your SaaS?{' '}
+            <span className="text-accent">See what&apos;s working.</span>
           </h1>
           <p className="text-lg sm:text-xl text-text-dim max-w-2xl mx-auto mb-10">
-            Connect Google Ads, Meta, and LinkedIn with Stripe. See ad spend and revenue in one dashboard.
+            Connect Google Ads, Meta, and LinkedIn with Stripe. Get a single dashboard that shows ad spend, revenue, and profit — by campaign and country.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {CLERK_ENABLED && (
               <SignInButton mode="modal">
                 <button className="bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors">
-                  Try it free
+                  Start free trial
                 </button>
               </SignInButton>
             )}
@@ -209,7 +350,7 @@ export default function LandingPage() {
                 href="/dashboard"
                 className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors"
               >
-                Try it free
+                Start free trial
               </Link>
             )}
             <a
@@ -219,15 +360,12 @@ export default function LandingPage() {
               See demo
             </a>
           </div>
+          <p className="text-[13px] text-text-dim mt-4">30 days free. No credit card required.</p>
         </div>
       </header>
 
       {/* Dashboard Preview */}
-      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-20 scroll-mt-8">
-        <h2 className="text-2xl font-bold text-center mb-3 text-text-heading">Your profit dashboard</h2>
-        <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
-          Ad spend from every platform, revenue from Stripe — profit calculated automatically.
-        </p>
+      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-16 scroll-mt-8">
         <DashboardPreview />
         <div className="text-center mt-6">
           <Link
@@ -270,8 +408,8 @@ export default function LandingPage() {
                 <MetricHQLogo />
               </div>
               <div className="text-[11px] font-medium uppercase tracking-wider text-accent mb-2">Step 3</div>
-              <h3 className="font-semibold text-lg mb-2 text-text-heading">See profit by country</h3>
-              <p className="text-text-dim text-sm">Your dashboard shows exactly where you make money and where you lose it.</p>
+              <h3 className="font-semibold text-lg mb-2 text-text-heading">See your P&amp;L</h3>
+              <p className="text-text-dim text-sm">Your dashboard shows exactly where you make money and where you lose it — by campaign and country.</p>
             </div>
           </div>
         </div>
@@ -299,12 +437,15 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <PricingSection />
+
       {/* Waitlist */}
       <section className="border-t border-border-dim">
         <div className="max-w-2xl mx-auto px-6 py-20 text-center">
           <h2 className="text-2xl font-bold mb-4 text-text-heading">Stop guessing. Start tracking.</h2>
           <p className="text-text-dim mb-8">
-            Free for your first 30 days. No credit card required.
+            Join the waitlist and be the first to know when we launch.
           </p>
           <WaitlistForm />
         </div>
@@ -315,6 +456,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-text-dim text-sm">MetricHQ</span>
           <div className="flex gap-6">
+            <a href="#pricing" className="text-text-dim hover:text-text-body text-sm transition-colors">
+              Pricing
+            </a>
             <Link href="/dashboard" className="text-text-dim hover:text-text-body text-sm transition-colors">
               Dashboard
             </Link>
