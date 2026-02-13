@@ -183,14 +183,14 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       },
       linkedin: {
         totalSpend: Math.round(totalSpend * 0.2),
-        totalRevenue: 0,
+        totalRevenue: Math.round(totalRevenue * 0.15),
         campaigns: [
-          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.12), attributed: false },
-          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.08), attributed: false },
+          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: Math.round(totalRevenue * 0.1), purchases: Math.round(totalPurchases * 0.08), profit: Math.round(totalRevenue * 0.1) - Math.round(totalSpend * 0.12), attributed: true },
+          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: Math.round(totalRevenue * 0.05), purchases: Math.round(totalPurchases * 0.04), profit: Math.round(totalRevenue * 0.05) - Math.round(totalSpend * 0.08), attributed: true },
         ],
       },
     },
-    unattributedRevenue: Math.round(totalRevenue * 0.3),
+    unattributedRevenue: Math.round(totalRevenue * 0.15),
     timeSeries,
   };
 }
