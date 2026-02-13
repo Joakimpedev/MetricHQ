@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 export interface DateRange {
   startDate: string; // YYYY-MM-DD
@@ -16,7 +16,6 @@ interface DateRangeSelectorProps {
   compareLabel?: string;
 }
 
-/** Format Date to YYYY-MM-DD in local timezone (not UTC) */
 function fmtDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -76,10 +75,9 @@ function inRange(day: Date, start: Date | null, end: Date | null): boolean {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-function MiniCalendar({ year, month, selStart, selEnd, compStart, compEnd, onDayClick }: {
+function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
   year: number; month: number;
   selStart: Date | null; selEnd: Date | null;
-  compStart?: Date | null; compEnd?: Date | null;
   onDayClick: (d: Date) => void;
 }) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -105,8 +103,6 @@ function MiniCalendar({ year, month, selStart, selEnd, compStart, compEnd, onDay
           const isToday = isSameDay(d, today);
           const isSelected = (selStart && isSameDay(d, selStart)) || (selEnd && isSameDay(d, selEnd));
           const isInRange = inRange(d, selStart, selEnd) && !isSelected;
-          const isCompSelected = (compStart && isSameDay(d, compStart)) || (compEnd && isSameDay(d, compEnd));
-          const isCompInRange = inRange(d, compStart || null, compEnd || null) && !isCompSelected;
           const isFuture = d.getTime() > today.getTime();
 
           return (
@@ -116,9 +112,7 @@ function MiniCalendar({ year, month, selStart, selEnd, compStart, compEnd, onDay
               onClick={() => onDayClick(d)}
               className={`w-7 h-7 text-[11px] rounded transition-colors flex items-center justify-center ${
                 isSelected ? 'bg-accent text-accent-text font-medium' :
-                isCompSelected ? 'bg-text-dim/30 text-text-heading font-medium' :
                 isInRange ? 'bg-accent/10 text-text-heading' :
-                isCompInRange ? 'bg-text-dim/10 text-text-body' :
                 isToday ? 'text-accent font-medium ring-1 ring-accent/30' :
                 isFuture ? 'text-text-dim/30 cursor-not-allowed' :
                 'text-text-body hover:bg-bg-hover'
@@ -133,80 +127,72 @@ function MiniCalendar({ year, month, selStart, selEnd, compStart, compEnd, onDay
   );
 }
 
-type CompareMode = 'previous' | 'custom';
+type OpenPanel = 'main' | 'compare' | null;
 
 export default function DateRangeSelector({ value, onChange, compareLabel }: DateRangeSelectorProps) {
-  const [open, setOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const [draftStart, setDraftStart] = useState<Date | null>(null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(null);
   const [pickingStart, setPickingStart] = useState(true);
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
-  const [compareMode, setCompareMode] = useState<CompareMode>(() => value.compareStartDate ? 'custom' : 'previous');
-  const [compStart, setCompStart] = useState<Date | null>(null);
-  const [compEnd, setCompEnd] = useState<Date | null>(null);
-  const [pickingComp, setPickingComp] = useState(false);
-  const [pickingCompStart, setPickingCompStart] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Second calendar is next month
   const cal2Month = calMonth === 11 ? 0 : calMonth + 1;
   const cal2Year = calMonth === 11 ? calYear + 1 : calYear;
 
+  const isCustomCompare = !!value.compareStartDate;
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpenPanel(null);
     };
-    if (open) document.addEventListener('mousedown', handler);
+    if (openPanel) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [openPanel]);
 
-  function openDropdown() {
+  function openMain() {
     setDraftStart(parseDate(value.startDate));
     setDraftEnd(parseDate(value.endDate));
     setPickingStart(true);
-    setPickingComp(false);
     const s = parseDate(value.startDate);
     setCalMonth(s.getMonth());
     setCalYear(s.getFullYear());
-    setCompareMode(value.compareStartDate ? 'custom' : 'previous');
-    setCompStart(value.compareStartDate ? parseDate(value.compareStartDate) : null);
-    setCompEnd(value.compareEndDate ? parseDate(value.compareEndDate) : null);
-    setOpen(true);
+    setOpenPanel('main');
+  }
+
+  function openCompare() {
+    if (value.compareStartDate && value.compareEndDate) {
+      setDraftStart(parseDate(value.compareStartDate));
+      setDraftEnd(parseDate(value.compareEndDate));
+      const s = parseDate(value.compareStartDate);
+      setCalMonth(s.getMonth());
+      setCalYear(s.getFullYear());
+    } else {
+      // Start from the auto comparison range
+      setDraftStart(null);
+      setDraftEnd(null);
+      const s = parseDate(value.startDate);
+      setCalMonth(s.getMonth() === 0 ? 11 : s.getMonth() - 1);
+      setCalYear(s.getMonth() === 0 ? s.getFullYear() - 1 : s.getFullYear());
+    }
+    setPickingStart(true);
+    setOpenPanel('compare');
   }
 
   function handleDayClick(d: Date) {
-    if (pickingComp) {
-      // Picking comparison dates
-      if (pickingCompStart) {
-        setCompStart(d);
-        setCompEnd(null);
-        setPickingCompStart(false);
-      } else {
-        if (compStart && d < compStart) {
-          setCompStart(d);
-          setCompEnd(compStart);
-        } else {
-          setCompEnd(d);
-        }
-        setPickingCompStart(true);
-        setPickingComp(false);
-      }
+    if (pickingStart) {
+      setDraftStart(d);
+      setDraftEnd(null);
+      setPickingStart(false);
     } else {
-      // Picking main dates
-      if (pickingStart) {
+      if (draftStart && d < draftStart) {
         setDraftStart(d);
-        setDraftEnd(null);
-        setPickingStart(false);
+        setDraftEnd(draftStart);
       } else {
-        if (draftStart && d < draftStart) {
-          setDraftStart(d);
-          setDraftEnd(draftStart);
-        } else {
-          setDraftEnd(d);
-        }
-        setPickingStart(true);
+        setDraftEnd(d);
       }
+      setPickingStart(true);
     }
   }
 
@@ -215,23 +201,41 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     setDraftStart(parseDate(r.startDate));
     setDraftEnd(parseDate(r.endDate));
     setPickingStart(true);
-    setPickingComp(false);
     const s = parseDate(r.startDate);
     setCalMonth(s.getMonth());
     setCalYear(s.getFullYear());
   }
 
   function handleDone() {
-    const result: DateRange = {
-      startDate: draftStart ? fmtDate(draftStart) : value.startDate,
-      endDate: (draftEnd || draftStart) ? fmtDate(draftEnd || draftStart!) : value.endDate,
-    };
-    if (compareMode === 'custom' && compStart && compEnd) {
-      result.compareStartDate = fmtDate(compStart);
-      result.compareEndDate = fmtDate(compEnd);
+    if (openPanel === 'main') {
+      const result: DateRange = {
+        startDate: draftStart ? fmtDate(draftStart) : value.startDate,
+        endDate: (draftEnd || draftStart) ? fmtDate(draftEnd || draftStart!) : value.endDate,
+      };
+      // Preserve existing custom compare
+      if (value.compareStartDate) {
+        result.compareStartDate = value.compareStartDate;
+        result.compareEndDate = value.compareEndDate;
+      }
+      onChange(result);
+    } else if (openPanel === 'compare') {
+      if (draftStart && draftEnd) {
+        onChange({
+          ...value,
+          compareStartDate: fmtDate(draftStart),
+          compareEndDate: fmtDate(draftEnd),
+        });
+      }
     }
-    onChange(result);
-    setOpen(false);
+    setOpenPanel(null);
+  }
+
+  function resetCompare() {
+    onChange({
+      startDate: value.startDate,
+      endDate: value.endDate,
+    });
+    setOpenPanel(null);
   }
 
   function prevMonth() {
@@ -243,7 +247,6 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     else setCalMonth(m => m + 1);
   }
 
-  // Check which preset matches draft
   const activePreset = useMemo(() => {
     if (!draftStart || !draftEnd) return null;
     const ds = fmtDate(draftStart);
@@ -251,158 +254,107 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     return PRESETS.find(p => { const pd = p.getDates(); return pd.startDate === ds && pd.endDate === de; })?.label || null;
   }, [draftStart, draftEnd]);
 
-  const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Shared dropdown panel
+  const dropdownPanel = openPanel && (
+    <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex">
+      {/* Presets sidebar */}
+      <div className="w-36 border-r border-border-dim py-2 shrink-0">
+        {PRESETS.map(p => (
+          <button
+            key={p.label}
+            onClick={() => handlePreset(p)}
+            className={`block w-full text-left px-4 py-2 text-[12px] transition-colors ${
+              activePreset === p.label
+                ? 'text-accent font-medium bg-accent-muted'
+                : 'text-text-body hover:bg-bg-hover hover:text-text-heading'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Calendar area */}
+      <div className="p-4">
+        {/* Date inputs row */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
+            {draftStart ? draftStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+          </div>
+          <span className="text-text-dim text-[12px]">&rarr;</span>
+          <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
+            {draftEnd ? draftEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+          </div>
+        </div>
+
+        {/* Navigation + 2 calendars */}
+        <div className="flex items-start gap-4">
+          <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
+            <ChevronLeft size={16} />
+          </button>
+          <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+          <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+          <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-dim">
+          {openPanel === 'compare' && isCustomCompare && (
+            <button
+              onClick={resetCompare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors mr-auto"
+            >
+              <RotateCcw size={12} />
+              Reset to auto
+            </button>
+          )}
+          <button
+            onClick={() => setOpenPanel(null)}
+            className="px-4 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDone}
+            disabled={!draftStart || !draftEnd}
+            className="px-4 py-1.5 rounded-md text-[12px] font-medium bg-accent text-accent-text hover:bg-accent-hover transition-colors disabled:opacity-40"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex items-center gap-2" ref={ref}>
-      {/* Trigger button */}
+      {/* Main date range trigger */}
       <div className="relative">
         <button
-          onClick={openDropdown}
+          onClick={openMain}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface hover:bg-bg-hover text-[12px] text-text-heading transition-colors"
         >
           <CalendarIcon size={14} className="text-text-dim" />
           {displayLabel(value)}
         </button>
-
-        {/* Dropdown */}
-        {open && (
-          <div className="absolute right-0 top-full mt-1.5 z-50 bg-bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex">
-            {/* Presets sidebar */}
-            <div className="w-36 border-r border-border-dim py-2 shrink-0">
-              {PRESETS.map(p => (
-                <button
-                  key={p.label}
-                  onClick={() => handlePreset(p)}
-                  className={`block w-full text-left px-4 py-2 text-[12px] transition-colors ${
-                    activePreset === p.label
-                      ? 'text-accent font-medium bg-accent-muted'
-                      : 'text-text-body hover:bg-bg-hover hover:text-text-heading'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Calendar area */}
-            <div className="p-4">
-              {/* Date inputs row */}
-              <div className="flex items-center gap-2 mb-4">
-                <button
-                  onClick={() => { setPickingComp(false); setPickingStart(true); }}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
-                    !pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
-                  }`}
-                >
-                  {draftStart ? fmtShort(draftStart) : '—'}
-                </button>
-                <span className="text-text-dim text-[12px]">&rarr;</span>
-                <button
-                  onClick={() => { setPickingComp(false); setPickingStart(false); }}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
-                    !pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
-                  }`}
-                >
-                  {draftEnd ? fmtShort(draftEnd) : '—'}
-                </button>
-              </div>
-
-              {/* Navigation + 2 calendars */}
-              <div className="flex items-start gap-4">
-                <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
-                  <ChevronLeft size={16} />
-                </button>
-                <MiniCalendar
-                  year={calYear} month={calMonth}
-                  selStart={draftStart} selEnd={draftEnd}
-                  compStart={compareMode === 'custom' ? compStart : undefined}
-                  compEnd={compareMode === 'custom' ? compEnd : undefined}
-                  onDayClick={handleDayClick}
-                />
-                <MiniCalendar
-                  year={cal2Year} month={cal2Month}
-                  selStart={draftStart} selEnd={draftEnd}
-                  compStart={compareMode === 'custom' ? compStart : undefined}
-                  compEnd={compareMode === 'custom' ? compEnd : undefined}
-                  onDayClick={handleDayClick}
-                />
-                <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
-              {/* Compare section */}
-              <div className="mt-4 pt-3 border-t border-border-dim">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Compare to</span>
-                  <div className="flex rounded-md border border-border-dim overflow-hidden">
-                    <button
-                      onClick={() => { setCompareMode('previous'); setPickingComp(false); }}
-                      className={`px-3 py-1 text-[11px] transition-colors ${
-                        compareMode === 'previous' ? 'bg-accent text-accent-text font-medium' : 'text-text-body hover:bg-bg-hover'
-                      }`}
-                    >
-                      Previous period
-                    </button>
-                    <button
-                      onClick={() => setCompareMode('custom')}
-                      className={`px-3 py-1 text-[11px] border-l border-border-dim transition-colors ${
-                        compareMode === 'custom' ? 'bg-accent text-accent-text font-medium' : 'text-text-body hover:bg-bg-hover'
-                      }`}
-                    >
-                      Custom
-                    </button>
-                  </div>
-                </div>
-                {compareMode === 'custom' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { setPickingComp(true); setPickingCompStart(true); }}
-                      className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
-                        pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
-                      }`}
-                    >
-                      {compStart ? fmtShort(compStart) : 'Start'}
-                    </button>
-                    <span className="text-text-dim text-[12px]">&rarr;</span>
-                    <button
-                      onClick={() => { setPickingComp(true); setPickingCompStart(false); }}
-                      className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
-                        pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
-                      }`}
-                    >
-                      {compEnd ? fmtShort(compEnd) : 'End'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-border-dim">
-                <button
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-1.5 rounded-md text-[12px] text-text-dim hover:bg-bg-hover transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDone}
-                  className="px-4 py-1.5 rounded-md text-[12px] font-medium bg-accent text-accent-text hover:bg-accent-hover transition-colors"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {openPanel === 'main' && dropdownPanel}
       </div>
 
-      {/* Compare badge — inline next to trigger */}
+      {/* Compare trigger — clickable badge */}
       {compareLabel && (
-        <span className="px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface text-[12px] text-text-dim shrink-0">
-          vs {compareLabel}
-        </span>
+        <div className="relative">
+          <button
+            onClick={openCompare}
+            className={`px-3 py-1.5 rounded-lg border bg-bg-surface text-[12px] shrink-0 transition-colors hover:bg-bg-hover ${
+              isCustomCompare ? 'border-accent/40 text-text-heading' : 'border-border-dim text-text-dim'
+            }`}
+          >
+            vs {compareLabel}
+          </button>
+          {openPanel === 'compare' && dropdownPanel}
+        </div>
       )}
     </div>
   );
