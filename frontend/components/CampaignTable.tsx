@@ -93,36 +93,36 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim bg-accent-muted">
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
       </div>
 
       {campaigns.length > 0 && (
         <>
           {/* Column headers */}
-          <div className="col-striped grid gap-2 px-5 py-2 border-b border-border-dim bg-accent-muted" style={{ gridTemplateColumns: gridTemplate }}>
-            <span className="text-[10px] uppercase tracking-wider text-text-dim">Campaign</span>
+          <div className="grid px-5 py-2 border-b border-border-dim" style={{ gridTemplateColumns: gridTemplate }}>
+            <span className="text-[10px] uppercase tracking-wider text-text-dim pr-2">Campaign</span>
             {hasAttribution && (
-              <span className="text-[10px] uppercase tracking-wider text-text-dim text-center">Attr.</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-dim text-center border-l border-border-dim/40 px-2">Attr.</span>
             )}
-            <button onClick={() => handleSort('spend')} className={`${headerClass} text-right ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
+            <button onClick={() => handleSort('spend')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
-            <button onClick={() => handleSort('impressions')} className={`${headerClass} text-right ${sortKey === 'impressions' ? 'text-text-body' : 'text-text-dim'}`}>
+            <button onClick={() => handleSort('impressions')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'impressions' ? 'text-text-body' : 'text-text-dim'}`}>
               Impr.<SortIcon col="impressions" />
             </button>
-            <button onClick={() => handleSort('clicks')} className={`${headerClass} text-right ${sortKey === 'clicks' ? 'text-text-body' : 'text-text-dim'}`}>
+            <button onClick={() => handleSort('clicks')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'clicks' ? 'text-text-body' : 'text-text-dim'}`}>
               Clicks<SortIcon col="clicks" />
             </button>
-            <button onClick={() => handleSort('ctr')} className={`${headerClass} text-right ${sortKey === 'ctr' ? 'text-text-body' : 'text-text-dim'}`}>
+            <button onClick={() => handleSort('ctr')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'ctr' ? 'text-text-body' : 'text-text-dim'}`}>
               CTR<SortIcon col="ctr" />
             </button>
             {hasRevenue && (
               <>
-                <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
+                <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
                   Revenue<SortIcon col="revenue" />
                 </button>
-                <button onClick={() => handleSort('profit')} className={`${headerClass} text-right ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
+                <button onClick={() => handleSort('profit')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
                   Profit<SortIcon col="profit" />
                 </button>
               </>
@@ -137,12 +137,12 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
             return (
               <div
                 key={name + i}
-                className="col-striped grid gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
+                className="grid px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
                 style={{ gridTemplateColumns: gridTemplate }}
               >
-                <span className="text-[13px] font-medium text-text-heading truncate">{name}</span>
+                <span className="text-[13px] font-medium text-text-heading truncate pr-2">{name}</span>
                 {hasAttribution && (
-                  <span className="flex items-center justify-center">
+                  <span className="flex items-center justify-center border-l border-border-dim/40 px-2">
                     {c.attributed ? (
                       <Check size={13} className="text-success" />
                     ) : (
@@ -150,14 +150,14 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                     )}
                   </span>
                 )}
-                <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right">{c.impressions.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right">{c.clicks.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right">{ctr.toFixed(2)}%</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${c.spend.toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{c.impressions.toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{c.clicks.toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{ctr.toFixed(2)}%</span>
                 {hasRevenue && (
                   <>
-                    <span className="text-[12px] text-text-body text-right">${(c.revenue || 0).toLocaleString()}</span>
-                    <span className={`text-[12px] text-right font-medium ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
+                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${(c.revenue || 0).toLocaleString()}</span>
+                    <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
                       ${(c.profit || 0).toLocaleString()}
                     </span>
                   </>
