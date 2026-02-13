@@ -21,7 +21,7 @@ interface CampaignTableProps {
   campaigns: Campaign[];
 }
 
-type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa' | 'roas';
+type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
 
 const PLATFORM_LABELS: Record<string, string> = {
   tiktok: 'TikTok Ads',
@@ -45,9 +45,6 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
       if (sortKey === 'cpa') {
         av = (a.purchases || 0) > 0 ? a.spend / (a.purchases || 1) : Infinity;
         bv = (b.purchases || 0) > 0 ? b.spend / (b.purchases || 1) : Infinity;
-      } else if (sortKey === 'roas') {
-        av = a.spend > 0 ? (a.revenue || 0) / a.spend : 0;
-        bv = b.spend > 0 ? (b.revenue || 0) / b.spend : 0;
       } else if (sortKey === 'revenue') {
         av = a.revenue || 0;
         bv = b.revenue || 0;
@@ -87,10 +84,11 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
   const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
 
   const hasPurchases = campaigns.some(c => (c.purchases || 0) > 0);
+  // Column order: Campaign | [UTM] | Spend | [Conv] | [Revenue | Profit | CPA]
   const colDefs: string[] = ['1fr'];
   if (hasAttribution) colDefs.push('2.5rem');
   colDefs.push('5rem');
-  if (hasPurchases) colDefs.push('4rem', '4.5rem');
+  if (hasPurchases) colDefs.push('4rem');
   if (hasRevenue) colDefs.push('5rem', '5rem', '4.5rem');
   const gridTemplate = colDefs.join(' ');
 
@@ -107,20 +105,15 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
           <div className="grid px-5 py-2 border-b border-border-dim" style={{ gridTemplateColumns: gridTemplate }}>
             <span className="text-[10px] uppercase tracking-wider text-text-dim pr-2">Campaign</span>
             {hasAttribution && (
-              <span className="text-[10px] uppercase tracking-wider text-text-dim text-center border-l border-border-dim/40 px-2">Attr.</span>
+              <span className="text-[10px] uppercase tracking-wider text-text-dim text-center border-l border-border-dim/40 px-2">UTM</span>
             )}
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
             {hasPurchases && (
-              <>
-                <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
-                  Conv.<SortIcon col="purchases" />
-                </button>
-                <button onClick={() => handleSort('cpa')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'cpa' ? 'text-text-body' : 'text-text-dim'}`}>
-                  CPA<SortIcon col="cpa" />
-                </button>
-              </>
+              <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
+                Conv.<SortIcon col="purchases" />
+              </button>
             )}
             {hasRevenue && (
               <>
@@ -130,8 +123,8 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                 <button onClick={() => handleSort('profit')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
                   Profit<SortIcon col="profit" />
                 </button>
-                <button onClick={() => handleSort('roas')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'roas' ? 'text-text-body' : 'text-text-dim'}`}>
-                  ROAS<SortIcon col="roas" />
+                <button onClick={() => handleSort('cpa')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'cpa' ? 'text-text-body' : 'text-text-dim'}`}>
+                  CPA<SortIcon col="cpa" />
                 </button>
               </>
             )}
@@ -140,7 +133,6 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
           {/* Rows */}
           {sorted.map((c, i) => {
             const name = c.campaignName || c.campaignId || `Campaign ${i + 1}`;
-            const roas = c.spend > 0 ? (c.revenue || 0) / c.spend : 0;
 
             return (
               <div
@@ -160,12 +152,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                 )}
                 <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${c.spend.toLocaleString()}</span>
                 {hasPurchases && (
-                  <>
-                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
-                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
-                      {(c.purchases || 0) > 0 ? `$${Math.round(c.spend / (c.purchases || 1)).toLocaleString()}` : '—'}
-                    </span>
-                  </>
+                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
                 )}
                 {hasRevenue && (
                   <>
@@ -174,7 +161,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
                       ${(c.profit || 0).toLocaleString()}
                     </span>
                     <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
-                      {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+                      {(c.purchases || 0) > 0 ? `$${Math.round(c.spend / (c.purchases || 1)).toLocaleString()}` : '—'}
                     </span>
                   </>
                 )}

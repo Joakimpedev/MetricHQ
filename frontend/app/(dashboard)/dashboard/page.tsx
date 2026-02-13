@@ -293,7 +293,7 @@ export default function DashboardPage() {
           ))}
         </div>
         {/* Tables skeleton */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
           {[...Array(2)].map((_, i) => (
             <div key={i} className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
               <div className="px-5 py-4 border-b border-border-dim">
@@ -414,7 +414,7 @@ export default function DashboardPage() {
       )}
 
       {/* Countries + Campaigns side by side */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
         <CountryBreakdown countries={countries} />
 
         {adPlatforms.length > 0 ? (
