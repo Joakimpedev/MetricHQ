@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Check, Loader2, Lock, ArrowRight } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
 import { GoogleAdsLogo, MetaLogo, TikTokLogo, LinkedInLogo, StripeLogo, PostHogLogo } from './PlatformLogos';
@@ -24,7 +24,6 @@ function StepIndicator({ currentStep, completedSteps }: { currentStep: number; c
   const steps = [
     { num: 1, label: 'Ad platforms' },
     { num: 2, label: 'Revenue' },
-    { num: 3, label: 'Sync' },
   ];
 
   return (
@@ -165,10 +164,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const [step, setStep] = useState(1);
   const [connections, setConnections] = useState<Connections>({});
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncDone, setSyncDone] = useState(false);
-  const [skippedAll, setSkippedAll] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Stripe form state
   const [stripeKey, setStripeKey] = useState('');
@@ -297,53 +292,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
     }
   };
 
-  // Step 3: Trigger sync
-  const triggerSync = useCallback(async () => {
-    if (!hasAnyConnected) {
-      setSkippedAll(true);
-      setSyncDone(true);
-      return;
-    }
-    setSyncing(true);
-    try {
-      await fetch(`${API_URL}/api/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-    } catch {
-      // continue anyway
-    }
-
-    // Poll sync status
-    let elapsed = 0;
-    pollRef.current = setInterval(async () => {
-      elapsed += 3000;
-      try {
-        const res = await fetch(`${API_URL}/api/sync/status?userId=${encodeURIComponent(userId)}`);
-        const json = await res.json();
-        if (json.status === 'idle' || json.status === 'complete' || elapsed >= 30000) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          setSyncing(false);
-          setSyncDone(true);
-        }
-      } catch {
-        if (elapsed >= 30000) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          setSyncing(false);
-          setSyncDone(true);
-        }
-      }
-    }, 3000);
-  }, [userId, hasAnyConnected]);
-
-  useEffect(() => {
-    if (step === 3) triggerSync();
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [step, triggerSync]);
-
   const goToStep = (next: number) => {
     setStep(next);
     setExpandedCard(null);
@@ -351,8 +299,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
 
   const completedSteps = new Set<number>();
   if (step > 1) completedSteps.add(1);
-  if (step > 2) completedSteps.add(2);
-  if (syncDone) completedSteps.add(3);
 
   return (
     <div className="max-w-[540px] mx-auto py-12">
@@ -520,14 +466,14 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
           <div className="flex flex-col items-center gap-3">
             {hasAnyRevenueConnected && (
               <button
-                onClick={() => goToStep(3)}
+                onClick={onComplete}
                 className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-6 py-2.5 rounded-lg text-[13px] font-semibold text-accent-text transition-colors"
               >
-                Continue <ArrowRight size={14} />
+                Go to dashboard <ArrowRight size={14} />
               </button>
             )}
             <button
-              onClick={() => goToStep(3)}
+              onClick={onComplete}
               className="text-[12px] text-text-dim hover:text-text-body transition-colors"
             >
               {hasAnyRevenueConnected ? '' : 'Skip for now'}
@@ -536,74 +482,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
         </div>
       )}
 
-      {/* Step 3 */}
-      {step === 3 && (
-        <div className="flex flex-col items-center text-center">
-          {syncing && (
-            <>
-              <div className="relative mb-6">
-                <div className="absolute inset-0 blur-3xl opacity-20 bg-accent rounded-full scale-150" />
-                <Loader2 size={48} className="animate-spin text-accent relative" />
-              </div>
-              <h2 className="text-[20px] font-semibold text-text-heading mb-2">
-                Syncing your data...
-              </h2>
-              <p className="text-[13px] text-text-dim">
-                This usually takes less than 30 seconds.
-              </p>
-            </>
-          )}
-
-          {syncDone && !skippedAll && (
-            <>
-              <div className="relative mb-6">
-                <div className="absolute inset-0 blur-3xl opacity-20 bg-success rounded-full scale-150" />
-                <div className="w-16 h-16 rounded-full bg-success flex items-center justify-center relative">
-                  <Check size={28} className="text-white" />
-                </div>
-              </div>
-              <h2 className="text-[20px] font-semibold text-text-heading mb-2">
-                You&apos;re all set!
-              </h2>
-              <p className="text-[13px] text-text-dim mb-8">
-                Your data is ready. Explore your profit dashboard.
-              </p>
-              <button
-                onClick={onComplete}
-                className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-6 py-2.5 rounded-lg text-[13px] font-semibold text-accent-text transition-colors"
-              >
-                Go to dashboard <ArrowRight size={14} />
-              </button>
-            </>
-          )}
-
-          {syncDone && skippedAll && (
-            <>
-              <div className="relative mb-6">
-                <div className="absolute inset-0 blur-3xl opacity-20 bg-accent rounded-full scale-150" />
-                <svg width="64" height="64" viewBox="0 0 40 40" fill="none" aria-hidden="true" className="relative">
-                  <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
-                  <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
-                  <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
-                  <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
-                </svg>
-              </div>
-              <h2 className="text-[20px] font-semibold text-text-heading mb-2">
-                No platforms connected yet
-              </h2>
-              <p className="text-[13px] text-text-dim mb-8">
-                You can connect your platforms anytime from the Integrations page.
-              </p>
-              <button
-                onClick={onComplete}
-                className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-6 py-2.5 rounded-lg text-[13px] font-semibold text-accent-text transition-colors"
-              >
-                Go to dashboard <ArrowRight size={14} />
-              </button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

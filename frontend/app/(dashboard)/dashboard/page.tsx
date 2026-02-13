@@ -223,6 +223,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(isEmbed ? last7DaysRange : todayRange);
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
   const isSingleDay = rangeDays <= 1;
@@ -293,7 +294,30 @@ export default function DashboardPage() {
   if (showOnboarding && !isDemo) {
     return (
       <div className="max-w-[1400px] mx-auto">
-        <OnboardingWizard userId={user!.id} onComplete={() => { setShowOnboarding(false); fetchMetrics(); }} />
+        <OnboardingWizard userId={user!.id} onComplete={() => {
+          setShowOnboarding(false);
+          setSyncing(true);
+          // Trigger sync in background
+          fetch(`${API_URL}/api/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user!.id }),
+          }).catch(() => {});
+          // Poll for data
+          const poll = setInterval(async () => {
+            try {
+              const res = await fetch(`${API_URL}/api/sync/status?userId=${encodeURIComponent(user!.id)}`);
+              const json = await res.json();
+              if (json.status === 'idle' || json.status === 'complete') {
+                clearInterval(poll);
+                setSyncing(false);
+                fetchMetrics();
+              }
+            } catch { /* keep polling */ }
+          }, 3000);
+          setTimeout(() => { clearInterval(poll); setSyncing(false); fetchMetrics(); }, 60000);
+          fetchMetrics();
+        }} />
       </div>
     );
   }
@@ -373,21 +397,27 @@ export default function DashboardPage() {
 
   const hasAnyData = summary.totalSpend > 0 || summary.totalRevenue > 0 || countries.length > 0 || timeSeries.length > 0;
 
-  // Fallback: if data loaded but everything is empty, show wizard as a second chance
-  if (!hasAnyData && !isDemo && user?.id) {
-    return (
-      <div className="max-w-[1400px] mx-auto">
-        <OnboardingWizard userId={user.id} onComplete={() => { setShowOnboarding(false); fetchMetrics(); }} />
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Top bar: date range */}
       <div className="flex justify-end">
         <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} dataRetentionDays={isDemo ? undefined : subscription?.limits?.dataRetentionDays} />
       </div>
+
+      {/* Syncing banner */}
+      {syncing && (
+        <div className="bg-accent-muted rounded-lg border border-accent/20 px-4 py-3 flex items-center gap-3 text-[13px]">
+          <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+          <span className="text-text-body">Syncing your data — this usually takes less than a minute. The dashboard will update automatically.</span>
+        </div>
+      )}
+
+      {/* No data hint */}
+      {!hasAnyData && !isDemo && !syncing && (
+        <div className="bg-bg-surface rounded-lg border border-border-dim px-4 py-3 text-[13px] text-text-dim text-center">
+          No data for this date range yet. If you just connected your platforms, data may take a few minutes to appear.
+        </div>
+      )}
 
       {/* KPI bar */}
       <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
