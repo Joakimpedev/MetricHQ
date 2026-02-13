@@ -18,15 +18,15 @@ export default function Sidebar() {
       {/* Brand */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-2">
-          <svg width="22" height="22" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
             <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
             <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
             <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
           </svg>
           <div className="flex items-baseline">
-            <span className="text-[15px] font-bold text-text-heading tracking-tight">Metric</span>
-            <span className="text-[15px] font-bold text-accent tracking-tight">HQ</span>
+            <span className="text-[17px] font-bold text-text-heading tracking-tight">Metric</span>
+            <span className="text-[17px] font-bold text-accent tracking-tight">HQ</span>
           </div>
         </div>
       </div>
