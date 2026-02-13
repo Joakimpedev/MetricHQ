@@ -222,6 +222,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(isEmbed ? last7DaysRange : todayRange);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
   const isSingleDay = rangeDays <= 1;
@@ -259,16 +260,45 @@ export default function DashboardPage() {
     }
   }, [user?.id, dateRange, isDemo]);
 
+  // Check if user has any connections — if not, show onboarding
   useEffect(() => {
+    if (isDemo || !user?.id) {
+      setShowOnboarding(false);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`);
+        const json = await res.json();
+        if (!res.ok) { setShowOnboarding(false); return; }
+        const hasConnections = Object.values(json.connections || {}).some((c: unknown) => (c as { connected?: boolean }).connected);
+        setShowOnboarding(!hasConnections);
+      } catch {
+        setShowOnboarding(false);
+      }
+    })();
+  }, [user?.id, isDemo]);
+
+  useEffect(() => {
+    if (showOnboarding === null || showOnboarding) return;
     if (isDemo) {
       fetchMetrics();
       return;
     }
     if (!user?.id) return;
     fetchMetrics();
-  }, [user?.id, fetchMetrics, isDemo]);
+  }, [user?.id, fetchMetrics, isDemo, showOnboarding]);
 
-  if (loading) {
+  // Show onboarding wizard if user has zero connections
+  if (showOnboarding && !isDemo) {
+    return (
+      <div className="max-w-[1400px] mx-auto">
+        <OnboardingWizard userId={user!.id} onComplete={() => { setShowOnboarding(false); fetchMetrics(); }} />
+      </div>
+    );
+  }
+
+  if (loading || showOnboarding === null) {
     return (
       <div className="max-w-[1400px] mx-auto space-y-6">
         {/* Date selector skeleton */}
@@ -340,16 +370,6 @@ export default function DashboardPage() {
   const unattributedRevenue = data?.unattributedRevenue || 0;
 
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
-
-  const hasAnyData = summary.totalSpend > 0 || summary.totalRevenue > 0 || countries.length > 0 || timeSeries.length > 0;
-
-  if (!hasAnyData && !isDemo) {
-    return (
-      <div className="max-w-[1400px] mx-auto">
-        <OnboardingWizard userId={user!.id} onComplete={() => fetchMetrics()} />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
