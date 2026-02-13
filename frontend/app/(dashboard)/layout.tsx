@@ -98,6 +98,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get('demo') === 'true';
+  const isEmbed = searchParams.get('embed') === 'true';
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!isDemo && !isLoaded) {
@@ -130,6 +131,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </button>
           </SignInButton>
         </div>
+      </div>
+    );
+  }
+
+  if (isEmbed) {
+    return (
+      <div className="min-h-screen bg-bg-body">
+        <main className="p-6 overflow-auto">{children}</main>
       </div>
     );
   }
