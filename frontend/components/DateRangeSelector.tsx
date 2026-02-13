@@ -211,7 +211,7 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
       {/* Trigger button */}
       <div className="relative">
         <button
-          onClick={openDropdown}
+          onClick={() => open ? setOpen(false) : openDropdown()}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border-dim bg-bg-surface hover:bg-bg-hover text-[12px] text-text-heading transition-colors"
         >
           <CalendarIcon size={14} className="text-text-dim" />
