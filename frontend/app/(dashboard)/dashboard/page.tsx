@@ -301,7 +301,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 3 KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard
           title="Profit"
           value={`${summary.totalProfit >= 0 ? '+' : ''}$${summary.totalProfit.toLocaleString()}`}
