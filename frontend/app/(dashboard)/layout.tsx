@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import { useUser, SignInButton } from '@clerk/nextjs';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
@@ -86,10 +86,20 @@ function SyncIndicator({ userId }: { userId: string }) {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg-body flex items-center justify-center"><div className="text-text-dim text-[13px]">Loading...</div></div>}>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </Suspense>
+  );
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, isSignedIn, isLoaded } = useUser();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get('demo') === 'true';
 
-  if (!isLoaded) {
+  if (!isDemo && !isLoaded) {
     return (
       <div className="min-h-screen bg-bg-body flex items-center justify-center">
         <div className="text-text-dim text-[13px]">Loading...</div>
@@ -97,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!isSignedIn) {
+  if (!isDemo && !isSignedIn) {
     return (
       <div className="min-h-screen bg-bg-body flex items-center justify-center">
         <div className="text-center">
@@ -124,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const pageTitle = PAGE_TITLES[pathname] || 'MetricHQ';
-  const syncSlot = pathname === '/dashboard' && user?.id ? (
+  const syncSlot = !isDemo && pathname === '/dashboard' && user?.id ? (
     <SyncIndicator userId={user.id} />
   ) : undefined;
 
