@@ -32,7 +32,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3">
+      <nav className="flex-1 px-3 pt-3">
         <div className="space-y-0.5">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
