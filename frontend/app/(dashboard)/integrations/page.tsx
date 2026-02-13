@@ -209,12 +209,20 @@ function StripeModal({
         {/* Campaign Attribution Hint */}
         <div className="px-5 pb-5 pt-0">
           <div className="border-t border-border-dim pt-4">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Campaign Attribution</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Campaign Attribution (optional)</p>
             <p className="text-[11px] text-text-dim leading-relaxed">
-              To track profit per campaign, store UTM data in Stripe customer metadata. When a user signs up, save{' '}
+              Revenue by country works automatically. To also track <strong className="text-text-body">profit per campaign</strong>, store the{' '}
               <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">utm_campaign</code>{' '}
-              from the URL to the Stripe customer&apos;s metadata field. MetricHQ reads this to attribute revenue to campaigns.
+              URL parameter in your Stripe customer&apos;s metadata when they sign up. MetricHQ reads this to attribute revenue to ad campaigns.
             </p>
+            <a
+              href="https://docs.stripe.com/metadata"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-2 text-[11px] text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+            >
+              Learn how to add metadata in Stripe
+            </a>
           </div>
         </div>
       </div>
