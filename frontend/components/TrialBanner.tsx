@@ -35,18 +35,16 @@ export default function TrialBanner() {
   ));
 
   return (
-    <div className="bg-accent/10 border-b border-accent/15 px-4 py-2 flex items-center justify-center gap-2 text-[12px]">
+    <Link
+      href="/pricing"
+      className="bg-accent-muted border-b border-border-dim px-4 py-2 flex items-center justify-center gap-2 text-[12px] hover:bg-accent/15 transition-colors cursor-pointer"
+    >
+      <Clock size={13} className="text-accent shrink-0" />
       <span className="text-text-body">
-        You have <span className="font-semibold text-text-heading">{daysLeft} day{daysLeft !== 1 ? 's' : ''}</span> left in your free trial
-        {' '}&mdash;{' '}
-        <Link
-          href="/pricing"
-          className="text-accent hover:text-accent-hover font-semibold underline underline-offset-2 transition-colors"
-        >
-          Pick a plan for $0
-        </Link>
-        {' '}to keep your profit tracking running without interruption
+        You have {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in your free trial &mdash;{' '}
+        <span className="text-accent font-semibold">Choose a plan for $0</span>
+        {' '}to keep your dashboard running without interruption
       </span>
-    </div>
+    </Link>
   );
 }
