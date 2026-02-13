@@ -404,21 +404,6 @@ export default function DashboardPage() {
         <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} dataRetentionDays={isDemo ? undefined : subscription?.limits?.dataRetentionDays} />
       </div>
 
-      {/* Syncing banner */}
-      {syncing && (
-        <div className="bg-accent-muted rounded-lg border border-accent/20 px-4 py-3 flex items-center gap-3 text-[13px]">
-          <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
-          <span className="text-text-body">Syncing your data — this usually takes less than a minute. The dashboard will update automatically.</span>
-        </div>
-      )}
-
-      {/* No data hint */}
-      {!hasAnyData && !isDemo && !syncing && (
-        <div className="bg-bg-surface rounded-lg border border-border-dim px-4 py-3 text-[13px] text-text-dim text-center">
-          No data for this date range yet. If you just connected your platforms, data may take a few minutes to appear.
-        </div>
-      )}
-
       {/* KPI bar */}
       <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
         <div className="flex-1 px-5 py-4">
@@ -486,6 +471,17 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Syncing toast — bottom left */}
+      {syncing && (
+        <div className="fixed bottom-5 left-5 z-50 bg-bg-surface border border-border-dim rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 max-w-xs">
+          <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0" />
+          <div>
+            <p className="text-[13px] font-medium text-text-heading">Syncing your data</p>
+            <p className="text-[11px] text-text-dim">This may take a couple minutes</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
