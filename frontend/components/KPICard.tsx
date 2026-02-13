@@ -10,7 +10,7 @@ interface KPICardProps {
   invertComparison?: boolean;
 }
 
-function ComparisonBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
+export function ComparisonBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
   if (previous === 0 && current === 0) return null;
 
   let pctChange: number;

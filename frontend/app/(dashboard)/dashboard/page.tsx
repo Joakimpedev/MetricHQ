@@ -5,7 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import KPICard from '../../../components/KPICard';
+import { ComparisonBadge } from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
@@ -99,11 +99,12 @@ function getRangeDays(range: DateRange): number {
 }
 
 function formatCompareLabel(range: DateRange): string {
-  const comp = getComparisonRange(range);
-  const s = new Date(comp.compareStartDate + 'T00:00:00');
-  const e = new Date(comp.compareEndDate + 'T00:00:00');
+  const csDate = range.compareStartDate || getComparisonRange(range).compareStartDate;
+  const ceDate = range.compareEndDate || getComparisonRange(range).compareEndDate;
+  const s = new Date(csDate + 'T00:00:00');
+  const e = new Date(ceDate + 'T00:00:00');
   const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (comp.compareStartDate === comp.compareEndDate) return fmt(s);
+  if (csDate === ceDate) return fmt(s);
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
@@ -226,14 +227,13 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const comp = getComparisonRange(dateRange);
-
+      const autoComp = getComparisonRange(dateRange);
       const params = new URLSearchParams({
         userId: user.id,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
-        compareStartDate: comp.compareStartDate,
-        compareEndDate: comp.compareEndDate,
+        compareStartDate: dateRange.compareStartDate || autoComp.compareStartDate,
+        compareEndDate: dateRange.compareEndDate || autoComp.compareEndDate,
       });
       const response = await fetch(`${API_URL}/api/metrics?${params}`);
       const json = await response.json();
@@ -265,10 +265,10 @@ export default function DashboardPage() {
         <div className="flex justify-end">
           <div className="w-40 h-8 bg-bg-elevated animate-pulse rounded-lg" />
         </div>
-        {/* KPI cards skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* KPI bar skeleton */}
+        <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-bg-surface rounded-xl border border-border-dim p-5">
+            <div key={i} className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim first:border-t-0">
               <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-3" />
               <div className="w-28 h-7 bg-bg-elevated animate-pulse rounded-lg" />
             </div>
@@ -381,28 +381,41 @@ export default function DashboardPage() {
         <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} />
       </div>
 
-      {/* 3 KPI cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KPICard
-          title="Profit"
-          value={`${summary.totalProfit >= 0 ? '+' : ''}$${summary.totalProfit.toLocaleString()}`}
-          valueColor={summary.totalProfit >= 0 ? 'text-success' : 'text-error'}
-          currentValue={summary.totalProfit}
-          previousValue={compSummary?.totalProfit}
-        />
-        <KPICard
-          title="Revenue"
-          value={`$${summary.totalRevenue.toLocaleString()}`}
-          currentValue={summary.totalRevenue}
-          previousValue={compSummary?.totalRevenue}
-        />
-        <KPICard
-          title="Ad Spend"
-          value={`$${summary.totalSpend.toLocaleString()}`}
-          currentValue={summary.totalSpend}
-          previousValue={compSummary?.totalSpend}
-          invertComparison
-        />
+      {/* KPI bar */}
+      <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
+        <div className="flex-1 px-5 py-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
+            {compSummary?.totalProfit !== undefined && (
+              <ComparisonBadge current={summary.totalProfit} previous={compSummary.totalProfit} />
+            )}
+          </div>
+          <p className={`text-[28px] font-bold tracking-tight mt-1.5 leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
+            {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+          </p>
+        </div>
+        <div className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
+            {compSummary?.totalRevenue !== undefined && (
+              <ComparisonBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />
+            )}
+          </div>
+          <p className="text-[28px] font-bold tracking-tight mt-1.5 leading-none text-text-heading">
+            ${summary.totalRevenue.toLocaleString()}
+          </p>
+        </div>
+        <div className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
+            {compSummary?.totalSpend !== undefined && (
+              <ComparisonBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />
+            )}
+          </div>
+          <p className="text-[28px] font-bold tracking-tight mt-1.5 leading-none text-text-heading">
+            ${summary.totalSpend.toLocaleString()}
+          </p>
+        </div>
       </div>
 
       {/* Profit trend chart — linked to main date range */}

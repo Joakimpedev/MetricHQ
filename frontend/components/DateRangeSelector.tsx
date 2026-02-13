@@ -6,6 +6,8 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-reac
 export interface DateRange {
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
+  compareStartDate?: string;
+  compareEndDate?: string;
 }
 
 interface DateRangeSelectorProps {
@@ -74,9 +76,10 @@ function inRange(day: Date, start: Date | null, end: Date | null): boolean {
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
+function MiniCalendar({ year, month, selStart, selEnd, compStart, compEnd, onDayClick }: {
   year: number; month: number;
   selStart: Date | null; selEnd: Date | null;
+  compStart?: Date | null; compEnd?: Date | null;
   onDayClick: (d: Date) => void;
 }) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -102,6 +105,8 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
           const isToday = isSameDay(d, today);
           const isSelected = (selStart && isSameDay(d, selStart)) || (selEnd && isSameDay(d, selEnd));
           const isInRange = inRange(d, selStart, selEnd) && !isSelected;
+          const isCompSelected = (compStart && isSameDay(d, compStart)) || (compEnd && isSameDay(d, compEnd));
+          const isCompInRange = inRange(d, compStart || null, compEnd || null) && !isCompSelected;
           const isFuture = d.getTime() > today.getTime();
 
           return (
@@ -111,7 +116,9 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
               onClick={() => onDayClick(d)}
               className={`w-7 h-7 text-[11px] rounded transition-colors flex items-center justify-center ${
                 isSelected ? 'bg-accent text-accent-text font-medium' :
+                isCompSelected ? 'bg-text-dim/30 text-text-heading font-medium' :
                 isInRange ? 'bg-accent/10 text-text-heading' :
+                isCompInRange ? 'bg-text-dim/10 text-text-body' :
                 isToday ? 'text-accent font-medium ring-1 ring-accent/30' :
                 isFuture ? 'text-text-dim/30 cursor-not-allowed' :
                 'text-text-body hover:bg-bg-hover'
@@ -126,6 +133,8 @@ function MiniCalendar({ year, month, selStart, selEnd, onDayClick }: {
   );
 }
 
+type CompareMode = 'previous' | 'custom';
+
 export default function DateRangeSelector({ value, onChange, compareLabel }: DateRangeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState<Date | null>(null);
@@ -133,6 +142,11 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
   const [pickingStart, setPickingStart] = useState(true);
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [compareMode, setCompareMode] = useState<CompareMode>(() => value.compareStartDate ? 'custom' : 'previous');
+  const [compStart, setCompStart] = useState<Date | null>(null);
+  const [compEnd, setCompEnd] = useState<Date | null>(null);
+  const [pickingComp, setPickingComp] = useState(false);
+  const [pickingCompStart, setPickingCompStart] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   // Second calendar is next month
@@ -151,25 +165,48 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     setDraftStart(parseDate(value.startDate));
     setDraftEnd(parseDate(value.endDate));
     setPickingStart(true);
+    setPickingComp(false);
     const s = parseDate(value.startDate);
     setCalMonth(s.getMonth());
     setCalYear(s.getFullYear());
+    setCompareMode(value.compareStartDate ? 'custom' : 'previous');
+    setCompStart(value.compareStartDate ? parseDate(value.compareStartDate) : null);
+    setCompEnd(value.compareEndDate ? parseDate(value.compareEndDate) : null);
     setOpen(true);
   }
 
   function handleDayClick(d: Date) {
-    if (pickingStart) {
-      setDraftStart(d);
-      setDraftEnd(null);
-      setPickingStart(false);
-    } else {
-      if (draftStart && d < draftStart) {
-        setDraftStart(d);
-        setDraftEnd(draftStart);
+    if (pickingComp) {
+      // Picking comparison dates
+      if (pickingCompStart) {
+        setCompStart(d);
+        setCompEnd(null);
+        setPickingCompStart(false);
       } else {
-        setDraftEnd(d);
+        if (compStart && d < compStart) {
+          setCompStart(d);
+          setCompEnd(compStart);
+        } else {
+          setCompEnd(d);
+        }
+        setPickingCompStart(true);
+        setPickingComp(false);
       }
-      setPickingStart(true);
+    } else {
+      // Picking main dates
+      if (pickingStart) {
+        setDraftStart(d);
+        setDraftEnd(null);
+        setPickingStart(false);
+      } else {
+        if (draftStart && d < draftStart) {
+          setDraftStart(d);
+          setDraftEnd(draftStart);
+        } else {
+          setDraftEnd(d);
+        }
+        setPickingStart(true);
+      }
     }
   }
 
@@ -178,18 +215,22 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     setDraftStart(parseDate(r.startDate));
     setDraftEnd(parseDate(r.endDate));
     setPickingStart(true);
-    // Jump calendar to show the preset's start month
+    setPickingComp(false);
     const s = parseDate(r.startDate);
     setCalMonth(s.getMonth());
     setCalYear(s.getFullYear());
   }
 
   function handleDone() {
-    if (draftStart && draftEnd) {
-      onChange({ startDate: fmtDate(draftStart), endDate: fmtDate(draftEnd) });
-    } else if (draftStart) {
-      onChange({ startDate: fmtDate(draftStart), endDate: fmtDate(draftStart) });
+    const result: DateRange = {
+      startDate: draftStart ? fmtDate(draftStart) : value.startDate,
+      endDate: (draftEnd || draftStart) ? fmtDate(draftEnd || draftStart!) : value.endDate,
+    };
+    if (compareMode === 'custom' && compStart && compEnd) {
+      result.compareStartDate = fmtDate(compStart);
+      result.compareEndDate = fmtDate(compEnd);
     }
+    onChange(result);
     setOpen(false);
   }
 
@@ -209,6 +250,8 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
     const de = fmtDate(draftEnd);
     return PRESETS.find(p => { const pd = p.getDates(); return pd.startDate === ds && pd.endDate === de; })?.label || null;
   }, [draftStart, draftEnd]);
+
+  const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     <div className="flex items-center gap-2" ref={ref}>
@@ -246,13 +289,23 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
             <div className="p-4">
               {/* Date inputs row */}
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
-                  {draftStart ? draftStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                </div>
+                <button
+                  onClick={() => { setPickingComp(false); setPickingStart(true); }}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
+                    !pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
+                  }`}
+                >
+                  {draftStart ? fmtShort(draftStart) : '—'}
+                </button>
                 <span className="text-text-dim text-[12px]">&rarr;</span>
-                <div className="flex-1 bg-bg-elevated rounded-md px-3 py-1.5 text-[12px] text-text-body text-center border border-border-dim">
-                  {draftEnd ? draftEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                </div>
+                <button
+                  onClick={() => { setPickingComp(false); setPickingStart(false); }}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
+                    !pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
+                  }`}
+                >
+                  {draftEnd ? fmtShort(draftEnd) : '—'}
+                </button>
               </div>
 
               {/* Navigation + 2 calendars */}
@@ -260,11 +313,69 @@ export default function DateRangeSelector({ value, onChange, compareLabel }: Dat
                 <button onClick={prevMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
                   <ChevronLeft size={16} />
                 </button>
-                <MiniCalendar year={calYear} month={calMonth} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
-                <MiniCalendar year={cal2Year} month={cal2Month} selStart={draftStart} selEnd={draftEnd} onDayClick={handleDayClick} />
+                <MiniCalendar
+                  year={calYear} month={calMonth}
+                  selStart={draftStart} selEnd={draftEnd}
+                  compStart={compareMode === 'custom' ? compStart : undefined}
+                  compEnd={compareMode === 'custom' ? compEnd : undefined}
+                  onDayClick={handleDayClick}
+                />
+                <MiniCalendar
+                  year={cal2Year} month={cal2Month}
+                  selStart={draftStart} selEnd={draftEnd}
+                  compStart={compareMode === 'custom' ? compStart : undefined}
+                  compEnd={compareMode === 'custom' ? compEnd : undefined}
+                  onDayClick={handleDayClick}
+                />
                 <button onClick={nextMonth} className="p-1 mt-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0">
                   <ChevronRight size={16} />
                 </button>
+              </div>
+
+              {/* Compare section */}
+              <div className="mt-4 pt-3 border-t border-border-dim">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Compare to</span>
+                  <div className="flex rounded-md border border-border-dim overflow-hidden">
+                    <button
+                      onClick={() => { setCompareMode('previous'); setPickingComp(false); }}
+                      className={`px-3 py-1 text-[11px] transition-colors ${
+                        compareMode === 'previous' ? 'bg-accent text-accent-text font-medium' : 'text-text-body hover:bg-bg-hover'
+                      }`}
+                    >
+                      Previous period
+                    </button>
+                    <button
+                      onClick={() => setCompareMode('custom')}
+                      className={`px-3 py-1 text-[11px] border-l border-border-dim transition-colors ${
+                        compareMode === 'custom' ? 'bg-accent text-accent-text font-medium' : 'text-text-body hover:bg-bg-hover'
+                      }`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                </div>
+                {compareMode === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setPickingComp(true); setPickingCompStart(true); }}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
+                        pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
+                      }`}
+                    >
+                      {compStart ? fmtShort(compStart) : 'Start'}
+                    </button>
+                    <span className="text-text-dim text-[12px]">&rarr;</span>
+                    <button
+                      onClick={() => { setPickingComp(true); setPickingCompStart(false); }}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-[12px] text-center border transition-colors ${
+                        pickingComp ? 'border-accent bg-accent/5 text-text-heading' : 'border-border-dim bg-bg-elevated text-text-body'
+                      }`}
+                    >
+                      {compEnd ? fmtShort(compEnd) : 'End'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Action buttons */}
