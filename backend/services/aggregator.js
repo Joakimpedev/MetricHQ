@@ -1,5 +1,6 @@
 const { pool } = require('../db/database');
 const { syncForUser } = require('./sync');
+const { getUserSubscription } = require('./subscription');
 
 const COUNTRY_NAMES = {
   NO: 'Norway', SE: 'Sweden', US: 'United States', GB: 'United Kingdom',
@@ -22,6 +23,19 @@ async function aggregateMetrics(userId, startDate, endDate) {
     // First load — trigger sync (blocking), then read from DB
     try { await syncForUser(userId); } catch (err) {
       console.error('[aggregator] First-load sync failed:', err.message);
+    }
+  }
+
+  // Get subscription for feature gating
+  const sub = await getUserSubscription(userId);
+
+  // Data retention clamping: don't return data older than plan allows
+  if (sub.limits.dataRetentionDays !== Infinity) {
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() - sub.limits.dataRetentionDays);
+    const minDateStr = minDate.toISOString().slice(0, 10);
+    if (startDate < minDateStr) {
+      startDate = minDateStr;
     }
   }
 
@@ -109,14 +123,22 @@ async function aggregateMetrics(userId, startDate, endDate) {
     });
   }
 
-  // Round platform totals
+  // Round platform totals + campaign P&L gating
   const platforms = {};
   for (const [plat, data] of Object.entries(platformData)) {
-    platforms[plat] = {
+    const platObj = {
       totalSpend: Math.round(data.totalSpend * 100) / 100,
       totalRevenue: Math.round(data.totalRevenue * 100) / 100,
-      campaigns: data.campaigns
+      campaigns: data.campaigns,
     };
+
+    // Gate campaign data for plans without campaignPL
+    if (!sub.limits.campaignPL) {
+      platObj.campaigns = [];
+      platObj.gated = true;
+    }
+
+    platforms[plat] = platObj;
   }
 
   // ---- Time series (daily aggregates) ----

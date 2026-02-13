@@ -2,6 +2,27 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { pool } = require('../db/database');
+const { getUserSubscription } = require('../services/subscription');
+
+const AD_PLATFORMS = ['tiktok', 'meta', 'google_ads', 'linkedin'];
+
+/**
+ * Check if user can connect another ad platform (Starter = max 1).
+ * Returns true if allowed, false if blocked.
+ */
+async function canConnectAdPlatform(internalUserId) {
+  const sub = await getUserSubscription(internalUserId);
+  if (!sub.isActive) return true; // Let expired users connect (they'll hit paywall elsewhere)
+  const maxAd = sub.limits.maxAdPlatforms;
+  if (maxAd === Infinity) return true;
+
+  const result = await pool.query(
+    `SELECT COUNT(DISTINCT platform) as cnt FROM connected_accounts
+     WHERE user_id = $1 AND platform = ANY($2)`,
+    [internalUserId, AD_PLATFORMS]
+  );
+  return parseInt(result.rows[0].cnt, 10) < maxAd;
+}
 
 /**
  * Get or create our internal user by Clerk user id. Returns internal user id.
@@ -20,18 +41,36 @@ async function getOrCreateUserByClerkId(clerkUserId) {
      RETURNING id`,
     [clerkUserId, placeholderEmail]
   );
-  return insert.rows[0]?.id;
+  const userId = insert.rows[0]?.id;
+
+  // Auto-create 14-day trial with full Pro access
+  if (userId) {
+    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await pool.query(
+      `INSERT INTO subscriptions (user_id, plan, status, trial_end)
+       VALUES ($1, 'pro', 'trialing', $2) ON CONFLICT (user_id) DO NOTHING`,
+      [userId, trialEnd]
+    );
+  }
+
+  return userId;
 }
 
 // ----- TikTok OAuth -----
 
-router.get('/tiktok', (req, res) => {
+router.get('/tiktok', async (req, res) => {
   const { userId } = req.query; // Clerk user id from frontend
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
   if (!process.env.TIKTOK_APP_ID) {
     return res.status(503).json({ error: 'TikTok app not configured' });
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const internalUserId = await getOrCreateUserByClerkId(userId);
+  if (!(await canConnectAdPlatform(internalUserId))) {
+    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
   }
 
   const authUrl = 'https://business-api.tiktok.com/portal/auth';
@@ -91,13 +130,19 @@ router.get('/tiktok/callback', async (req, res) => {
 
 // ----- Meta OAuth -----
 
-router.get('/meta', (req, res) => {
+router.get('/meta', async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
   if (!process.env.META_APP_ID) {
     return res.status(503).json({ error: 'Meta app not configured' });
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const internalUserId = await getOrCreateUserByClerkId(userId);
+  if (!(await canConnectAdPlatform(internalUserId))) {
+    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
   }
 
   const authUrl = 'https://www.facebook.com/v19.0/dialog/oauth';
@@ -161,13 +206,19 @@ router.get('/meta/callback', async (req, res) => {
 
 // ----- Google Ads OAuth -----
 
-router.get('/google', (req, res) => {
+router.get('/google', async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
   if (!process.env.GOOGLE_CLIENT_ID) {
     return res.status(503).json({ error: 'Google Ads not configured' });
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const internalUserId = await getOrCreateUserByClerkId(userId);
+  if (!(await canConnectAdPlatform(internalUserId))) {
+    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
   }
 
   const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -242,13 +293,19 @@ router.get('/google/callback', async (req, res) => {
 
 // ----- LinkedIn Ads OAuth -----
 
-router.get('/linkedin', (req, res) => {
+router.get('/linkedin', async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
   if (!process.env.LINKEDIN_CLIENT_ID) {
     return res.status(503).json({ error: 'LinkedIn Ads not configured' });
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const internalUserId = await getOrCreateUserByClerkId(userId);
+  if (!(await canConnectAdPlatform(internalUserId))) {
+    return res.redirect(`${frontendUrl}/integrations?error=platform_limit`);
   }
 
   const authUrl = 'https://www.linkedin.com/oauth/v2/authorization';

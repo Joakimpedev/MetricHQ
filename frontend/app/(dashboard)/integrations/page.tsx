@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock } from 'lucide-react';
+import { useSubscription } from '../../../components/SubscriptionProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -236,13 +238,32 @@ function IntegrationCard({
   logo,
   connected,
   onClick,
+  locked,
 }: {
   name: string;
   description: string;
   logo: React.ReactNode;
   connected: boolean;
   onClick: () => void;
+  locked?: boolean;
 }) {
+  if (locked) {
+    return (
+      <div
+        className="flex items-center gap-3.5 w-full text-left p-4 rounded-xl border border-border-dim bg-bg-surface opacity-60 cursor-not-allowed"
+      >
+        <div className="relative">
+          {logo}
+          <Lock size={12} className="absolute -bottom-0.5 -right-0.5 text-text-dim bg-bg-surface rounded-full p-0.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-text-heading">{name}</p>
+          <p className="text-[11px] text-text-dim">Upgrade to connect</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onClick}
@@ -642,9 +663,19 @@ function OAuthModal({
 
 export default function IntegrationsPage() {
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const { subscription } = useSubscription();
   const [connections, setConnections] = useState<Connections>({});
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState<string | null>(null);
+
+  const platformLimitError = searchParams.get('error') === 'platform_limit';
+
+  // Determine if ad platforms should be locked (Starter with 1 already connected)
+  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'];
+  const connectedAdCount = adPlatformKeys.filter(p => connections[p]?.connected).length;
+  const maxAd = subscription?.limits?.maxAdPlatforms ?? Infinity;
+  const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
 
   const fetchConnections = useCallback(async () => {
     if (!user?.id) return;
@@ -702,6 +733,13 @@ export default function IntegrationsPage() {
       <div>
         <h2 className="text-[13px] font-semibold text-text-heading mb-1">Ad Platforms</h2>
         <p className="text-[11px] text-text-dim mb-3">Connect ad accounts to track spend by campaign and country</p>
+
+        {platformLimitError && (
+          <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/20 text-[12px] text-error">
+            Your plan allows {maxAd} ad platform{maxAd !== 1 ? 's' : ''}. Upgrade to connect more.
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <IntegrationCard
             name="TikTok Ads"
@@ -709,6 +747,7 @@ export default function IntegrationsPage() {
             logo={<TikTokLogo />}
             connected={!!connections.tiktok}
             onClick={() => setOpenModal('tiktok')}
+            locked={atAdLimit && !connections.tiktok?.connected}
           />
           <IntegrationCard
             name="Meta Ads"
@@ -716,6 +755,7 @@ export default function IntegrationsPage() {
             logo={<MetaLogo />}
             connected={!!connections.meta}
             onClick={() => setOpenModal('meta')}
+            locked={atAdLimit && !connections.meta?.connected}
           />
           <IntegrationCard
             name="Google Ads"
@@ -723,6 +763,7 @@ export default function IntegrationsPage() {
             logo={<GoogleAdsLogo />}
             connected={!!connections.google_ads}
             onClick={() => setOpenModal('google_ads')}
+            locked={atAdLimit && !connections.google_ads?.connected}
           />
           <IntegrationCard
             name="LinkedIn Ads"
@@ -730,6 +771,7 @@ export default function IntegrationsPage() {
             logo={<LinkedInLogo />}
             connected={!!connections.linkedin}
             onClick={() => setOpenModal('linkedin')}
+            locked={atAdLimit && !connections.linkedin?.connected}
           />
         </div>
       </div>

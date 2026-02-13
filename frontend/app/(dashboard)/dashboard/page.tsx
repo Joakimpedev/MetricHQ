@@ -39,6 +39,7 @@ interface Platform {
   totalSpend: number;
   totalRevenue?: number;
   campaigns: Campaign[];
+  gated?: boolean;
 }
 
 interface Country {
@@ -445,6 +446,7 @@ export default function DashboardPage() {
                 platform={platform}
                 totalSpend={pData.totalSpend}
                 campaigns={pData.campaigns}
+                gated={pData.gated}
               />
             ))}
           </div>

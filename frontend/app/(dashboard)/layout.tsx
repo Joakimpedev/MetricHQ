@@ -3,15 +3,19 @@
 import { Suspense, useState, useCallback, useEffect } from 'react';
 import { useUser, SignInButton } from '@clerk/nextjs';
 import { usePathname, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
+import SubscriptionProvider, { useSubscription } from '../../components/SubscriptionProvider';
+import TrialBanner from '../../components/TrialBanner';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/integrations': 'Integrations',
+  '/pricing': 'Pricing',
   '/settings': 'Settings',
 };
 
@@ -175,11 +179,75 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   ) : undefined;
 
   return (
+    <SubscriptionProvider>
+      <DashboardContent
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        pageTitle={pageTitle}
+        syncSlot={syncSlot}
+        pathname={pathname}
+      >
+        {children}
+      </DashboardContent>
+    </SubscriptionProvider>
+  );
+}
+
+function DashboardContent({
+  sidebarOpen,
+  setSidebarOpen,
+  pageTitle,
+  syncSlot,
+  pathname,
+  children,
+}: {
+  sidebarOpen: boolean;
+  setSidebarOpen: (v: boolean) => void;
+  pageTitle: string;
+  syncSlot: React.ReactNode;
+  pathname: string;
+  children: React.ReactNode;
+}) {
+  const { subscription, loading } = useSubscription();
+  const isExpired = !loading && subscription && ['expired', 'none', 'cancelled'].includes(subscription.status);
+  // Allow pricing page even if expired
+  const showPaywall = isExpired && pathname !== '/pricing';
+
+  return (
     <div className="min-h-screen bg-bg-body">
       <Sidebar mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
       <div className="md:ml-52 flex flex-col min-h-screen">
         <TopBar title={pageTitle} syncSlot={syncSlot} onMenuToggle={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <TrialBanner />
+        {showPaywall ? (
+          <main className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-md">
+              <div className="flex items-center justify-center gap-2.5 mb-4">
+                <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+                  <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+                  <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+                  <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+                </svg>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
+                </h1>
+              </div>
+              <h2 className="text-[18px] font-semibold text-text-heading mb-2">Your trial has ended</h2>
+              <p className="text-[13px] text-text-dim mb-8">
+                Your data is still here. Upgrade to access your dashboard.
+              </p>
+              <Link
+                href="/pricing"
+                className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors"
+              >
+                View plans
+              </Link>
+            </div>
+          </main>
+        ) : (
+          <main className="flex-1 p-6 overflow-auto">{children}</main>
+        )}
       </div>
     </div>
   );

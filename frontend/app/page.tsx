@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { BarChart3, TrendingUp, Globe, Sun, Moon, Check } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import DashboardPreview from '@/components/DashboardPreview';
+import { PLANS } from '@/lib/plans';
 
 const CLERK_ENABLED =
   typeof process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'string' &&
@@ -130,51 +131,6 @@ function MetricHQLogo() {
 
 /* ── Pricing ── */
 
-const PLANS = [
-  {
-    name: 'Starter',
-    monthlyPrice: 29,
-    yearlyPrice: 24,
-    description: 'For solo founders testing paid ads.',
-    features: [
-      '1 ad platform (Google, Meta, or LinkedIn)',
-      'Stripe revenue tracking',
-      'Country-level breakdown',
-      'Daily sync',
-      '30-day data retention',
-    ],
-  },
-  {
-    name: 'Growth',
-    monthlyPrice: 49,
-    yearlyPrice: 41,
-    popular: true,
-    description: 'For founders scaling across multiple channels.',
-    features: [
-      'All ad platforms',
-      'Stripe revenue tracking',
-      'Country + campaign P&L',
-      'Sync every 4 hours',
-      '90-day data retention',
-    ],
-  },
-  {
-    name: 'Pro',
-    monthlyPrice: 99,
-    yearlyPrice: 82,
-    description: 'For teams that need the full picture.',
-    features: [
-      'All ad platforms',
-      'Stripe revenue tracking',
-      'Country + campaign P&L',
-      'Sync every 4 hours',
-      'Unlimited data retention',
-      'Team access (up to 5)',
-      'API access',
-    ],
-  },
-];
-
 function RollingDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
   const isNum = /\d/.test(digit);
   if (!isNum) return <span>{digit}</span>;
@@ -225,7 +181,7 @@ function PricingSection() {
             <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-accent transition-transform ${yearly ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
           <span className={`text-sm ${yearly ? 'text-text-heading font-medium' : 'text-text-dim'}`}>
-            Yearly <span className="text-success text-[12px] font-medium">Save 17%</span>
+            Yearly <span className="text-success text-[12px] font-medium">Save 25%</span>
           </span>
         </div>
 

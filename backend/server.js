@@ -17,6 +17,11 @@ app.use(cors({
   origin: allowedOrigins.length ? allowedOrigins : true,
   credentials: true
 }));
+
+// Stripe webhook needs raw body — must be registered BEFORE express.json()
+const { handleWebhook } = require('./routes/billing');
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+
 app.use(express.json());
 
 // Auth routes (TikTok, Meta OAuth)
@@ -27,6 +32,7 @@ app.use('/auth', authRoutes);
 const { aggregateMetrics } = require('./services/aggregator');
 const { syncForUser, startCronJob, getSyncStatus } = require('./services/sync');
 const { pool } = require('./db/database');
+const billing = require('./routes/billing');
 
 // Health check
 app.get('/health', (req, res) => {
@@ -356,6 +362,11 @@ app.get('/api/sync/status', async (req, res) => {
     res.status(500).json({ error: 'Failed to get sync status' });
   }
 });
+
+// Billing routes (webhook already registered above with raw body)
+app.get('/api/billing/subscription', billing.getSubscription);
+app.post('/api/billing/checkout', billing.createCheckout);
+app.post('/api/billing/portal', billing.createPortal);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);

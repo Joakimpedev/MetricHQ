@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Check, Minus, BarChart3 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Check, Minus, BarChart3, Lock } from 'lucide-react';
+import Link from 'next/link';
 
 interface Campaign {
   campaignId?: string;
@@ -19,6 +20,7 @@ interface CampaignTableProps {
   platform: string;
   totalSpend: number;
   campaigns: Campaign[];
+  gated?: boolean;
 }
 
 type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
@@ -31,7 +33,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 type SortDir = 'asc' | 'desc';
 
-export default function CampaignTable({ platform, totalSpend, campaigns }: CampaignTableProps) {
+export default function CampaignTable({ platform, totalSpend, campaigns, gated }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
   const hasRevenue = campaigns.some(c => (c.revenue || 0) > 0);
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
@@ -99,7 +101,17 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
       </div>
 
-      {campaigns.length > 0 && (
+      {gated && (
+        <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
+          <Lock size={24} className="text-text-dim" />
+          <p className="text-text-dim text-[12px] text-center">Campaign P&L is available on Growth and Pro plans.</p>
+          <Link href="/pricing" className="text-accent hover:text-accent-hover text-[12px] font-medium transition-colors">
+            Upgrade to see campaign breakdown
+          </Link>
+        </div>
+      )}
+
+      {!gated && campaigns.length > 0 && (
         <>
           {/* Column headers */}
           <div className="grid px-5 py-2 border-b border-border-dim" style={{ gridTemplateColumns: gridTemplate }}>
@@ -171,7 +183,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns }: Campa
         </>
       )}
 
-      {campaigns.length === 0 && (
+      {!gated && campaigns.length === 0 && (
         <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
           <BarChart3 size={24} className="text-text-dim" />
           <p className="text-text-dim text-[12px]">No campaign data</p>

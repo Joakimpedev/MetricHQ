@@ -7,6 +7,7 @@ const { fetchRevenueData: fetchStripeRevenue } = require('./stripe');
 const { fetchAdSpend: fetchGoogleAdSpend } = require('./google-ads');
 const { fetchAdSpend: fetchLinkedInSpend } = require('./linkedin');
 const { refreshGoogleToken, refreshLinkedInToken } = require('./token-refresh');
+const { getUserSubscription } = require('./subscription');
 
 // ---- Lock helpers ----
 
@@ -508,6 +509,29 @@ async function runFullSync() {
 
     for (const row of users.rows) {
       try {
+        // Check subscription: skip expired/cancelled users and respect sync frequency
+        const sub = await getUserSubscription(row.user_id);
+        if (!sub.isActive) {
+          console.log(`[sync] Skipping user ${row.user_id}: subscription ${sub.status}`);
+          continue;
+        }
+
+        // Check if enough time has passed since last sync for this user's plan
+        const syncInterval = sub.limits.syncIntervalHours;
+        if (syncInterval > 4) {
+          const lastSync = await pool.query(
+            `SELECT MAX(last_synced_at) as last FROM sync_log WHERE user_id = $1 AND status = 'done'`,
+            [row.user_id]
+          );
+          const lastSyncedAt = lastSync.rows[0]?.last;
+          if (lastSyncedAt) {
+            const hoursSinceSync = (Date.now() - new Date(lastSyncedAt).getTime()) / (1000 * 60 * 60);
+            if (hoursSinceSync < syncInterval) {
+              continue; // Too soon for this plan's interval
+            }
+          }
+        }
+
         await syncForUser(row.user_id);
       } catch (err) {
         console.error(`[sync] Error syncing user ${row.user_id}:`, err.message);
