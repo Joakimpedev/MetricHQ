@@ -28,17 +28,30 @@ function StripeModal({
   connection,
   onClose,
   onSaved,
+  onDisconnect,
 }: {
   userId: string;
   connection?: Connection;
   onClose: () => void;
   onSaved: () => void;
+  onDisconnect?: () => void;
 }) {
   const isConnected = !!connection?.connected;
   const [editing, setEditing] = useState(!isConnected);
   const [apiKey, setApiKey] = useState(connection?.fullKey || '');
   const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleDisconnect = async () => {
+    if (!confirm('Disconnect Stripe? Your synced data will be removed.')) return;
+    setDisconnecting(true);
+    try {
+      if (onDisconnect) onDisconnect();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!apiKey.trim()) {
@@ -163,6 +176,18 @@ function StripeModal({
               Learn how to add metadata in Stripe
             </a>
           </div>
+
+          {isConnected && !editing && (
+            <div className="border-t border-border-dim pt-4 mt-4">
+              <button
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+                className="text-[12px] font-medium text-error hover:bg-error/10 px-3 py-2 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {disconnecting ? 'Disconnecting...' : 'Disconnect Stripe'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -287,16 +312,29 @@ function PostHogModal({
   connection,
   onClose,
   onSaved,
+  onDisconnect,
 }: {
   userId: string;
   connection?: Connection;
   onClose: () => void;
   onSaved: () => void;
+  onDisconnect?: () => void;
 }) {
   const isConnected = !!connection?.connected;
 
   // Edit mode — pre-fill with existing values so nothing disappears
   const [editing, setEditing] = useState(!isConnected);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleDisconnect = async () => {
+    if (!confirm('Disconnect PostHog? Your synced data will be removed.')) return;
+    setDisconnecting(true);
+    try {
+      if (onDisconnect) onDisconnect();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
   const [apiKey, setApiKey] = useState(connection?.fullKey || '');
   const [projectId, setProjectId] = useState(connection?.accountId || '');
   const [posthogHost, setPosthogHost] = useState(connection?.settings?.posthogHost || 'https://us.posthog.com');
@@ -536,6 +574,18 @@ function PostHogModal({
                 <Check size={12} /> Using: <span className="font-mono">{selectedEvent}</span>
               </p>
             )}
+
+            {isConnected && !editing && (
+              <div className="border-t border-border-dim pt-4 mt-4">
+                <button
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="text-[12px] font-medium text-error hover:bg-error/10 px-3 py-2 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {disconnecting ? 'Disconnecting...' : 'Disconnect PostHog'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -552,6 +602,7 @@ function OAuthModal({
   userId,
   connection,
   onClose,
+  onDisconnect,
 }: {
   platform: string;
   logo: React.ReactNode;
@@ -560,8 +611,20 @@ function OAuthModal({
   userId: string;
   connection?: Connection;
   onClose: () => void;
+  onDisconnect?: () => void;
 }) {
   const isConnected = !!connection?.connected;
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleDisconnect = async () => {
+    if (!confirm(`Disconnect ${name}? Your synced data will be removed.`)) return;
+    setDisconnecting(true);
+    try {
+      if (onDisconnect) onDisconnect();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -587,12 +650,23 @@ function OAuthModal({
           </div>
         )}
 
-        <a
-          href={`${API_URL}/auth/${platform}?userId=${encodeURIComponent(userId)}`}
-          className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-4 py-2.5 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
-        >
-          {isConnected ? 'Reconnect' : 'Connect'} {name}
-        </a>
+        <div className="flex items-center gap-3">
+          <a
+            href={`${API_URL}/auth/${platform}?userId=${encodeURIComponent(userId)}`}
+            className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover px-4 py-2.5 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
+          >
+            {isConnected ? 'Reconnect' : 'Connect'} {name}
+          </a>
+          {isConnected && (
+            <button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="px-4 py-2.5 rounded-lg text-[12px] font-medium text-error hover:bg-error/10 disabled:opacity-50 transition-colors"
+            >
+              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -629,6 +703,18 @@ export default function IntegrationsPage() {
       setLoading(false);
     }
   }, [user?.id]);
+
+  const handleDisconnect = useCallback(async (platform: string) => {
+    if (!user?.id) return;
+    try {
+      const params = new URLSearchParams({ userId: user.id });
+      await fetch(`${API_URL}/api/connections/${platform}?${params}`, { method: 'DELETE' });
+      setOpenModal(null);
+      fetchConnections();
+    } catch {
+      // silently fail
+    }
+  }, [user?.id, fetchConnections]);
 
   useEffect(() => {
     fetchConnections();
@@ -720,6 +806,7 @@ export default function IntegrationsPage() {
           connection={connections.posthog}
           onClose={() => setOpenModal(null)}
           onSaved={fetchConnections}
+          onDisconnect={() => handleDisconnect('posthog')}
         />
       )}
       {openModal === 'tiktok' && user?.id && (
@@ -731,6 +818,7 @@ export default function IntegrationsPage() {
           userId={user.id}
           connection={connections.tiktok}
           onClose={() => setOpenModal(null)}
+          onDisconnect={() => handleDisconnect('tiktok')}
         />
       )}
       {openModal === 'meta' && user?.id && (
@@ -742,6 +830,7 @@ export default function IntegrationsPage() {
           userId={user.id}
           connection={connections.meta}
           onClose={() => setOpenModal(null)}
+          onDisconnect={() => handleDisconnect('meta')}
         />
       )}
       {openModal === 'stripe' && user?.id && (
@@ -750,6 +839,7 @@ export default function IntegrationsPage() {
           connection={connections.stripe}
           onClose={() => setOpenModal(null)}
           onSaved={fetchConnections}
+          onDisconnect={() => handleDisconnect('stripe')}
         />
       )}
       {openModal === 'google_ads' && user?.id && (
@@ -761,6 +851,7 @@ export default function IntegrationsPage() {
           userId={user.id}
           connection={connections.google_ads}
           onClose={() => setOpenModal(null)}
+          onDisconnect={() => handleDisconnect('google_ads')}
         />
       )}
       {openModal === 'linkedin' && user?.id && (
@@ -772,6 +863,7 @@ export default function IntegrationsPage() {
           userId={user.id}
           connection={connections.linkedin}
           onClose={() => setOpenModal(null)}
+          onDisconnect={() => handleDisconnect('linkedin')}
         />
       )}
     </div>

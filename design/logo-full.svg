@@ -1,0 +1,11 @@
+<svg width="512" height="128" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bar chart icon -->
+  <rect x="2" y="24" width="7" height="14" rx="1.5" fill="#6C5CE7" opacity="0.35" />
+  <rect x="12" y="16" width="7" height="22" rx="1.5" fill="#6C5CE7" opacity="0.6" />
+  <rect x="22" y="8" width="7" height="30" rx="1.5" fill="#6C5CE7" opacity="0.85" />
+  <rect x="32" y="2" width="7" height="36" rx="1.5" fill="#6C5CE7" />
+  <!-- "Metric" in dark -->
+  <text x="48" y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5" fill="#1a1a2e">Metric</text>
+  <!-- "HQ" in accent -->
+  <text x="126" y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5" fill="#6C5CE7">HQ</text>
+</svg>

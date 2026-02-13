@@ -467,7 +467,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
-            <p className="text-text-dim text-[12px]">No campaign data yet. Connect your ad accounts.</p>
+            <p className="text-text-dim text-[12px]">No campaign data yet.</p>
           </div>
         )}
       </div>

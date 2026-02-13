@@ -146,7 +146,7 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
 
       {countries.length === 0 && (
         <div className="px-5 py-8 text-center text-text-dim text-[12px]">
-          No country data yet. Connect your ad accounts and PostHog.
+          No country data yet.
         </div>
       )}
     </div>

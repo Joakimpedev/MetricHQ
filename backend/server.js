@@ -138,6 +138,34 @@ app.get('/api/connections', async (req, res) => {
   }
 });
 
+// Disconnect a platform
+app.delete('/api/connections/:platform', async (req, res) => {
+  const { userId } = req.query;
+  const { platform } = req.params;
+
+  if (!userId || !platform) {
+    return res.status(400).json({ error: 'userId and platform are required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await pool.query(
+      'DELETE FROM connected_accounts WHERE user_id = $1 AND platform = $2',
+      [dataOwnerId, platform]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error disconnecting platform:', error);
+    res.status(500).json({ error: 'Failed to disconnect' });
+  }
+});
+
 // Waitlist signup (Phase 2 Week 5 - no auth required)
 app.post('/api/waitlist', async (req, res) => {
   const { email } = req.body || {};
