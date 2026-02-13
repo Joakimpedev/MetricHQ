@@ -336,27 +336,26 @@ export default function DashboardPage() {
       {/* Platform summary boxes */}
       <PlatformSummary platforms={platformSummaryData} unattributedRevenue={unattributedRevenue} />
 
-      {/* Countries + Campaigns side by side */}
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
-        <CountryBreakdown countries={countries} />
+      {/* Campaign tables */}
+      {adPlatforms.length > 0 ? (
+        <div className="space-y-4">
+          {adPlatforms.map(([platform, pData]) => (
+            <CampaignTable
+              key={platform}
+              platform={platform}
+              totalSpend={pData.totalSpend}
+              campaigns={pData.campaigns}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
+          <p className="text-text-dim text-[12px]">No campaign data yet. Connect your ad accounts.</p>
+        </div>
+      )}
 
-        {adPlatforms.length > 0 ? (
-          <div className="space-y-4">
-            {adPlatforms.map(([platform, pData]) => (
-              <CampaignTable
-                key={platform}
-                platform={platform}
-                totalSpend={pData.totalSpend}
-                campaigns={pData.campaigns}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-bg-surface rounded-xl border border-border-dim p-5 flex items-center justify-center">
-            <p className="text-text-dim text-[12px]">No campaign data yet. Connect your ad accounts.</p>
-          </div>
-        )}
-      </div>
+      {/* Countries */}
+      <CountryBreakdown countries={countries} />
     </div>
   );
 }
