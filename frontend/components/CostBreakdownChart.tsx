@@ -158,7 +158,7 @@ export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
                       <div key={`${item.name}-${j}`} className="flex items-center justify-between gap-2">
                         <span className="text-[11px] text-text-dim truncate flex-1">{item.name}</span>
                         {item.rateLabel && (
-                          <span className="text-[10px] text-text-dim/60 tabular-nums shrink-0">
+                          <span className="text-[10px] text-text-dim/80 tabular-nums shrink-0">
                             {item.rateLabel}
                           </span>
                         )}

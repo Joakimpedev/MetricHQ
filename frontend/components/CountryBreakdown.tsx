@@ -138,7 +138,7 @@ function CountryTooltip({ country, campaigns, onClose, fmt }: {
                           </div>
                         ))}
                         {platCampaigns.length > 3 && (
-                          <div className="text-[9px] text-text-dim/60 pt-0.5">+{platCampaigns.length - 3} more</div>
+                          <div className="text-[9px] text-text-dim/80 pt-0.5">+{platCampaigns.length - 3} more</div>
                         )}
                       </div>
                     )}
@@ -267,7 +267,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
                     <CountryFlag code={c.code} />
                     <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
                     {campaigns.length > 0 && (
-                      <span className="text-[10px] text-text-dim/50">
+                      <span className="text-[10px] text-text-dim/70">
                         {campaigns.length} {campaigns.length === 1 ? 'campaign' : 'campaigns'}
                       </span>
                     )}
@@ -299,7 +299,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
               <div className="flex items-center gap-2.5">
                 <span className="w-5 h-3.5 rounded-[2px] bg-text-dim/15 flex items-center justify-center text-[8px] text-text-dim shrink-0">?</span>
                 <span className="text-[13px] font-medium text-text-dim">Unattributed</span>
-                <span className="text-[10px] text-text-dim/60" title="LinkedIn Ads does not report spend by country">LinkedIn</span>
+                <span className="text-[10px] text-text-dim/80" title="LinkedIn Ads does not report spend by country">LinkedIn</span>
               </div>
               <span className="text-[12px] text-text-dim text-right">{fmtCur(unattributedSpend)}</span>
               <span className="text-[12px] text-text-dim text-right">—</span>

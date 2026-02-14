@@ -96,9 +96,9 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
         <span className="text-text-dim text-[12px]">
           Last synced {timeAgo(lastSynced)}
           {showNextSync ? (
-            <span className="text-text-dim/60"> · Next sync {formatNextSync(lastSynced, syncIntervalHours)}</span>
+            <span className="text-text-dim/80"> · Next sync {formatNextSync(lastSynced, syncIntervalHours)}</span>
           ) : syncIntervalHours && isFinite(syncIntervalHours) ? (
-            <span className="text-text-dim/60"> · syncs every {syncIntervalHours}h</span>
+            <span className="text-text-dim/80"> · syncs every {syncIntervalHours}h</span>
           ) : null}
         </span>
       )}

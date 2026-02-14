@@ -299,10 +299,10 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                 <div>
                   <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                      {summary.totalProfit >= 0 ? '+' : ''}{fmtCur(summary.totalProfit)}
+                    <span className={`text-[22px] font-bold tracking-tight leading-none ${(summary.totalProfit - (customCostsTotal || 0)) >= 0 ? 'text-success' : 'text-error'}`}>
+                      {(summary.totalProfit - (customCostsTotal || 0)) >= 0 ? '+' : ''}{fmtCur(summary.totalProfit - (customCostsTotal || 0))}
                     </span>
-                    {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
+                    {compSummary && <InlineBadge current={summary.totalProfit - (customCostsTotal || 0)} previous={compSummary.totalProfit - (compCustomCostsTotal || 0)} />}
                   </div>
                 </div>
               </button>
