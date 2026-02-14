@@ -273,7 +273,9 @@ export default function DashboardPage() {
         const json = await res.json();
         if (!res.ok) { setShowOnboarding(false); return; }
         const hasConnections = Object.values(json.connections || {}).some((c: unknown) => (c as { connected?: boolean }).connected);
-        setShowOnboarding(!hasConnections);
+        // If user is mid-onboarding (came back from OAuth redirect), keep showing wizard
+        const midOnboarding = typeof window !== 'undefined' && sessionStorage.getItem('metrichq-onboarding-step');
+        setShowOnboarding(!hasConnections || !!midOnboarding);
       } catch {
         setShowOnboarding(false);
       }
