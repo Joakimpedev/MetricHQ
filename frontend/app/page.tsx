@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { Sun, Moon, Check } from 'lucide-react';
@@ -160,6 +160,45 @@ function RollingPrice({ value }: { value: number }) {
   );
 }
 
+const ROLLING_PHRASES = [
+  'Marketing attribution',
+  'Profit tracking',
+  'Campaign analytics',
+  'Country-level P&L',
+  'Ad spend tracking',
+];
+
+function RollingPhrase() {
+  const [index, setIndex] = useState(0);
+  const [rolling, setRolling] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRolling(true);
+      setTimeout(() => {
+        setIndex(i => (i + 1) % ROLLING_PHRASES.length);
+        setRolling(false);
+      }, 400);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className="inline-block overflow-hidden h-[1.3em] align-bottom">
+      <span
+        className={`inline-block transition-all duration-400 ${
+          rolling
+            ? '-translate-y-full opacity-0'
+            : 'translate-y-0 opacity-100'
+        }`}
+        style={{ transitionDuration: '400ms' }}
+      >
+        {ROLLING_PHRASES[index]}
+      </span>
+    </span>
+  );
+}
+
 function PricingSection() {
   const [yearly, setYearly] = useState(false);
 
@@ -167,13 +206,21 @@ function PricingSection() {
     <section id="pricing" className="border-t border-border-dim">
       <div className="max-w-4xl mx-auto px-6 py-20">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-text-heading mb-3">Try it free for 14 days</h2>
-          <p className="text-text-dim max-w-md mx-auto mb-4">
+          <h2 className="text-2xl font-bold text-text-heading mb-3">
+            Try it free for{' '}
+            <span className="relative inline-block">
+              <span className="text-text-dim line-through decoration-2 decoration-error/60">7 days</span>
+              <span
+                className="absolute -top-5 -right-10 text-accent font-bold text-2xl -rotate-2"
+                style={{ fontFamily: 'var(--font-caveat)' }}
+              >
+                14 days!
+              </span>
+            </span>
+          </h2>
+          <p className="text-text-dim max-w-md mx-auto">
             No credit card required. Cancel anytime.
           </p>
-          <span className="inline-block bg-accent/10 text-accent text-[12px] font-semibold px-3 py-1.5 rounded-full animate-pulse">
-            Starting at $29/mo &mdash; 10x cheaper than competitors
-          </span>
         </div>
 
         {/* Toggle */}
@@ -418,7 +465,11 @@ export default function LandingPage() {
       {/* How It Works */}
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
-          <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">Marketing attribution in 3 steps</h2>
+          <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">
+            <span className="text-accent"><RollingPhrase /></span>
+            <br />
+            in 3 steps
+          </h2>
           <div className="grid md:grid-cols-3 gap-10">
             {/* Step 1 */}
             <div className="text-center">
