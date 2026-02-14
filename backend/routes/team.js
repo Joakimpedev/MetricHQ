@@ -107,7 +107,7 @@ router.post('/accept', async (req, res) => {
   }
 });
 
-// GET /api/team — List members for the owner's team
+// GET /api/team — List members for the owner's team (returns members regardless of plan)
 router.get('/', async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
@@ -117,13 +117,17 @@ router.get('/', async (req, res) => {
   try {
     const internalUserId = await getOrCreateUserByClerkId(userId);
 
+    // Check subscription to determine if team access is active
+    const sub = await getUserSubscription(internalUserId);
+    const teamActive = sub.isActive && sub.limits.teamAccess;
+
     const team = await pool.query(
       'SELECT id FROM teams WHERE owner_user_id = $1',
       [internalUserId]
     );
 
     if (team.rows.length === 0) {
-      return res.json({ members: [] });
+      return res.json({ members: [], teamActive });
     }
 
     const members = await pool.query(
@@ -134,7 +138,7 @@ router.get('/', async (req, res) => {
       [team.rows[0].id]
     );
 
-    res.json({ members: members.rows });
+    res.json({ members: members.rows, teamActive });
   } catch (error) {
     console.error('Team list error:', error);
     res.status(500).json({ error: 'Failed to list team members' });

@@ -72,7 +72,7 @@ router.use(async (req, res, next) => {
     // Check subscription has apiAccess
     const sub = await getUserSubscription(keyUserId);
     if (!sub.isActive || !sub.limits.apiAccess) {
-      return res.status(403).json({ error: 'API access requires an active Pro plan' });
+      return res.status(403).json({ error: 'api_access_required', message: 'API access requires Pro. Your keys are preserved — upgrade to reactivate.' });
     }
 
     // Rate limiting

@@ -22,6 +22,7 @@ export default function TeamSection() {
   const isPro = subscription?.isActive && subscription?.plan === 'pro';
 
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [teamActive, setTeamActive] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLink, setInviteLink] = useState('');
@@ -32,8 +33,8 @@ export default function TeamSection() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isPro && user?.id) fetchMembers();
-  }, [isPro, user?.id]);
+    if (user?.id) fetchMembers();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -51,6 +52,7 @@ export default function TeamSection() {
       if (res.ok) {
         const data = await res.json();
         setMembers(data.members || []);
+        setTeamActive(data.teamActive ?? true);
       }
     } catch {}
   }
@@ -100,7 +102,8 @@ export default function TeamSection() {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
-  if (!isPro) {
+  // Not Pro and no existing members — show simple upgrade prompt
+  if (!isPro && members.length === 0) {
     return (
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5 opacity-60">
         <h2 className="text-[14px] font-medium text-text-heading mb-2">Team</h2>
@@ -108,6 +111,48 @@ export default function TeamSection() {
         <Link href="/pricing" className="text-[12px] text-accent hover:text-accent-hover font-medium transition-colors">
           Upgrade to Pro
         </Link>
+      </div>
+    );
+  }
+
+  // Not Pro but has existing members — show suspended state
+  if (!isPro && members.length > 0) {
+    return (
+      <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[14px] font-medium text-text-heading">Team</h2>
+          <span className="text-[10px] font-semibold uppercase tracking-wider bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
+            Paused
+          </span>
+        </div>
+
+        <div className="mb-4 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+          <p className="text-[12px] text-yellow-700 dark:text-yellow-300">
+            Team access is paused. Your members are preserved.{' '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover font-medium underline underline-offset-2">
+              Upgrade to Pro
+            </Link>{' '}
+            to restore access for your team.
+          </p>
+        </div>
+
+        <div className="space-y-0 opacity-60">
+          {members.map(member => (
+            <div key={member.id} className="flex items-center justify-between py-2.5 border-t border-border-dim first:border-t-0">
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] text-text-heading">{member.email}</span>
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                  member.status === 'accepted'
+                    ? 'bg-green-500/15 text-success'
+                    : 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
+                }`}>
+                  {member.status}
+                </span>
+              </div>
+              <span className="text-[11px] text-text-dim">{formatDate(member.invited_at)}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

@@ -32,9 +32,10 @@ export default function ApiKeysSection() {
   const [menuOpen, setMenuOpen] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Always fetch keys regardless of plan (so we can show suspended state)
   useEffect(() => {
-    if (isPro && user?.id) fetchKeys();
-  }, [isPro, user?.id]);
+    if (user?.id) fetchKeys();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -102,7 +103,8 @@ export default function ApiKeysSection() {
   const activeKeys = keys.filter(k => !k.revoked_at);
   const revokedKeys = keys.filter(k => k.revoked_at);
 
-  if (!isPro) {
+  // Not Pro and no existing keys — show simple upgrade prompt
+  if (!isPro && activeKeys.length === 0 && revokedKeys.length === 0) {
     return (
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5 opacity-60">
         <h2 className="text-[14px] font-medium text-text-heading mb-2">API Keys</h2>
@@ -110,6 +112,51 @@ export default function ApiKeysSection() {
         <Link href="/pricing" className="text-[12px] text-accent hover:text-accent-hover font-medium transition-colors">
           Upgrade to Pro
         </Link>
+      </div>
+    );
+  }
+
+  // Not Pro but has existing keys — show suspended state
+  if (!isPro && (activeKeys.length > 0 || revokedKeys.length > 0)) {
+    return (
+      <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[14px] font-medium text-text-heading">API Keys</h2>
+          <span className="text-[10px] font-semibold uppercase tracking-wider bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full">
+            Suspended
+          </span>
+        </div>
+
+        <div className="mb-4 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+          <p className="text-[12px] text-yellow-700 dark:text-yellow-300">
+            Your API keys are saved but inactive.{' '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover font-medium underline underline-offset-2">
+              Upgrade to Pro
+            </Link>{' '}
+            to reactivate.
+          </p>
+        </div>
+
+        <div className="space-y-0 opacity-60">
+          {activeKeys.map(key => (
+            <div key={key.id} className="flex items-center justify-between py-2.5 border-t border-border-dim first:border-t-0">
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] text-text-heading font-mono">{key.key_prefix}</span>
+                {key.name && <span className="text-[11px] text-text-dim">{key.name}</span>}
+              </div>
+              <span className="text-[11px] text-text-dim">Created {formatDate(key.created_at)}</span>
+            </div>
+          ))}
+          {revokedKeys.map(key => (
+            <div key={key.id} className="flex items-center justify-between py-2.5 border-t border-border-dim opacity-40">
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] text-text-heading font-mono line-through">{key.key_prefix}</span>
+                {key.name && <span className="text-[11px] text-text-dim line-through">{key.name}</span>}
+              </div>
+              <span className="text-[11px] text-text-dim">Revoked</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

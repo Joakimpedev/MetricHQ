@@ -274,34 +274,30 @@ function PricingSection() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-auto">
-                  {CLERK_ENABLED ? (
-                    <SignInButton mode="modal">
-                      <button className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                        plan.popular
-                          ? 'bg-accent hover:bg-accent-hover text-accent-text'
-                          : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
-                      }`}>
-                        Start free trial
-                      </button>
-                    </SignInButton>
-                  ) : (
-                    <Link
-                      href="/dashboard"
-                      className={`block w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-colors ${
-                        plan.popular
-                          ? 'bg-accent hover:bg-accent-hover text-accent-text'
-                          : 'bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim'
-                      }`}
-                    >
-                      Start free trial
-                    </Link>
-                  )}
-                  <p className="text-[12px] text-text-dim text-center mt-2">14 days free. No card required.</p>
-                </div>
               </div>
             );
           })}
+        </div>
+
+        {/* Single CTA */}
+        <div className="text-center mt-12">
+          {CLERK_ENABLED ? (
+            <SignInButton mode="modal">
+              <button className="relative inline-block bg-accent hover:bg-accent-hover text-accent-text px-10 py-3.5 rounded-lg text-lg font-semibold transition-colors overflow-hidden group">
+                <span className="relative z-10">Try free for 14 days</span>
+                <span className="absolute inset-0 z-0 animate-shine pointer-events-none" />
+              </button>
+            </SignInButton>
+          ) : (
+            <Link
+              href="/dashboard"
+              className="relative inline-block bg-accent hover:bg-accent-hover text-accent-text px-10 py-3.5 rounded-lg text-lg font-semibold transition-colors overflow-hidden group"
+            >
+              <span className="relative z-10">Try free for 14 days</span>
+              <span className="absolute inset-0 z-0 animate-shine pointer-events-none" />
+            </Link>
+          )}
+          <p className="text-text-dim text-sm mt-3">No credit card required.</p>
         </div>
       </div>
     </section>

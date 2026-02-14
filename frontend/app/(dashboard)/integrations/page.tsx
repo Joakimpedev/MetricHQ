@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
-import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock } from 'lucide-react';
+import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock, Pause } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import { PostHogLogo, TikTokLogo, MetaLogo, StripeLogo, GoogleAdsLogo, LinkedInLogo } from '../../../components/PlatformLogos';
 
@@ -13,6 +13,7 @@ interface Connection {
   connected: boolean;
   accountId: string;
   updatedAt: string;
+  createdAt?: string;
   maskedKey?: string;
   fullKey?: string;
   settings?: { purchaseEvent?: string; posthogHost?: string };
@@ -201,6 +202,7 @@ function IntegrationCard({
   connected,
   onClick,
   locked,
+  paused,
 }: {
   name: string;
   description: string;
@@ -208,6 +210,7 @@ function IntegrationCard({
   connected: boolean;
   onClick: () => void;
   locked?: boolean;
+  paused?: boolean;
 }) {
   if (locked) {
     return (
@@ -223,6 +226,24 @@ function IntegrationCard({
           <p className="text-[11px] text-text-dim">Upgrade to connect</p>
         </div>
       </div>
+    );
+  }
+
+  if (paused) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex items-center gap-3.5 w-full text-left p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10 transition-colors"
+      >
+        <div className="relative">
+          {logo}
+          <Pause size={12} className="absolute -bottom-0.5 -right-0.5 text-yellow-500 bg-bg-surface rounded-full p-0.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-text-heading">{name}</p>
+          <p className="text-[11px] text-yellow-600 dark:text-yellow-400">Paused — upgrade to resume syncing</p>
+        </div>
+      </button>
     );
   }
 
@@ -682,11 +703,24 @@ export default function IntegrationsPage() {
 
   const platformLimitError = searchParams.get('error') === 'platform_limit';
 
-  // Determine if ad platforms should be locked (Starter with 1 already connected)
-  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'];
-  const connectedAdCount = adPlatformKeys.filter(p => connections[p]?.connected).length;
+  // Determine which ad platforms are active, paused, or locked
+  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'] as const;
+  const connectedAdPlatforms = adPlatformKeys
+    .filter(p => connections[p]?.connected)
+    .sort((a, b) => {
+      const aDate = connections[a]?.createdAt || '';
+      const bDate = connections[b]?.createdAt || '';
+      return aDate.localeCompare(bDate);
+    });
+  const connectedAdCount = connectedAdPlatforms.length;
   const maxAd = subscription?.limits?.maxAdPlatforms ?? Infinity;
   const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
+
+  // Platforms beyond the limit are "paused" (oldest stays active)
+  const pausedPlatforms = new Set<string>();
+  if (maxAd !== Infinity && connectedAdCount > maxAd) {
+    connectedAdPlatforms.slice(maxAd).forEach(p => pausedPlatforms.add(p));
+  }
 
   const fetchConnections = useCallback(async () => {
     if (!user?.id) return;
@@ -771,6 +805,7 @@ export default function IntegrationsPage() {
             connected={!!connections.tiktok}
             onClick={() => setOpenModal('tiktok')}
             locked={atAdLimit && !connections.tiktok?.connected}
+            paused={pausedPlatforms.has('tiktok')}
           />
           <IntegrationCard
             name="Meta Ads"
@@ -779,6 +814,7 @@ export default function IntegrationsPage() {
             connected={!!connections.meta}
             onClick={() => setOpenModal('meta')}
             locked={atAdLimit && !connections.meta?.connected}
+            paused={pausedPlatforms.has('meta')}
           />
           <IntegrationCard
             name="Google Ads"
@@ -787,6 +823,7 @@ export default function IntegrationsPage() {
             connected={!!connections.google_ads}
             onClick={() => setOpenModal('google_ads')}
             locked={atAdLimit && !connections.google_ads?.connected}
+            paused={pausedPlatforms.has('google_ads')}
           />
           <IntegrationCard
             name="LinkedIn Ads"
@@ -795,6 +832,7 @@ export default function IntegrationsPage() {
             connected={!!connections.linkedin}
             onClick={() => setOpenModal('linkedin')}
             locked={atAdLimit && !connections.linkedin?.connected}
+            paused={pausedPlatforms.has('linkedin')}
           />
         </div>
       </div>

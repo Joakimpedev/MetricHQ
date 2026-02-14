@@ -262,4 +262,92 @@ async function handleWebhook(req, res) {
   }
 }
 
-module.exports = { getSubscription, createCheckout, createPortal, handleWebhook };
+// GET /api/billing/downgrade-impact?userId=...&targetPlan=starter|growth
+async function getDowngradeImpact(req, res) {
+  const { userId, targetPlan } = req.query;
+  if (!userId || !targetPlan) {
+    return res.status(400).json({ error: 'userId and targetPlan are required' });
+  }
+
+  const targetLimits = PLAN_LIMITS[targetPlan];
+  if (!targetLimits) {
+    return res.status(400).json({ error: 'Invalid target plan' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const sub = await getUserSubscription(internalUserId);
+    const currentLimits = sub.limits;
+
+    // Not a downgrade if target has same or more of everything
+    const impact = {};
+
+    // Excess ad platforms
+    if (targetLimits.maxAdPlatforms !== Infinity) {
+      const adPlatforms = ['tiktok', 'meta', 'google_ads', 'linkedin'];
+      const connected = await pool.query(
+        `SELECT platform, created_at FROM connected_accounts
+         WHERE user_id = $1 AND platform = ANY($2)
+         ORDER BY created_at ASC`,
+        [internalUserId, adPlatforms]
+      );
+      if (connected.rows.length > targetLimits.maxAdPlatforms) {
+        const platformNames = { tiktok: 'TikTok Ads', meta: 'Meta Ads', google_ads: 'Google Ads', linkedin: 'LinkedIn Ads' };
+        const excess = connected.rows.slice(targetLimits.maxAdPlatforms);
+        impact.excessPlatforms = excess.map(r => platformNames[r.platform] || r.platform);
+      }
+    }
+
+    // Team members
+    if (!targetLimits.teamAccess && currentLimits.teamAccess) {
+      const team = await pool.query(
+        'SELECT id FROM teams WHERE owner_user_id = $1', [internalUserId]
+      );
+      if (team.rows.length > 0) {
+        const members = await pool.query(
+          'SELECT COUNT(*) as cnt FROM team_members WHERE team_id = $1',
+          [team.rows[0].id]
+        );
+        const count = parseInt(members.rows[0].cnt, 10);
+        if (count > 0) impact.teamMembersCount = count;
+      }
+    }
+
+    // API keys
+    if (!targetLimits.apiAccess && currentLimits.apiAccess) {
+      const keys = await pool.query(
+        'SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL',
+        [internalUserId]
+      );
+      const count = parseInt(keys.rows[0].cnt, 10);
+      if (count > 0) impact.apiKeysCount = count;
+    }
+
+    // Sync interval change
+    if (targetLimits.syncIntervalHours > currentLimits.syncIntervalHours) {
+      impact.syncChange = {
+        from: `${currentLimits.syncIntervalHours}h`,
+        to: `${targetLimits.syncIntervalHours}h`,
+      };
+    }
+
+    // Data retention change
+    const currentRetDays = currentLimits.dataRetentionDays === Infinity ? null : currentLimits.dataRetentionDays;
+    const targetRetDays = targetLimits.dataRetentionDays === Infinity ? null : targetLimits.dataRetentionDays;
+    if (targetRetDays && (!currentRetDays || targetRetDays < currentRetDays)) {
+      const retentionLabels = { 180: '6 months', 365: '1 year' };
+      impact.retentionChange = {
+        from: currentRetDays ? (retentionLabels[currentRetDays] || `${currentRetDays} days`) : 'Unlimited',
+        to: retentionLabels[targetRetDays] || `${targetRetDays} days`,
+      };
+    }
+
+    const isDowngrade = Object.keys(impact).length > 0;
+    res.json({ ...impact, isDowngrade });
+  } catch (error) {
+    console.error('Downgrade impact error:', error);
+    res.status(500).json({ error: 'Failed to compute downgrade impact' });
+  }
+}
+
+module.exports = { getSubscription, createCheckout, createPortal, handleWebhook, getDowngradeImpact };

@@ -30,10 +30,12 @@ async function aggregateMetrics(userId, startDate, endDate) {
   const sub = await getUserSubscription(userId);
 
   // Data retention clamping: don't return data older than plan allows
+  let dataRetentionLimit = null;
   if (sub.limits.dataRetentionDays !== Infinity) {
     const minDate = new Date();
     minDate.setDate(minDate.getDate() - sub.limits.dataRetentionDays);
     const minDateStr = minDate.toISOString().slice(0, 10);
+    dataRetentionLimit = { days: sub.limits.dataRetentionDays, earliestDate: minDateStr };
     if (startDate < minDateStr) {
       startDate = minDateStr;
     }
@@ -175,7 +177,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     totalPurchases
   };
 
-  return { summary, platforms, countries, timeSeries };
+  return { summary, platforms, countries, timeSeries, dataRetentionLimit };
 }
 
 module.exports = { aggregateMetrics };

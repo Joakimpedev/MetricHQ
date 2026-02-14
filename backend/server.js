@@ -60,7 +60,7 @@ app.get('/api/metrics', async (req, res) => {
     const internalUserId = await getOrCreateUserByClerkId(userId);
     const dataOwnerId = await resolveDataOwner(internalUserId);
     if (dataOwnerId === null) {
-      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+      return res.status(403).json({ error: 'team_owner_downgraded', message: "Your team owner's Pro plan is no longer active. Contact them to restore access." });
     }
     const data = await aggregateMetrics(dataOwnerId, start, end);
 
@@ -98,7 +98,7 @@ app.get('/api/connections', async (req, res) => {
       return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
     }
     const result = await pool.query(
-      'SELECT platform, account_id, access_token, settings, updated_at FROM connected_accounts WHERE user_id = $1',
+      'SELECT platform, account_id, access_token, settings, updated_at, created_at FROM connected_accounts WHERE user_id = $1 ORDER BY created_at ASC',
       [dataOwnerId]
     );
 
@@ -108,6 +108,7 @@ app.get('/api/connections', async (req, res) => {
         connected: true,
         accountId: row.account_id,
         updatedAt: row.updated_at,
+        createdAt: row.created_at,
         settings: row.settings || {}
       };
       // Return masked + full API key for PostHog so the UI can toggle visibility
@@ -459,6 +460,7 @@ app.get('/api/sync/status', async (req, res) => {
 app.get('/api/billing/subscription', billing.getSubscription);
 app.post('/api/billing/checkout', billing.createCheckout);
 app.post('/api/billing/portal', billing.createPortal);
+app.get('/api/billing/downgrade-impact', billing.getDowngradeImpact);
 
 // Team routes
 const teamRoutes = require('./routes/team');

@@ -467,12 +467,30 @@ async function syncStripe(userId, apiKey) {
 
 async function syncForUser(userId) {
   const accounts = await pool.query(
-    'SELECT platform, account_id, access_token, COALESCE(settings, \'{}\'::jsonb) as settings FROM connected_accounts WHERE user_id = $1',
+    'SELECT platform, account_id, access_token, COALESCE(settings, \'{}\'::jsonb) as settings, created_at FROM connected_accounts WHERE user_id = $1 ORDER BY created_at ASC',
     [userId]
   );
 
+  // Determine ad platform limit from subscription
+  const sub = await getUserSubscription(userId);
+  const maxAdPlatforms = sub.limits.maxAdPlatforms;
+  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'];
+
+  // Count ad platforms and only sync up to the limit (oldest first)
+  let adPlatformsSynced = 0;
+
   const promises = [];
   for (const acc of accounts.rows) {
+    const isAdPlatform = adPlatformKeys.includes(acc.platform);
+
+    if (isAdPlatform) {
+      adPlatformsSynced++;
+      if (maxAdPlatforms !== Infinity && adPlatformsSynced > maxAdPlatforms) {
+        // Skip syncing — platform is "paused" due to plan limits
+        continue;
+      }
+    }
+
     switch (acc.platform) {
       case 'tiktok':
         promises.push(syncTikTok(userId, acc.access_token, acc.account_id));

@@ -2,11 +2,22 @@
 
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Check, Loader2, ExternalLink } from 'lucide-react';
+import { Check, Loader2, ExternalLink, AlertTriangle, X } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import { PLANS } from '../../../lib/plans';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+
+const PLAN_ORDER = ['starter', 'growth', 'pro'];
+
+interface DowngradeImpact {
+  excessPlatforms?: string[];
+  teamMembersCount?: number;
+  apiKeysCount?: number;
+  syncChange?: { from: string; to: string };
+  retentionChange?: { from: string; to: string };
+  isDowngrade: boolean;
+}
 
 function RollingDigit({ digit, delay = 0 }: { digit: string; delay?: number }) {
   const isNum = /\d/.test(digit);
@@ -36,12 +47,115 @@ function RollingPrice({ value }: { value: number }) {
   );
 }
 
+function DowngradeModal({
+  impact,
+  targetPlanName,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  impact: DowngradeImpact;
+  targetPlanName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative bg-bg-surface border border-border rounded-xl w-full max-w-md shadow-2xl mx-4">
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} className="text-warning" />
+              <h3 className="text-[15px] font-semibold text-text-heading">
+                Switching to {targetPlanName}
+              </h3>
+            </div>
+            <button onClick={onCancel} className="p-1 rounded hover:bg-bg-elevated transition-colors">
+              <X size={16} className="text-text-dim" />
+            </button>
+          </div>
+
+          <p className="text-[13px] text-text-body mb-4">
+            The following changes will take effect:
+          </p>
+
+          <ul className="space-y-2.5 mb-5">
+            {impact.excessPlatforms && impact.excessPlatforms.length > 0 && (
+              <li className="flex items-start gap-2 text-[13px] text-text-body">
+                <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
+                Pausing sync for <strong>{impact.excessPlatforms.join(' and ')}</strong>
+                <span className="text-text-dim text-[11px]">(data preserved)</span>
+              </li>
+            )}
+            {impact.teamMembersCount && (
+              <li className="flex items-start gap-2 text-[13px] text-text-body">
+                <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
+                Pausing team access for {impact.teamMembersCount} member{impact.teamMembersCount > 1 ? 's' : ''}
+                <span className="text-text-dim text-[11px]">(invites preserved)</span>
+              </li>
+            )}
+            {impact.apiKeysCount && (
+              <li className="flex items-start gap-2 text-[13px] text-text-body">
+                <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
+                Suspending {impact.apiKeysCount} API key{impact.apiKeysCount > 1 ? 's' : ''}
+                <span className="text-text-dim text-[11px]">(keys preserved)</span>
+              </li>
+            )}
+            {impact.syncChange && (
+              <li className="flex items-start gap-2 text-[13px] text-text-body">
+                <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
+                Reducing sync frequency from every {impact.syncChange.from} to every {impact.syncChange.to}
+              </li>
+            )}
+            {impact.retentionChange && (
+              <li className="flex items-start gap-2 text-[13px] text-text-body">
+                <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
+                Limiting data history to {impact.retentionChange.to}
+                <span className="text-text-dim text-[11px]">(older data preserved)</span>
+              </li>
+            )}
+          </ul>
+
+          <p className="text-[11px] text-text-dim mb-5">
+            Nothing is deleted. Upgrade anytime to restore everything instantly.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-bg-elevated hover:bg-bg-hover text-text-heading border border-border-dim transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 size={14} className="animate-spin" />}
+              Continue to checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PricingPage() {
   const { user } = useUser();
   const { subscription, loading: subLoading } = useSubscription();
   const [yearly, setYearly] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [downgradeModal, setDowngradeModal] = useState<{
+    impact: DowngradeImpact;
+    priceId: string;
+    planName: string;
+  } | null>(null);
+  const [impactLoading, setImpactLoading] = useState<string | null>(null);
 
   const handleCheckout = async (priceId: string | undefined) => {
     if (!priceId || !user?.id) return;
@@ -61,6 +175,41 @@ export default function PricingPage() {
     } finally {
       setCheckoutLoading(null);
     }
+  };
+
+  const handlePlanClick = async (priceId: string | undefined, planKey: string, planName: string) => {
+    if (!priceId || !user?.id) return;
+
+    const isActive = subscription?.status === 'active';
+    const currentPlan = subscription?.plan?.toLowerCase();
+
+    // Check if this is a downgrade
+    if (isActive && currentPlan) {
+      const currentIdx = PLAN_ORDER.indexOf(currentPlan);
+      const targetIdx = PLAN_ORDER.indexOf(planKey);
+
+      if (targetIdx < currentIdx) {
+        // It's a downgrade — fetch impact first
+        setImpactLoading(priceId);
+        try {
+          const params = new URLSearchParams({ userId: user.id, targetPlan: planKey });
+          const res = await fetch(`${API_URL}/api/billing/downgrade-impact?${params}`);
+          const impact: DowngradeImpact = await res.json();
+
+          if (impact.isDowngrade) {
+            setDowngradeModal({ impact, priceId, planName });
+            setImpactLoading(null);
+            return;
+          }
+        } catch {
+          // If impact check fails, proceed to checkout anyway
+        } finally {
+          setImpactLoading(null);
+        }
+      }
+    }
+
+    handleCheckout(priceId);
   };
 
   const handlePortal = async () => {
@@ -119,7 +268,7 @@ export default function PricingPage() {
           const priceId = yearly ? plan.yearlyPriceId : plan.monthlyPriceId;
           const planKey = plan.name.toLowerCase();
           const isCurrent = currentPlan === planKey && isActive;
-          const isLoading = checkoutLoading === priceId;
+          const isLoading = checkoutLoading === priceId || impactLoading === priceId;
 
           return (
             <div
@@ -187,7 +336,7 @@ export default function PricingPage() {
                 ) : (
                   <>
                     <button
-                      onClick={() => handleCheckout(priceId)}
+                      onClick={() => handlePlanClick(priceId, planKey, plan.name)}
                       disabled={isLoading || !priceId || subLoading}
                       className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
                         plan.popular
@@ -223,6 +372,20 @@ export default function PricingPage() {
             {portalLoading ? 'Opening...' : 'Manage billing & invoices'}
           </button>
         </div>
+      )}
+
+      {/* Downgrade Warning Modal */}
+      {downgradeModal && (
+        <DowngradeModal
+          impact={downgradeModal.impact}
+          targetPlanName={downgradeModal.planName}
+          loading={!!checkoutLoading}
+          onConfirm={() => {
+            handleCheckout(downgradeModal.priceId);
+            setDowngradeModal(null);
+          }}
+          onCancel={() => setDowngradeModal(null)}
+        />
       )}
     </div>
   );

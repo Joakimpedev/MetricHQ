@@ -67,6 +67,7 @@ interface MetricsData {
   timeSeries: TimeSeriesPoint[];
   comparison?: { summary: Summary; timeSeries: TimeSeriesPoint[] } | Summary;
   unattributedRevenue?: number;
+  dataRetentionLimit?: { days: number; earliestDate: string } | null;
 }
 
 function fmtDate(d: Date): string {
@@ -280,7 +281,11 @@ export default function DashboardPage() {
       const response = await fetch(`${API_URL}/api/metrics?${params}`);
       const json = await response.json();
       if (!response.ok) {
-        setError(json.error || 'Failed to load metrics');
+        if (json.error === 'team_owner_downgraded') {
+          setError(json.message || "Your team owner's Pro plan is no longer active. Contact them to restore access.");
+        } else {
+          setError(json.error || 'Failed to load metrics');
+        }
         return;
       }
       setData(json);
@@ -445,6 +450,10 @@ export default function DashboardPage() {
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const platforms = demoPatched;
 
+  const retentionLimit = data?.dataRetentionLimit;
+  // Show retention banner if the selected start date was before the retention limit
+  const showRetentionBanner = retentionLimit && dateRange.startDate < retentionLimit.earliestDate;
+
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
   const hasAnyData = summary.totalSpend > 0 || summary.totalRevenue > 0 || countries.length > 0 || timeSeries.length > 0;
@@ -455,6 +464,19 @@ export default function DashboardPage() {
       <div className="flex justify-end">
         <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} dataRetentionDays={isDemo ? undefined : subscription?.limits?.dataRetentionDays} />
       </div>
+
+      {/* Data retention banner */}
+      {showRetentionBanner && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+          <span className="text-yellow-600 dark:text-yellow-400 text-[12px]">
+            Showing data from {new Date(retentionLimit.earliestDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.{' '}
+            <a href="/pricing" className="text-accent hover:text-accent-hover font-medium underline underline-offset-2">
+              Upgrade
+            </a>{' '}
+            for longer history.
+          </span>
+        </div>
+      )}
 
       {/* Profit trend chart with inline KPIs */}
       <ProfitTrend

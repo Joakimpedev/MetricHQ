@@ -162,3 +162,22 @@ input:focus-visible {
 .animate-marquee-reverse:hover {
   animation-play-state: paused;
 }
+
+/* Shine sweep for CTA button */
+@keyframes shine {
+  0%   { transform: translateX(-100%) skewX(-20deg); }
+  100% { transform: translateX(200%) skewX(-20deg); }
+}
+
+.animate-shine {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.25) 45%,
+    rgba(255,255,255,0.4) 50%,
+    rgba(255,255,255,0.25) 55%,
+    transparent 100%
+  );
+  animation: shine 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
