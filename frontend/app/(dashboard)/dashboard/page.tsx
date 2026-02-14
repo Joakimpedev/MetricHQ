@@ -315,6 +315,24 @@ export default function DashboardPage() {
     fetchMetrics();
   }, [user?.id, fetchMetrics, isDemo, showOnboarding]);
 
+  // Demo-only: apply UTM-off overrides to platform/campaign data
+  const demoPatched = useMemo(() => {
+    const raw = data?.platforms || {};
+    if (!isDemo || demoUtmOff.size === 0) return raw;
+    const patched: Record<string, Platform> = {};
+    for (const [plat, pData] of Object.entries(raw)) {
+      const campaigns = pData.campaigns.map((c, i) => {
+        if (demoUtmOff.has(`${plat}::${i}`)) {
+          return { ...c, revenue: 0, purchases: 0, profit: -c.spend, attributed: false };
+        }
+        return c;
+      });
+      const totalRevenue = campaigns.reduce((s, c) => s + (c.revenue || 0), 0);
+      patched[plat] = { ...pData, totalRevenue, campaigns };
+    }
+    return patched;
+  }, [isDemo, demoUtmOff, data?.platforms]);
+
   // Show onboarding wizard if user has zero connections
   if (showOnboarding && !isDemo) {
     return (
@@ -413,27 +431,10 @@ export default function DashboardPage() {
   const rawComp = data?.comparison;
   const compSummary = rawComp && 'summary' in rawComp ? rawComp.summary : (rawComp as Summary | undefined);
   const compTimeSeries = rawComp && 'timeSeries' in rawComp ? rawComp.timeSeries : [];
-  const rawPlatforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
-
-  // Demo-only: apply UTM-off overrides to platform/campaign data
-  const platforms = useMemo(() => {
-    if (!isDemo || demoUtmOff.size === 0) return rawPlatforms;
-    const patched: Record<string, Platform> = {};
-    for (const [plat, pData] of Object.entries(rawPlatforms)) {
-      const campaigns = pData.campaigns.map((c, i) => {
-        if (demoUtmOff.has(`${plat}::${i}`)) {
-          return { ...c, revenue: 0, purchases: 0, profit: -c.spend, attributed: false };
-        }
-        return c;
-      });
-      const totalRevenue = campaigns.reduce((s, c) => s + (c.revenue || 0), 0);
-      patched[plat] = { ...pData, totalRevenue, campaigns };
-    }
-    return patched;
-  }, [isDemo, demoUtmOff, rawPlatforms]);
+  const platforms = demoPatched;
 
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
