@@ -67,6 +67,7 @@ interface MetricsData {
   timeSeries: TimeSeriesPoint[];
   comparison?: { summary: Summary; timeSeries: TimeSeriesPoint[] } | Summary;
   unattributedRevenue?: number;
+  unattributedSpend?: number;
   dataRetentionLimit?: { days: number; earliestDate: string } | null;
 }
 
@@ -448,6 +449,7 @@ export default function DashboardPage() {
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
+  const unattributedSpend = data?.unattributedSpend || 0;
   const platforms = demoPatched;
 
   const retentionLimit = data?.dataRetentionLimit;
@@ -494,7 +496,7 @@ export default function DashboardPage() {
 
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-        <CountryBreakdown countries={countries} />
+        <CountryBreakdown countries={countries} unattributedSpend={unattributedSpend} />
 
         {adPlatforms.length > 0 ? (
           <div className="space-y-4">

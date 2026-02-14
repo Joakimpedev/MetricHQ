@@ -15,6 +15,7 @@ interface Country {
 
 interface CountryBreakdownProps {
   countries: Country[];
+  unattributedSpend?: number;
 }
 
 type SortKey = 'spend' | 'purchases' | 'profit' | 'cpa';
@@ -34,7 +35,7 @@ function CountryFlag({ code }: { code: string }) {
   );
 }
 
-export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
+export default function CountryBreakdown({ countries, unattributedSpend = 0 }: CountryBreakdownProps) {
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showAll, setShowAll] = useState(false);
@@ -131,6 +132,21 @@ export default function CountryBreakdown({ countries }: CountryBreakdownProps) {
               </div>
             );
           })}
+
+          {/* Unattributed spend row (e.g. LinkedIn doesn't report by country) */}
+          {unattributedSpend > 0 && (
+            <div className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 bg-bg-elevated/50 items-center">
+              <div className="flex items-center gap-2.5">
+                <span className="w-5 h-3.5 rounded-[2px] bg-text-dim/15 flex items-center justify-center text-[8px] text-text-dim shrink-0">?</span>
+                <span className="text-[13px] font-medium text-text-dim">Unattributed</span>
+                <span className="text-[10px] text-text-dim/60" title="LinkedIn Ads does not report spend by country">LinkedIn</span>
+              </div>
+              <span className="text-[12px] text-text-dim text-right">${unattributedSpend.toLocaleString()}</span>
+              <span className="text-[12px] text-text-dim text-right">—</span>
+              <span className="text-[12px] text-text-dim text-right">—</span>
+              <span className="text-[12px] text-text-dim text-right">—</span>
+            </div>
+          )}
 
           {/* Show all / Show less */}
           {hasMore && (

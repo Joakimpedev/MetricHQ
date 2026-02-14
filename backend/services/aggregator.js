@@ -165,9 +165,20 @@ async function aggregateMetrics(userId, startDate, endDate) {
   }));
 
   // ---- Summary ----
-  totalSpend = Math.round(totalSpend * 100) / 100;
+  // Campaign-level totals include platforms without country breakdown (e.g. LinkedIn)
+  let campaignTotalSpend = 0;
+  for (const data of Object.values(platformData)) {
+    campaignTotalSpend += data.totalSpend;
+  }
+
+  // Use the higher of country-level or campaign-level spend so KPIs include LinkedIn
+  const countrySpend = totalSpend;
+  totalSpend = Math.round(Math.max(totalSpend, campaignTotalSpend) * 100) / 100;
   totalRevenue = Math.round(totalRevenue * 100) / 100;
   const totalProfit = Math.round((totalRevenue - totalSpend) * 100) / 100;
+
+  // Spend from platforms that don't report country breakdowns (LinkedIn)
+  const unattributedSpend = Math.round(Math.max(0, campaignTotalSpend - countrySpend) * 100) / 100;
 
   const summary = {
     totalSpend,
@@ -177,7 +188,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     totalPurchases
   };
 
-  return { summary, platforms, countries, timeSeries, dataRetentionLimit };
+  return { summary, platforms, countries, timeSeries, dataRetentionLimit, unattributedSpend };
 }
 
 module.exports = { aggregateMetrics };
