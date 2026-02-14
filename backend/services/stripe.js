@@ -5,11 +5,12 @@ const STRIPE_API = 'https://api.stripe.com/v1';
 /**
  * Fetch revenue data from Stripe Charges API.
  * Uses expand[]=data.customer to get customer metadata (UTM campaign attribution).
+ * Each charge returns its own currency — Stripe accounts can process multiple currencies.
  *
  * @param {string} apiKey - Stripe restricted/secret key (rk_live_... or sk_live_...)
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<{ country: string, date: string, revenue: number, purchases: number, campaign: string }>}
+ * @returns {Array<{ country: string, date: string, revenue: number, purchases: number, campaign: string, currency: string }>}
  */
 async function fetchRevenueData(apiKey, startDate, endDate) {
   const startUnix = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000);
@@ -43,7 +44,11 @@ async function fetchRevenueData(apiKey, startDate, endDate) {
     for (const charge of charges) {
       startingAfter = charge.id;
 
-      const revenue = charge.amount / 100; // cents to dollars
+      // Stripe amounts are in the smallest currency unit (e.g. cents for USD/EUR, yen for JPY)
+      const chargeCurrency = (charge.currency || 'usd').toUpperCase();
+      const isZeroDecimal = ['BIF','CLP','DJF','GNF','JPY','KMF','KRW','MGA','PYG','RWF','UGX','VND','VUV','XAF','XOF','XPF'].includes(chargeCurrency);
+      const revenue = isZeroDecimal ? charge.amount : charge.amount / 100;
+
       const country = charge.billing_details?.address?.country
         || charge.payment_method_details?.card?.country
         || '';
@@ -56,6 +61,7 @@ async function fetchRevenueData(apiKey, startDate, endDate) {
         revenue,
         purchases: 1,
         campaign,
+        currency: chargeCurrency,
       });
     }
 

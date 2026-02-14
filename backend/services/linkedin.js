@@ -1,6 +1,30 @@
 const axios = require('axios');
 
 /**
+ * Fetch the ad account's currency from LinkedIn.
+ */
+async function fetchAccountCurrency(accessToken, accountId) {
+  try {
+    const response = await axios.get(
+      `https://api.linkedin.com/rest/adAccounts/${accountId}`,
+      {
+        params: { fields: 'currency' },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'LinkedIn-Version': '202402',
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+        timeout: 15000,
+      }
+    );
+    return response.data?.currency || 'USD';
+  } catch (err) {
+    console.warn('[linkedin] Failed to fetch account currency, defaulting to USD:', err.message);
+    return 'USD';
+  }
+}
+
+/**
  * Fetch ad spend from LinkedIn Marketing API.
  * Note: LinkedIn does NOT support geographic breakdown in analytics.
  * All data comes back without country information.
@@ -9,9 +33,11 @@ const axios = require('axios');
  * @param {string} accountId - LinkedIn ad account ID
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<{ campaign_id, date, spend, impressions, clicks }>}
+ * @returns {{ currency: string, rows: Array<{ campaign_id, date, spend, impressions, clicks }> }}
  */
 async function fetchAdSpend(accessToken, accountId, startDate, endDate) {
+  const currency = await fetchAccountCurrency(accessToken, accountId);
+
   const start = new Date(startDate + 'T00:00:00Z');
   const end = new Date(endDate + 'T00:00:00Z');
 
@@ -49,7 +75,7 @@ async function fetchAdSpend(accessToken, accountId, startDate, endDate) {
       ? `${dateRange.year}-${String(dateRange.month).padStart(2, '0')}-${String(dateRange.day).padStart(2, '0')}`
       : endDate;
 
-    // LinkedIn reports cost in the account's currency, as a decimal string
+    // LinkedIn reports cost in the account's currency
     const spend = parseFloat(el.costInLocalCurrency || el.costInUsd || '0');
     const impressions = parseInt(el.impressions || '0', 10);
     const clicks = parseInt(el.clicks || '0', 10);
@@ -63,7 +89,7 @@ async function fetchAdSpend(accessToken, accountId, startDate, endDate) {
     });
   }
 
-  return results;
+  return { currency, rows: results };
 }
 
 module.exports = { fetchAdSpend };

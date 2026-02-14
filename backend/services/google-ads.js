@@ -20,17 +20,47 @@ const GEO_CRITERIA = {
 };
 
 /**
- * Fetch ad spend from Google Ads API v17 via searchStream.
+ * Fetch the account's currency code from Google Ads.
+ */
+async function fetchAccountCurrency(accessToken, customerId, developerToken) {
+  const cleanCustomerId = String(customerId).replace(/-/g, '');
+  try {
+    const response = await axios.post(
+      `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:searchStream`,
+      { query: 'SELECT customer.currency_code FROM customer LIMIT 1' },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'developer-token': developerToken,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+    const batches = Array.isArray(response.data) ? response.data : [response.data];
+    const row = batches[0]?.results?.[0];
+    return row?.customer?.currencyCode || 'USD';
+  } catch (err) {
+    console.warn('[google-ads] Failed to fetch account currency, defaulting to USD:', err.message);
+    return 'USD';
+  }
+}
+
+/**
+ * Fetch ad spend from Google Ads API v20 via searchStream.
  *
  * @param {string} accessToken - OAuth2 access token
  * @param {string} customerId - Google Ads customer ID (digits only, no dashes)
  * @param {string} developerToken - Google Ads API developer token
  * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
- * @returns {Array<{ campaign_id, campaign_name, country, date, spend, impressions, clicks }>}
+ * @returns {{ currency: string, rows: Array<{ campaign_id, campaign_name, country, date, spend, impressions, clicks }> }}
  */
 async function fetchAdSpend(accessToken, customerId, developerToken, startDate, endDate) {
   const cleanCustomerId = String(customerId).replace(/-/g, '');
+
+  // Fetch account currency
+  const currency = await fetchAccountCurrency(accessToken, cleanCustomerId, developerToken);
 
   const query = `
     SELECT campaign.id, campaign.name, geographic_view.country_criterion_id,
@@ -75,7 +105,7 @@ async function fetchAdSpend(accessToken, customerId, developerToken, startDate, 
     }
   }
 
-  return results;
+  return { currency, rows: results };
 }
 
 module.exports = { fetchAdSpend };

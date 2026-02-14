@@ -8,6 +8,7 @@ const { fetchAdSpend: fetchGoogleAdSpend } = require('./google-ads');
 const { fetchAdSpend: fetchLinkedInSpend } = require('./linkedin');
 const { refreshGoogleToken, refreshLinkedInToken } = require('./token-refresh');
 const { getUserSubscription } = require('./subscription');
+const { convertToUSD } = require('./exchange-rates');
 
 // ---- Lock helpers ----
 
@@ -77,7 +78,7 @@ async function syncTikTok(userId, accessToken, advertiserId) {
   if (!locked) return;
 
   try {
-    const rows = await fetchTikTokSpend(accessToken, advertiserId, startDate, endDate);
+    const { currency, rows } = await fetchTikTokSpend(accessToken, advertiserId, startDate, endDate);
     const data = rows || [];
 
     const client = await pool.connect();
@@ -97,7 +98,8 @@ async function syncTikTok(userId, accessToken, advertiserId) {
       // Aggregate by country+date for metrics_cache, and by campaign+country+date for campaign_metrics
       for (const row of data) {
         const country = (row.country_code || row.country || '').toUpperCase().slice(0, 2);
-        const spend = parseFloat(row.spend || 0);
+        const rawSpend = parseFloat(row.spend || 0);
+        const spend = await convertToUSD(rawSpend, currency);
         const impressions = parseInt(row.impressions || 0, 10);
         const clicks = parseInt(row.clicks || 0, 10);
         const campaignId = row.campaign_id || row.dimensions?.campaign_id || 'unknown';
@@ -147,7 +149,7 @@ async function syncMeta(userId, accessToken, adAccountId) {
   if (!locked) return;
 
   try {
-    const rows = await fetchMetaSpend(accessToken, adAccountId, startDate, endDate);
+    const { currency, rows } = await fetchMetaSpend(accessToken, adAccountId, startDate, endDate);
     const data = rows || [];
 
     const client = await pool.connect();
@@ -165,7 +167,8 @@ async function syncMeta(userId, accessToken, adAccountId) {
 
       for (const row of data) {
         const country = (row.country || '').toUpperCase().slice(0, 2);
-        const spend = parseFloat(row.spend || 0);
+        const rawSpend = parseFloat(row.spend || 0);
+        const spend = await convertToUSD(rawSpend, currency);
         const impressions = parseInt(row.impressions || 0, 10);
         const clicks = parseInt(row.clicks || 0, 10);
         const campaignName = row.campaign_name || 'Unknown Campaign';
@@ -240,6 +243,7 @@ async function syncPostHog(userId, apiKey, projectId, settings = {}) {
         const code = String(country).toUpperCase().slice(0, 2);
         const dateStr = String(date).slice(0, 10);
 
+        // PostHog revenue is assumed to be in USD (set by the app's event tracking)
         await client.query(
           `INSERT INTO metrics_cache (user_id, country_code, date, platform, revenue, purchases)
            VALUES ($1, $2, $3, 'posthog', $4, $5)
@@ -275,7 +279,7 @@ async function syncGoogleAds(userId, accessToken, customerId) {
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     if (!developerToken) throw new Error('GOOGLE_ADS_DEVELOPER_TOKEN not set');
 
-    const rows = await fetchGoogleAdSpend(freshToken, customerId, developerToken, startDate, endDate);
+    const { currency, rows } = await fetchGoogleAdSpend(freshToken, customerId, developerToken, startDate, endDate);
     const data = rows || [];
 
     const client = await pool.connect();
@@ -293,7 +297,8 @@ async function syncGoogleAds(userId, accessToken, customerId) {
 
       for (const row of data) {
         const country = (row.country || '').toUpperCase().slice(0, 2);
-        const spend = parseFloat(row.spend || 0);
+        const rawSpend = parseFloat(row.spend || 0);
+        const spend = await convertToUSD(rawSpend, currency);
         const impressions = parseInt(row.impressions || 0, 10);
         const clicks = parseInt(row.clicks || 0, 10);
         const campaignId = row.campaign_id || 'unknown';
@@ -345,7 +350,7 @@ async function syncLinkedIn(userId, accessToken, accountId) {
     // Refresh token if needed
     const freshToken = await refreshLinkedInToken(userId);
 
-    const rows = await fetchLinkedInSpend(freshToken, accountId, startDate, endDate);
+    const { currency, rows } = await fetchLinkedInSpend(freshToken, accountId, startDate, endDate);
     const data = rows || [];
 
     const client = await pool.connect();
@@ -363,7 +368,8 @@ async function syncLinkedIn(userId, accessToken, accountId) {
 
       for (const row of data) {
         // LinkedIn does NOT support geographic breakdown
-        const spend = parseFloat(row.spend || 0);
+        const rawSpend = parseFloat(row.spend || 0);
+        const spend = await convertToUSD(rawSpend, currency);
         const impressions = parseInt(row.impressions || 0, 10);
         const clicks = parseInt(row.clicks || 0, 10);
         const campaignId = row.campaign_id || 'unknown';
@@ -399,8 +405,7 @@ async function syncStripe(userId, apiKey) {
   if (!locked) return;
 
   try {
-    const rows = await fetchStripeRevenue(apiKey, startDate, endDate);
-    const data = rows || [];
+    const data = await fetchStripeRevenue(apiKey, startDate, endDate) || [];
 
     const client = await pool.connect();
     try {
@@ -417,7 +422,9 @@ async function syncStripe(userId, apiKey) {
 
       for (const row of data) {
         const country = (row.country || '').toUpperCase().slice(0, 2);
-        const revenue = parseFloat(row.revenue || 0);
+        // Each Stripe charge has its own currency — convert per charge
+        const rawRevenue = parseFloat(row.revenue || 0);
+        const revenue = await convertToUSD(rawRevenue, row.currency || 'USD');
         const purchases = parseInt(row.purchases || 0, 10);
         const campaign = row.campaign || '';
         const dateStr = String(row.date).slice(0, 10);
