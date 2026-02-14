@@ -68,8 +68,9 @@ interface DataPoint {
 interface MergedPoint {
   date: string;
   profit: number;
-  prevProfit?: number;
-  prevDate?: string;
+  revenue: number;
+  spend: number;
+  customCosts: number;
 }
 
 interface SummaryData {
@@ -127,30 +128,36 @@ function makeCustomTooltip(fmt: (n: number) => string) {
     const { active, payload, label } = props || {};
     if (!active || !payload?.length) return null;
 
-    const point = payload[0]?.payload;
+    const point = payload[0]?.payload as MergedPoint | undefined;
     if (!point) return null;
 
-    const profit = typeof point.profit === 'number' ? point.profit : null;
-    const prevProfit = typeof point.prevProfit === 'number' ? point.prevProfit : null;
-    const prevDate = typeof point.prevDate === 'string' ? point.prevDate : null;
     const dateLabel = typeof label === 'string' ? label : '';
 
     return (
-      <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg">
-        <p className="text-[11px] text-text-dim">{dateLabel ? formatDate(dateLabel) : ''}</p>
-        {profit !== null && (
-          <p className={`text-[13px] font-semibold ${profit >= 0 ? 'text-success' : 'text-error'}`}>
-            {profit >= 0 ? '+' : ''}{fmt(profit)}
-          </p>
-        )}
-        {prevProfit !== null && prevDate && (
-          <div className="mt-1.5 pt-1.5 border-t border-border-dim/50">
-            <p className="text-[10px] text-text-dim">{formatDate(prevDate)}</p>
-            <p className="text-[12px] font-medium text-text-dim">
-              {prevProfit >= 0 ? '+' : ''}{fmt(prevProfit)}
-            </p>
+      <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg min-w-[140px]">
+        <p className="text-[11px] text-text-dim mb-1.5">{dateLabel ? formatDate(dateLabel) : ''}</p>
+        <div className="space-y-1">
+          <div className="flex justify-between gap-4">
+            <span className="text-[11px] text-text-dim">Revenue</span>
+            <span className="text-[12px] font-medium text-text-body tabular-nums">{fmt(point.revenue)}</span>
           </div>
-        )}
+          <div className="flex justify-between gap-4">
+            <span className="text-[11px] text-text-dim">Ad Spend</span>
+            <span className="text-[12px] font-medium text-text-body tabular-nums">-{fmt(point.spend)}</span>
+          </div>
+          {point.customCosts > 0 && (
+            <div className="flex justify-between gap-4">
+              <span className="text-[11px] text-text-dim">Custom Costs</span>
+              <span className="text-[12px] font-medium text-text-body tabular-nums">-{fmt(Math.round(point.customCosts))}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-4 pt-1 border-t border-border-dim/50">
+            <span className="text-[11px] font-medium text-text-dim">Profit</span>
+            <span className={`text-[13px] font-semibold tabular-nums ${point.profit >= 0 ? 'text-success' : 'text-error'}`}>
+              {point.profit >= 0 ? '+' : ''}{fmt(Math.round(point.profit))}
+            </span>
+          </div>
+        </div>
       </div>
     );
   };
@@ -225,16 +232,18 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
   const { formatCurrency: fmtCur, formatCurrencyCompact: fmtCompact } = useCurrency();
   const [showProfit, setShowProfit] = useState(true);
 
-  const merged = useMemo<MergedPoint[]>(() => {
-    return data.map((point, i) => ({
-      date: point.date,
-      profit: point.profit,
-      prevProfit: prevData?.[i]?.profit,
-      prevDate: prevData?.[i]?.date,
-    }));
-  }, [data, prevData]);
+  const dailyCustomCosts = data.length > 0 ? (customCostsTotal || 0) / data.length : 0;
 
-  const hasPrev = prevData && prevData.length > 0;
+  const merged = useMemo<MergedPoint[]>(() => {
+    return data.map((point) => ({
+      date: point.date,
+      profit: point.profit - dailyCustomCosts,
+      revenue: point.revenue,
+      spend: point.spend,
+      customCosts: dailyCustomCosts,
+    }));
+  }, [data, dailyCustomCosts]);
+
   const hasCustomCosts = (customCostsTotal || 0) > 0;
 
   const TooltipComponent = useMemo(() => makeCustomTooltip(fmtCur), [fmtCur]);
@@ -329,11 +338,11 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
               {/* Custom Costs — only when > 0 */}
               {hasCustomCosts && (
                 <div className="flex items-start gap-2.5">
-                  <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/10 shrink-0" />
+                  <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
                   <div>
                     <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-[18px] font-semibold tracking-tight leading-none text-text-dim">
+                      <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
                         {fmtCur(customCostsTotal || 0)}
                       </span>
                       {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
@@ -363,9 +372,6 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
                   <YAxis tickFormatter={yAxisFormatter} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
                   <Tooltip content={<TooltipComponent />} />
-                  {hasPrev && showProfit && (
-                    <Area type="monotone" dataKey="prevProfit" stroke="var(--text-dim)" strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} activeDot={false} />
-                  )}
                   {showProfit && (
                     <Area type="monotone" dataKey="profit" stroke="var(--accent)" strokeWidth={2} fill="url(#profitGradient)" />
                   )}

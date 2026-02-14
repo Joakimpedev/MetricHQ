@@ -402,6 +402,25 @@ export default function DashboardPage() {
     return patched;
   }, [isDemo, demoUtmOff, data?.platforms]);
 
+  // Compute customCostsTotal from breakdown items using live exchange rates (matches donut chart)
+  const customCostsBreakdown = data?.customCostsBreakdown || [];
+  const customCostsTotal = useMemo(() => {
+    return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency), 0);
+  }, [customCostsBreakdown, convertFromCurrency]);
+
+  // Build combined cost breakdown: ad spend platforms + custom costs
+  const combinedBreakdown = useMemo(() => {
+    const adSpendItems = Object.entries(demoPatched)
+      .filter(([key]) => key !== 'stripe' && (demoPatched[key]?.totalSpend || 0) > 0)
+      .map(([key, pData]) => ({
+        name: PLATFORM_LABELS[key] || key,
+        category: 'Ad Spend' as string | null,
+        amount: pData.totalSpend,
+        currency: 'USD',
+      }));
+    return [...adSpendItems, ...customCostsBreakdown];
+  }, [demoPatched, customCostsBreakdown]);
+
   // Show onboarding wizard if user has zero connections
   if (showOnboarding && !isDemo) {
     return (
@@ -505,27 +524,8 @@ export default function DashboardPage() {
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
-  const customCostsBreakdown = data?.customCostsBreakdown || [];
   const countryCampaigns = data?.countryCampaigns || {};
   const platforms = demoPatched;
-
-  // Compute customCostsTotal from breakdown items using live exchange rates (matches donut chart)
-  const customCostsTotal = useMemo(() => {
-    return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency), 0);
-  }, [customCostsBreakdown, convertFromCurrency]);
-
-  // Build combined cost breakdown: ad spend platforms + custom costs
-  const combinedBreakdown = useMemo(() => {
-    const adSpendItems = Object.entries(platforms)
-      .filter(([key]) => key !== 'stripe' && (platforms[key]?.totalSpend || 0) > 0)
-      .map(([key, pData]) => ({
-        name: PLATFORM_LABELS[key] || key,
-        category: 'Ad Spend' as string | null,
-        amount: pData.totalSpend,
-        currency: 'USD',
-      }));
-    return [...adSpendItems, ...customCostsBreakdown];
-  }, [platforms, customCostsBreakdown]);
 
   const retentionLimit = data?.dataRetentionLimit;
   // Show retention banner if the selected start date was before the retention limit
