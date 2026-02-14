@@ -15,7 +15,7 @@ export default function DashboardPreview() {
   }, [theme, loaded]);
 
   return (
-    <div className="rounded-2xl border border-border-dim bg-bg-surface shadow-lg overflow-hidden">
+    <div className="rounded-2xl border-2 border-accent/20 bg-bg-surface shadow-[0_8px_40px_-8px_rgba(0,0,0,0.15),0_4px_16px_-4px_rgba(0,0,0,0.1)] overflow-hidden ring-1 ring-accent/[0.08]">
       {/* Browser chrome */}
       <div className="flex items-center gap-2 px-4 py-3 bg-bg-elevated border-b border-border-dim">
         <div className="flex gap-1.5">

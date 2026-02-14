@@ -384,7 +384,7 @@ export default function LandingPage() {
             <span className="text-accent">See what&apos;s working.</span>
           </h1>
           <p className="text-lg sm:text-xl text-text-dim max-w-2xl mx-auto mb-10">
-            Connect Google Ads, Meta, and LinkedIn with Stripe. Get a single dashboard that shows ad spend, revenue, and profit — by campaign and country.
+            We connect your marketing platforms with Stripe, so you can track what's working and where you lose money.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {CLERK_ENABLED && (
@@ -399,7 +399,7 @@ export default function LandingPage() {
                 href="/dashboard"
                 className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors"
               >
-                Start free trial
+                Try for free
               </Link>
             )}
             <a
@@ -474,10 +474,9 @@ export default function LandingPage() {
       {/* How It Works */}
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
-          <h2 className="text-4xl font-bold text-center mb-12 text-text-heading">
-            <span className="text-accent"><RollingPhrase /></span>
-            <br />
-            in 3 steps
+          <h2 className="text-4xl font-bold mb-12 text-text-heading flex items-baseline justify-center gap-3">
+            <span className="text-accent text-right flex-1"><RollingPhrase /></span>
+            <span className="text-left flex-1">in 3 steps</span>
           </h2>
           <div className="grid md:grid-cols-3 gap-10">
             {/* Step 1 */}

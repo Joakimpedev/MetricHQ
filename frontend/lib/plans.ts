@@ -16,7 +16,7 @@ export const PLANS: PlanDef[] = [
     yearlyPrice: 22,
     description: 'For solo founders testing paid ads.',
     features: [
-      '1 ad platform (Google, Meta, TikTok, or LinkedIn)',
+      '1 ad platform',
       'Stripe revenue tracking',
       'Country + campaign P&L',
       'Daily sync',

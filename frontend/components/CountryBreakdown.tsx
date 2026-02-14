@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Country {
@@ -13,15 +13,40 @@ interface Country {
   purchases: number;
 }
 
+interface CountryCampaign {
+  platform: string;
+  campaign: string;
+  spend: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  purchases: number;
+}
+
 interface CountryBreakdownProps {
   countries: Country[];
   unattributedSpend?: number;
+  countryCampaigns?: Record<string, CountryCampaign[]>;
 }
 
 type SortKey = 'spend' | 'purchases' | 'profit' | 'cpa';
 type SortDir = 'asc' | 'desc';
 
 const INITIAL_SHOW = 5;
+
+const PLATFORM_LABELS: Record<string, string> = {
+  google_ads: 'Google Ads',
+  meta: 'Meta',
+  tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  google_ads: '#4285f4',
+  meta: '#0081fb',
+  tiktok: '#fe2c55',
+  linkedin: '#0a66c2',
+};
 
 function CountryFlag({ code }: { code: string }) {
   return (
@@ -35,10 +60,138 @@ function CountryFlag({ code }: { code: string }) {
   );
 }
 
-export default function CountryBreakdown({ countries, unattributedSpend = 0 }: CountryBreakdownProps) {
+function CountryTooltip({ country, campaigns, onClose }: {
+  country: Country;
+  campaigns: CountryCampaign[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  // Platform spend breakdown
+  const platformSpend: Record<string, number> = {};
+  for (const c of campaigns) {
+    platformSpend[c.platform] = (platformSpend[c.platform] || 0) + c.spend;
+  }
+  const totalCampaignSpend = Object.values(platformSpend).reduce((s, v) => s + v, 0);
+
+  // Sort campaigns by spend desc
+  const sortedCampaigns = [...campaigns].sort((a, b) => b.spend - a.spend);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 right-0 z-30 mx-3 mt-0.5 bg-bg-elevated border border-border-dim rounded-lg shadow-xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border-dim/60 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CountryFlag code={country.code} />
+          <span className="text-[13px] font-semibold text-text-heading">{country.name}</span>
+        </div>
+        <span className={`text-[12px] font-semibold ${country.profit >= 0 ? 'text-success' : 'text-error'}`}>
+          {country.profit >= 0 ? '+' : ''}${country.profit.toLocaleString()} profit
+        </span>
+      </div>
+
+      {/* Platform spend bar */}
+      {totalCampaignSpend > 0 && (
+        <div className="px-4 pt-3 pb-2">
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Spend by platform</div>
+          <div className="flex rounded-full overflow-hidden h-2 bg-bg-body">
+            {Object.entries(platformSpend)
+              .sort(([, a], [, b]) => b - a)
+              .map(([plat, spend]) => (
+                <div
+                  key={plat}
+                  className="h-full transition-all"
+                  style={{
+                    width: `${(spend / totalCampaignSpend) * 100}%`,
+                    backgroundColor: PLATFORM_COLORS[plat] || '#888',
+                    minWidth: '4px',
+                  }}
+                />
+              ))}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+            {Object.entries(platformSpend)
+              .sort(([, a], [, b]) => b - a)
+              .map(([plat, spend]) => (
+                <div key={plat} className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[plat] || '#888' }} />
+                  <span className="text-[10px] text-text-dim">{PLATFORM_LABELS[plat] || plat}</span>
+                  <span className="text-[10px] text-text-body font-medium">${spend.toLocaleString()}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Campaign table */}
+      {sortedCampaigns.length > 0 && (
+        <div className="px-4 pt-2 pb-3">
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Campaigns</div>
+          <div className="space-y-0">
+            {sortedCampaigns.slice(0, 5).map((c, i) => {
+              const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0';
+              return (
+                <div key={`${c.platform}-${c.campaign}-${i}`} className="flex items-center justify-between py-1.5 border-b border-border-dim/30 last:border-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PLATFORM_COLORS[c.platform] || '#888' }} />
+                    <span className="text-[11px] text-text-body truncate">{c.campaign}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
+                    <span className="text-[11px] text-text-dim">{c.clicks.toLocaleString()} clicks</span>
+                    <span className="text-[11px] text-text-dim">{ctr}% CTR</span>
+                    <span className="text-[11px] text-text-body font-medium w-16 text-right">${c.spend.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {sortedCampaigns.length > 5 && (
+              <div className="text-[10px] text-text-dim pt-1">+{sortedCampaigns.length - 5} more</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <div className="px-4 py-2.5 bg-bg-body/50 border-t border-border-dim/40 flex gap-4">
+        <div>
+          <div className="text-[10px] text-text-dim">ROAS</div>
+          <div className="text-[12px] font-semibold text-text-heading">{country.roas.toFixed(1)}x</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-text-dim">Revenue</div>
+          <div className="text-[12px] font-semibold text-text-heading">${country.revenue.toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-text-dim">CPA</div>
+          <div className="text-[12px] font-semibold text-text-heading">
+            {country.purchases > 0 ? `$${(country.spend / country.purchases).toFixed(2)}` : '—'}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] text-text-dim">Conversions</div>
+          <div className="text-[12px] font-semibold text-text-heading">{country.purchases}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CountryBreakdown({ countries, unattributedSpend = 0, countryCampaigns = {} }: CountryBreakdownProps) {
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showAll, setShowAll] = useState(false);
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
   const sorted = useMemo(() => {
     const arr = [...countries];
@@ -80,7 +233,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0 }: C
   const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
 
   return (
-    <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
+    <div className="bg-bg-surface rounded-xl border border-border-dim overflow-visible">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">Countries</h3>
         {countries.length > 0 && (
@@ -112,23 +265,41 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0 }: C
           {/* Rows */}
           {displayed.map(c => {
             const cpa = c.purchases > 0 ? c.spend / c.purchases : 0;
+            const campaigns = countryCampaigns[c.code] || [];
+            const isHovered = hoveredCountry === c.code;
             return (
-              <div
-                key={c.code}
-                className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
-              >
-                <div className="flex items-center gap-2.5">
-                  <CountryFlag code={c.code} />
-                  <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
+              <div key={c.code} className="relative">
+                <div
+                  className={`grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 transition-colors items-center cursor-pointer ${isHovered ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
+                  onClick={() => setHoveredCountry(isHovered ? null : c.code)}
+                  onMouseEnter={() => setHoveredCountry(c.code)}
+                  onMouseLeave={() => setHoveredCountry(null)}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <CountryFlag code={c.code} />
+                    <span className="text-[13px] font-medium text-text-heading">{c.name}</span>
+                    {campaigns.length > 0 && (
+                      <span className="text-[10px] text-text-dim/50">
+                        {campaigns.length} {campaigns.length === 1 ? 'campaign' : 'campaigns'}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
+                  <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
+                  <span className={`text-[12px] font-semibold text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
+                    {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
+                  </span>
+                  <span className="text-[12px] text-text-body text-right">
+                    {cpa > 0 ? `$${cpa.toFixed(2)}` : '—'}
+                  </span>
                 </div>
-                <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
-                <span className={`text-[12px] font-semibold text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
-                  {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
-                </span>
-                <span className="text-[12px] text-text-body text-right">
-                  {cpa > 0 ? `$${cpa.toFixed(2)}` : '—'}
-                </span>
+                {isHovered && campaigns.length > 0 && (
+                  <CountryTooltip
+                    country={c}
+                    campaigns={campaigns}
+                    onClose={() => setHoveredCountry(null)}
+                  />
+                )}
               </div>
             );
           })}

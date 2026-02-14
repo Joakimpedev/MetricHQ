@@ -88,6 +88,37 @@ async function aggregateMetrics(userId, startDate, endDate) {
     purchases: data.purchases
   }));
 
+  // ---- Read campaign-per-country data for hover tooltips ----
+  const countryCampaignResult = await pool.query(
+    `SELECT country_code, platform, campaign_id,
+            COALESCE(SUM(spend), 0) as spend,
+            COALESCE(SUM(revenue), 0) as revenue,
+            COALESCE(SUM(impressions), 0) as impressions,
+            COALESCE(SUM(clicks), 0) as clicks,
+            COALESCE(SUM(purchases), 0) as purchases
+     FROM campaign_metrics
+     WHERE user_id = $1 AND date >= $2 AND date <= $3 AND country_code IS NOT NULL
+     GROUP BY country_code, platform, campaign_id`,
+    [userId, startDate, endDate]
+  );
+
+  // Group by country_code -> array of { platform, campaign, spend, revenue, ... }
+  const countryCampaigns = {};
+  for (const row of countryCampaignResult.rows) {
+    const cc = row.country_code;
+    if (!cc) continue;
+    if (!countryCampaigns[cc]) countryCampaigns[cc] = [];
+    countryCampaigns[cc].push({
+      platform: row.platform,
+      campaign: row.campaign_id,
+      spend: Math.round(parseFloat(row.spend) * 100) / 100,
+      revenue: Math.round(parseFloat(row.revenue) * 100) / 100,
+      impressions: parseInt(row.impressions, 10),
+      clicks: parseInt(row.clicks, 10),
+      purchases: parseInt(row.purchases, 10),
+    });
+  }
+
   // ---- Read campaign-level data from campaign_metrics ----
   const campaignResult = await pool.query(
     `SELECT platform, campaign_id,
@@ -188,7 +219,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     totalPurchases
   };
 
-  return { summary, platforms, countries, timeSeries, dataRetentionLimit, unattributedSpend };
+  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend };
 }
 
 module.exports = { aggregateMetrics };
