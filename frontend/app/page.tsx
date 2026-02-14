@@ -206,12 +206,12 @@ function PricingSection() {
     <section id="pricing" className="border-t border-border-dim">
       <div className="max-w-4xl mx-auto px-6 py-20">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-text-heading mb-3">
+          <h2 className="text-4xl font-bold text-text-heading mb-3">
             Try it free for{' '}
             <span className="relative inline-block">
               <span className="text-text-dim line-through decoration-2 decoration-accent/60">7 days</span>
               <span
-                className="absolute -top-5 -right-10 text-accent font-bold text-2xl -rotate-2"
+                className="absolute -top-5 -right-10 text-accent font-bold text-3xl -rotate-2"
                 style={{ fontFamily: 'var(--font-caveat)' }}
               >
                 14 days!
@@ -478,7 +478,7 @@ export default function LandingPage() {
       {/* How It Works */}
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
-          <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">
+          <h2 className="text-4xl font-bold text-center mb-12 text-text-heading">
             <span className="text-accent"><RollingPhrase /></span>
             <br />
             in 3 steps
@@ -523,7 +523,7 @@ export default function LandingPage() {
       {/* Waitlist */}
       <section className="border-t border-border-dim">
         <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-          <h2 className="text-2xl font-bold mb-4 text-text-heading">Stop guessing. Start tracking.</h2>
+          <h2 className="text-4xl font-bold mb-4 text-text-heading">Stop guessing. Start tracking.</h2>
           <p className="text-text-dim mb-8">
             Join the waitlist and be the first to know when we launch.
           </p>
