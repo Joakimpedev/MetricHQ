@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DataPoint {
   date: string;
@@ -18,10 +19,18 @@ interface MergedPoint {
   prevDate?: string;
 }
 
+interface SummaryData {
+  totalProfit: number;
+  totalRevenue: number;
+  totalSpend: number;
+}
+
 interface ProfitTrendProps {
   data: DataPoint[];
   prevData?: DataPoint[];
   isSingleDay?: boolean;
+  summary?: SummaryData;
+  compSummary?: SummaryData;
 }
 
 function formatDate(dateStr: string): string {
@@ -138,7 +147,33 @@ function GhostChart() {
   );
 }
 
-export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrendProps) {
+function InlineBadge({ current, previous, invert }: { current: number; previous: number; invert?: boolean }) {
+  if (previous === 0 && current === 0) return null;
+
+  let pctChange: number;
+  if (previous === 0) {
+    pctChange = current > 0 ? 100 : -100;
+  } else {
+    pctChange = ((current - previous) / Math.abs(previous)) * 100;
+  }
+
+  const isPositive = pctChange >= 0;
+  const isGood = invert ? !isPositive : isPositive;
+  const Icon = isPositive ? TrendingUp : TrendingDown;
+
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+      isGood ? 'text-success' : 'text-error'
+    }`}>
+      <Icon size={11} />
+      {isPositive ? '+' : ''}{pctChange.toFixed(1)}%
+    </span>
+  );
+}
+
+export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary }: ProfitTrendProps) {
+  const [showProfit, setShowProfit] = useState(true);
+
   // Merge current and previous period data by index (day 1 → day 1, etc.)
   const merged = useMemo<MergedPoint[]>(() => {
     return data.map((point, i) => ({
@@ -153,6 +188,67 @@ export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrend
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+      {/* Inline metrics row */}
+      {summary && (
+        <div className="flex items-start gap-6 md:gap-8 mb-5 flex-wrap">
+          {/* Profit — with checkbox */}
+          <button
+            type="button"
+            onClick={() => setShowProfit(prev => !prev)}
+            className="flex items-start gap-2.5 text-left group cursor-pointer"
+          >
+            <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+              showProfit
+                ? 'bg-accent border-accent'
+                : 'border-border-dim bg-transparent'
+            }`}>
+              {showProfit && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                  {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
+              </div>
+            </div>
+          </button>
+
+          {/* Revenue — no checkbox */}
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                  ${summary.totalRevenue.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
+              </div>
+            </div>
+          </div>
+
+          {/* Ad Spend — no checkbox */}
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                  ${summary.totalSpend.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isSingleDay || data.length < 2 ? (
         <GhostChart />
       ) : (
@@ -188,7 +284,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrend
               />
               <Tooltip content={<CustomTooltip />} />
               {/* Ghost line: previous period */}
-              {hasPrev && (
+              {hasPrev && showProfit && (
                 <Area
                   type="monotone"
                   dataKey="prevProfit"
@@ -201,13 +297,15 @@ export default function ProfitTrend({ data, prevData, isSingleDay }: ProfitTrend
                 />
               )}
               {/* Primary: current period */}
-              <Area
-                type="monotone"
-                dataKey="profit"
-                stroke="var(--accent)"
-                strokeWidth={2}
-                fill="url(#profitGradient)"
-              />
+              {showProfit && (
+                <Area
+                  type="monotone"
+                  dataKey="profit"
+                  stroke="var(--accent)"
+                  strokeWidth={2}
+                  fill="url(#profitGradient)"
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>

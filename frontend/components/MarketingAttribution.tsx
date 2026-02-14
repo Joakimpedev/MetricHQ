@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Globe, Plus, X, AlertTriangle } from 'lucide-react';
+import { Globe, X, AlertTriangle } from 'lucide-react';
 
 interface MarketingAttributionProps {
   platforms: Record<string, { totalSpend: number; totalRevenue?: number }>;
@@ -126,7 +125,7 @@ function OrganicCard({ revenue }: { revenue: number }) {
         <div className="w-8 h-8 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
           <Globe size={14} className="text-text-dim" />
         </div>
-        <span className="text-[13px] font-medium text-text-heading">Organic</span>
+        <span className="text-[13px] font-medium text-text-heading">Unattributed</span>
       </div>
       <div className="space-y-0.5 mb-3">
         <p className="text-[12px] text-text-body">Spent —</p>
@@ -134,18 +133,6 @@ function OrganicCard({ revenue }: { revenue: number }) {
       </div>
       <p className="text-[20px] font-bold text-success">+{formatDollar(revenue)}</p>
     </div>
-  );
-}
-
-function ConnectCard() {
-  return (
-    <Link
-      href="/integrations"
-      className="w-[220px] rounded-xl border border-dashed border-border-dim p-4 flex flex-col items-center justify-center gap-2 hover:bg-bg-hover transition-colors min-h-[140px]"
-    >
-      <Plus size={20} className="text-text-dim" />
-      <span className="text-[12px] text-text-dim">Connect platform</span>
-    </Link>
   );
 }
 
@@ -165,7 +152,6 @@ export default function MarketingAttribution({ platforms, unattributedRevenue, t
         />
       ))}
       {unattributedRevenue > 0 && <OrganicCard revenue={unattributedRevenue} />}
-      <ConnectCard />
     </div>
   );
 }

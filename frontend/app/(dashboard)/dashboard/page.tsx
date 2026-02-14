@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { ComparisonBadge } from '../../../components/KPICard';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
@@ -372,17 +371,19 @@ export default function DashboardPage() {
         <div className="flex justify-end">
           <div className="w-40 h-8 bg-bg-elevated animate-pulse rounded-lg" />
         </div>
-        {/* KPI bar skeleton */}
-        <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim first:border-t-0">
-              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-3" />
-              <div className="w-28 h-7 bg-bg-elevated animate-pulse rounded-lg" />
-            </div>
-          ))}
-        </div>
-        {/* Chart skeleton */}
+        {/* Chart skeleton (with inline KPI placeholders) */}
         <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+          <div className="flex gap-8 mb-5">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="mt-1.5 w-[14px] h-[14px] bg-bg-elevated animate-pulse rounded" />
+                <div>
+                  <div className="w-14 h-3 bg-bg-elevated animate-pulse rounded-lg mb-2" />
+                  <div className="w-20 h-6 bg-bg-elevated animate-pulse rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
           <div className="h-[240px] bg-bg-elevated animate-pulse rounded-lg" />
         </div>
         {/* Attribution cards skeleton */}
@@ -447,45 +448,14 @@ export default function DashboardPage() {
         <DateRangeSelector value={dateRange} onChange={setDateRange} compareLabel={compareLabel} dataRetentionDays={isDemo ? undefined : subscription?.limits?.dataRetentionDays} />
       </div>
 
-      {/* KPI bar */}
-      <div className="bg-bg-surface rounded-xl border border-border-dim flex flex-col md:flex-row md:divide-x divide-border-dim">
-        <div className="flex-1 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
-            {compSummary?.totalProfit !== undefined && (
-              <ComparisonBadge current={summary.totalProfit} previous={compSummary.totalProfit} />
-            )}
-          </div>
-          <p className={`text-[28px] font-bold tracking-tight mt-1.5 leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-            {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
-          </p>
-        </div>
-        <div className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
-            {compSummary?.totalRevenue !== undefined && (
-              <ComparisonBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />
-            )}
-          </div>
-          <p className="text-[28px] font-bold tracking-tight mt-1.5 leading-none text-text-heading">
-            ${summary.totalRevenue.toLocaleString()}
-          </p>
-        </div>
-        <div className="flex-1 px-5 py-4 border-t md:border-t-0 border-border-dim">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
-            {compSummary?.totalSpend !== undefined && (
-              <ComparisonBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />
-            )}
-          </div>
-          <p className="text-[28px] font-bold tracking-tight mt-1.5 leading-none text-text-heading">
-            ${summary.totalSpend.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Profit trend chart — linked to main date range */}
-      <ProfitTrend data={timeSeries} prevData={compTimeSeries} isSingleDay={isSingleDay} />
+      {/* Profit trend chart with inline KPIs */}
+      <ProfitTrend
+        data={timeSeries}
+        prevData={compTimeSeries}
+        isSingleDay={isSingleDay}
+        summary={{ totalProfit: summary.totalProfit, totalRevenue: summary.totalRevenue, totalSpend: summary.totalSpend }}
+        compSummary={compSummary ? { totalProfit: compSummary.totalProfit, totalRevenue: compSummary.totalRevenue, totalSpend: compSummary.totalSpend } : undefined}
+      />
 
       {/* Marketing Attribution */}
       {(adPlatforms.length > 0 || unattributedRevenue > 0) && (
