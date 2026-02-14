@@ -102,16 +102,16 @@ function PlatformCard({ platform, spend, revenue, showUtmBanner }: { platform: s
           <div className="flex flex-col items-center pr-0">
             <AlertTriangle size={14} className="text-warning mb-1.5" />
             <p className="text-[11px] text-text-body leading-snug">
-              Revenue isn&apos;t linked to {meta.label} campaigns.{' '}
-              <a
-                href={meta.utmHelpUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-warning font-medium underline underline-offset-2 hover:text-warning/80"
-              >
-                Set up UTM tracking
-              </a>
+              Revenue isn&apos;t linked to {meta.label} campaigns.
             </p>
+            <a
+              href={meta.utmHelpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-warning font-medium underline underline-offset-2 hover:text-warning/80 mt-1 inline-block"
+            >
+              Set up UTM tracking
+            </a>
           </div>
         </div>
       )}
