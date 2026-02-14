@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
+import { Check } from 'lucide-react';
 import ThemeSwitcher from '../../../components/ThemeSwitcher';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import TeamSection from '../../../components/TeamSection';
@@ -22,6 +23,79 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   expired: { label: 'Expired', color: 'text-error' },
   none: { label: 'No subscription', color: 'text-text-dim' },
 };
+
+function LimitRow({ label, included, hint }: { label: string; included: boolean; hint?: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-t border-border-dim">
+      <span className="text-[12px] text-text-dim">{label}</span>
+      {included ? (
+        <span className="text-[12px] text-success flex items-center gap-1">
+          <Check size={12} /> Included
+        </span>
+      ) : (
+        <span className="text-[12px] text-text-dim">
+          {hint}{' '}
+          <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade</Link>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number; syncIntervalHours: number; dataRetentionDays: number; teamAccess: boolean; apiAccess: boolean }; plan: string | null }) {
+  const isStarter = plan === 'starter';
+  const isGrowth = plan === 'growth';
+  const allPlatforms = limits.maxAdPlatforms > 1 || limits.maxAdPlatforms === Infinity || !isFinite(limits.maxAdPlatforms);
+  const fastSync = limits.syncIntervalHours <= 4;
+  const unlimitedHistory = limits.dataRetentionDays >= 9999 || !isFinite(limits.dataRetentionDays);
+  const yearHistory = limits.dataRetentionDays >= 365;
+
+  return (
+    <div className="pt-3 border-t border-border-dim mt-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Your plan includes</p>
+      <div className="flex items-center justify-between py-2">
+        <span className="text-[12px] text-text-dim">Ad platforms</span>
+        {allPlatforms ? (
+          <span className="text-[12px] text-success flex items-center gap-1"><Check size={12} /> All platforms</span>
+        ) : (
+          <span className="text-[12px] text-text-dim">
+            {limits.maxAdPlatforms} platform{' · '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade for all</Link>
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between py-2 border-t border-border-dim">
+        <span className="text-[12px] text-text-dim">Sync frequency</span>
+        {fastSync ? (
+          <span className="text-[12px] text-success flex items-center gap-1"><Check size={12} /> Every 4h</span>
+        ) : (
+          <span className="text-[12px] text-text-dim">
+            Every {limits.syncIntervalHours}h{' · '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade for 4h</Link>
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between py-2 border-t border-border-dim">
+        <span className="text-[12px] text-text-dim">Data history</span>
+        {unlimitedHistory ? (
+          <span className="text-[12px] text-success flex items-center gap-1"><Check size={12} /> Unlimited</span>
+        ) : yearHistory ? (
+          <span className="text-[12px] text-text-dim">
+            1 year{' · '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade for unlimited</Link>
+          </span>
+        ) : (
+          <span className="text-[12px] text-text-dim">
+            {Math.round(limits.dataRetentionDays / 30)} months{' · '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade for more</Link>
+          </span>
+        )}
+      </div>
+      <LimitRow label="Team access" included={limits.teamAccess} hint="Pro only ·" />
+      <LimitRow label="API access" included={limits.apiAccess} hint="Pro only ·" />
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -93,6 +167,14 @@ export default function SettingsPage() {
                 {subscription?.isActive ? 'Change plan' : 'View plans'}
               </Link>
             </div>
+
+            {/* Plan limits summary */}
+            {subscription?.isActive && (
+              <PlanLimitsSummary
+                limits={subscription.limits}
+                plan={subscription.plan}
+              />
+            )}
           </div>
         )}
       </div>

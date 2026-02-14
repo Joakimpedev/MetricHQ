@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock, Pause } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import { PostHogLogo, TikTokLogo, MetaLogo, StripeLogo, GoogleAdsLogo, LinkedInLogo } from '../../../components/PlatformLogos';
@@ -203,6 +204,7 @@ function IntegrationCard({
   onClick,
   locked,
   paused,
+  upgradePlanName,
 }: {
   name: string;
   description: string;
@@ -211,11 +213,15 @@ function IntegrationCard({
   onClick: () => void;
   locked?: boolean;
   paused?: boolean;
+  upgradePlanName?: string;
 }) {
+  const planLabel = upgradePlanName || 'a higher plan';
+
   if (locked) {
     return (
-      <div
-        className="flex items-center gap-3.5 w-full text-left p-4 rounded-xl border border-border-dim bg-bg-surface opacity-60 cursor-not-allowed"
+      <Link
+        href="/pricing"
+        className="flex items-center gap-3.5 w-full text-left p-4 rounded-xl border border-border-dim bg-bg-surface opacity-60 hover:opacity-80 transition-opacity"
       >
         <div className="relative">
           {logo}
@@ -223,9 +229,11 @@ function IntegrationCard({
         </div>
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-text-heading">{name}</p>
-          <p className="text-[11px] text-text-dim">Upgrade to connect</p>
+          <p className="text-[11px] text-text-dim">
+            <span className="text-accent">Upgrade to {planLabel}</span> to connect
+          </p>
         </div>
-      </div>
+      </Link>
     );
   }
 
@@ -241,7 +249,9 @@ function IntegrationCard({
         </div>
         <div className="min-w-0">
           <p className="text-[13px] font-medium text-text-heading">{name}</p>
-          <p className="text-[11px] text-yellow-600 dark:text-yellow-400">Paused — upgrade to resume syncing</p>
+          <p className="text-[11px] text-yellow-600 dark:text-yellow-400">
+            Paused — limited to 1 platform · <Link href="/pricing" className="underline">Upgrade to {planLabel}</Link>
+          </p>
         </div>
       </button>
     );
@@ -716,6 +726,10 @@ export default function IntegrationsPage() {
   const maxAd = subscription?.limits?.maxAdPlatforms ?? Infinity;
   const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
 
+  // Suggest the right upgrade target: starter → Growth, growth → Pro
+  const currentPlan = subscription?.plan?.toLowerCase();
+  const adUpgradePlan = currentPlan === 'starter' ? 'Growth' : currentPlan === 'growth' ? 'Pro' : 'Growth';
+
   // Platforms beyond the limit are "paused" (oldest stays active)
   const pausedPlatforms = new Set<string>();
   if (maxAd !== Infinity && connectedAdCount > maxAd) {
@@ -806,6 +820,7 @@ export default function IntegrationsPage() {
             onClick={() => setOpenModal('tiktok')}
             locked={atAdLimit && !connections.tiktok?.connected}
             paused={pausedPlatforms.has('tiktok')}
+            upgradePlanName={adUpgradePlan}
           />
           <IntegrationCard
             name="Meta Ads"
@@ -815,6 +830,7 @@ export default function IntegrationsPage() {
             onClick={() => setOpenModal('meta')}
             locked={atAdLimit && !connections.meta?.connected}
             paused={pausedPlatforms.has('meta')}
+            upgradePlanName={adUpgradePlan}
           />
           <IntegrationCard
             name="Google Ads"
@@ -824,6 +840,7 @@ export default function IntegrationsPage() {
             onClick={() => setOpenModal('google_ads')}
             locked={atAdLimit && !connections.google_ads?.connected}
             paused={pausedPlatforms.has('google_ads')}
+            upgradePlanName={adUpgradePlan}
           />
           <IntegrationCard
             name="LinkedIn Ads"
@@ -833,6 +850,7 @@ export default function IntegrationsPage() {
             onClick={() => setOpenModal('linkedin')}
             locked={atAdLimit && !connections.linkedin?.connected}
             paused={pausedPlatforms.has('linkedin')}
+            upgradePlanName={adUpgradePlan}
           />
         </div>
       </div>

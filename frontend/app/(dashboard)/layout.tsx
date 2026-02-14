@@ -30,6 +30,12 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+function formatNextSync(lastSynced: string, intervalHours: number): string {
+  const nextSync = new Date(new Date(lastSynced).getTime() + intervalHours * 60 * 60 * 1000);
+  if (nextSync.getTime() <= Date.now()) return 'due now';
+  return `~${nextSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncIntervalHours?: number }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -65,7 +71,7 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
         const label = next ? `Next sync available ${timeAgo(next.toISOString()).replace(' ago', '')} from now` : 'Try again later';
         setCooldownError(label);
         setSyncing(false);
-        setTimeout(() => setCooldownError(null), 5000);
+        // Don't auto-dismiss — keep visible until user navigates away
         return;
       }
       setTimeout(() => {
@@ -81,14 +87,18 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
     fetchSyncStatus();
   }, [fetchSyncStatus]);
 
+  const showNextSync = syncIntervalHours && syncIntervalHours > 4 && lastSynced;
+
   return (
     <div className="flex items-center gap-2">
       {lastSynced && (
         <span className="text-text-dim text-[12px]">
           Last synced {timeAgo(lastSynced)}
-          {syncIntervalHours && isFinite(syncIntervalHours) && (
+          {showNextSync ? (
+            <span className="text-text-dim/60"> · Next sync {formatNextSync(lastSynced, syncIntervalHours)}</span>
+          ) : syncIntervalHours && isFinite(syncIntervalHours) ? (
             <span className="text-text-dim/60"> · syncs every {syncIntervalHours}h</span>
-          )}
+          ) : null}
         </span>
       )}
       {cooldownError && (
