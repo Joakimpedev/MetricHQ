@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -44,8 +44,206 @@ const BASE_METRICS = [
 ];
 
 function fmtDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
+
+function parseDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function displayDate(s: string): string {
+  if (!s) return '';
+  const d = parseDate(s);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function localToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/* ── Single-date calendar picker popover ── */
+
+function DatePickerCalendar({ value, onChange, onClose, allowNoEnd, noEndDate, onToggleNoEnd }: {
+  value: string;
+  onChange: (date: string) => void;
+  onClose: () => void;
+  allowNoEnd?: boolean;
+  noEndDate?: boolean;
+  onToggleNoEnd?: () => void;
+}) {
+  const initial = value ? parseDate(value) : localToday();
+  const [calMonth, setCalMonth] = useState(initial.getMonth());
+  const [calYear, setCalYear] = useState(initial.getFullYear());
+  const today = localToday();
+  const selected = value ? parseDate(value) : null;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+    else setCalMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+    else setCalMonth(m => m + 1);
+  }
+
+  return (
+    <div className="bg-bg-surface border border-border-dim rounded-xl shadow-2xl p-3 w-[240px]">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-2">
+        <button type="button" onClick={prevMonth} className="p-1 rounded hover:bg-bg-hover text-text-dim">
+          <ChevronLeft size={14} />
+        </button>
+        <span className="text-[12px] font-medium text-text-heading">
+          {MONTH_NAMES[calMonth]} {calYear}
+        </span>
+        <button type="button" onClick={nextMonth} className="p-1 rounded hover:bg-bg-hover text-text-dim">
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7">
+        {DAY_HEADERS.map(h => (
+          <div key={h} className="w-[30px] h-6 text-[10px] text-text-dim flex items-center justify-center">{h}</div>
+        ))}
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e${i}`} className="w-[30px] h-[30px]" />;
+          const d = new Date(calYear, calMonth, day);
+          const isToday = isSameDay(d, today);
+          const isSelected = !noEndDate && selected && isSameDay(d, selected);
+
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => { onChange(fmtDate(d)); onClose(); }}
+              className={`w-[30px] h-[30px] text-[11px] rounded transition-colors flex items-center justify-center ${
+                isSelected ? 'bg-accent text-accent-text font-medium' :
+                isToday ? 'text-accent font-medium ring-1 ring-accent/30' :
+                'text-text-body hover:bg-bg-hover'
+              }`}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* No end date option */}
+      {allowNoEnd && onToggleNoEnd && (
+        <button
+          type="button"
+          onClick={onToggleNoEnd}
+          className="flex items-center gap-2 mt-2 pt-2 border-t border-border-dim/50 w-full text-left"
+        >
+          <span className={`w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+            noEndDate ? 'bg-accent border-accent' : 'border-border-dim bg-transparent'
+          }`}>
+            {noEndDate && (
+              <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          <span className="text-[11px] text-text-dim">No end date</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DatePickerField({ label, value, onChange, required, allowNoEnd, noEndDate, onToggleNoEnd }: {
+  label: string;
+  value: string;
+  onChange: (date: string) => void;
+  required?: boolean;
+  allowNoEnd?: boolean;
+  noEndDate?: boolean;
+  onToggleNoEnd?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const isDisabled = noEndDate;
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 flex items-center gap-1">
+        {label}
+        {required && <span className="text-error text-[13px] leading-none">*</span>}
+      </label>
+      <button
+        type="button"
+        onClick={() => { if (!isDisabled) setOpen(!open); }}
+        className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] bg-bg-body border border-border-dim rounded-lg transition-colors text-left ${
+          isDisabled
+            ? 'opacity-40 cursor-not-allowed'
+            : 'hover:border-text-dim/30 focus:outline-none focus:border-accent'
+        } ${open ? 'border-accent' : ''}`}
+      >
+        <CalendarIcon size={13} className="text-text-dim shrink-0" />
+        <span className={noEndDate ? 'text-text-dim italic' : value ? 'text-text-body' : 'text-text-dim/50'}>
+          {noEndDate ? 'No end date' : value ? displayDate(value) : 'Select date'}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50">
+          <DatePickerCalendar
+            value={value}
+            onChange={onChange}
+            onClose={() => setOpen(false)}
+            allowNoEnd={allowNoEnd}
+            noEndDate={noEndDate}
+            onToggleNoEnd={() => {
+              if (onToggleNoEnd) onToggleNoEnd();
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Required asterisk helper ── */
+
+function RequiredLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 flex items-center gap-1">
+      {children}
+      <span className="text-error text-[13px] leading-none">*</span>
+    </label>
+  );
+}
+
+/* ── Main modal ── */
 
 export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   const { user } = useUser();
@@ -60,13 +258,32 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   const [repeat, setRepeat] = useState(cost?.repeat || false);
   const [repeatInterval, setRepeatInterval] = useState(cost?.repeat_interval || 'monthly');
   const [startDate, setStartDate] = useState(cost?.start_date ? cost.start_date.split('T')[0] : fmtDate(new Date()));
-  const [endDate, setEndDate] = useState(cost?.end_date ? cost.end_date.split('T')[0] : fmtDate(new Date()));
+  const [endDate, setEndDate] = useState(cost?.end_date ? cost.end_date.split('T')[0] : '');
+  const [noEndDate, setNoEndDate] = useState(cost ? !cost.end_date : false);
   const [category, setCategory] = useState(cost?.category || '');
   const [categories, setCategories] = useState<string[]>([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const categoryRef = useRef<HTMLDivElement>(null);
+
+  // End date is optional when: variable cost, or fixed + repeating
+  const endDateOptional = costType === 'variable' || (costType === 'fixed' && repeat);
+
+  // When switching cost type, reset fields that don't apply
+  useEffect(() => {
+    if (costType === 'variable') {
+      setRepeat(false);
+      setRepeatInterval('monthly');
+    }
+  }, [costType]);
+
+  // When end date becomes required (fixed + non-repeating), clear no-end-date
+  useEffect(() => {
+    if (!endDateOptional) {
+      setNoEndDate(false);
+    }
+  }, [endDateOptional]);
 
   // Fetch existing categories
   useEffect(() => {
@@ -108,13 +325,17 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
       return;
     }
 
-    if (!repeat && !endDate) {
-      setError('End date is required for non-repeating costs');
+    // End date required for fixed non-repeating
+    if (!endDateOptional && !endDate) {
+      setError('End date is required for one-time fixed costs');
       return;
     }
 
     setSaving(true);
     setError('');
+
+    const effectiveRepeat = costType === 'variable' ? false : repeat;
+    const effectiveEndDate = noEndDate ? null : endDate || null;
 
     const body: Record<string, unknown> = {
       userId: user.id,
@@ -124,10 +345,10 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
       amount: costType === 'fixed' ? parseFloat(amount) : null,
       percentage: costType === 'variable' ? parseFloat(percentage) : null,
       base_metric: costType === 'variable' ? baseMetric : null,
-      repeat,
-      repeat_interval: repeat ? repeatInterval : null,
+      repeat: effectiveRepeat,
+      repeat_interval: effectiveRepeat ? repeatInterval : null,
       start_date: startDate,
-      end_date: repeat && !endDate ? null : endDate || null,
+      end_date: effectiveEndDate,
       category: category.trim() || null,
     };
 
@@ -173,7 +394,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
         <div className="px-5 py-4 space-y-4">
           {/* Name */}
           <div>
-            <label className={labelClass}>Name</label>
+            <RequiredLabel>Name</RequiredLabel>
             <input
               type="text"
               value={name}
@@ -185,29 +406,39 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
 
           {/* Cost Type */}
           <div>
-            <label className={labelClass}>Cost Type</label>
+            <RequiredLabel>Cost Type</RequiredLabel>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setCostType('fixed')}
-                className={`px-3 py-2.5 rounded-lg border text-[13px] font-medium transition-colors ${
+                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
                   costType === 'fixed'
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border-dim bg-bg-body text-text-dim hover:border-text-dim/30'
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border-dim bg-bg-body hover:border-text-dim/30'
                 }`}
               >
-                Fixed Cost
+                <div className={`text-[13px] font-medium ${costType === 'fixed' ? 'text-accent' : 'text-text-dim'}`}>
+                  Fixed Cost
+                </div>
+                <div className={`text-[10px] mt-0.5 ${costType === 'fixed' ? 'text-accent/70' : 'text-text-dim/60'}`}>
+                  A set amount each period
+                </div>
               </button>
               <button
                 type="button"
                 onClick={() => setCostType('variable')}
-                className={`px-3 py-2.5 rounded-lg border text-[13px] font-medium transition-colors ${
+                className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
                   costType === 'variable'
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border-dim bg-bg-body text-text-dim hover:border-text-dim/30'
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border-dim bg-bg-body hover:border-text-dim/30'
                 }`}
               >
-                Variable Cost
+                <div className={`text-[13px] font-medium ${costType === 'variable' ? 'text-accent' : 'text-text-dim'}`}>
+                  Variable Cost
+                </div>
+                <div className={`text-[10px] mt-0.5 ${costType === 'variable' ? 'text-accent/70' : 'text-text-dim/60'}`}>
+                  Percentage of a metric
+                </div>
               </button>
             </div>
           </div>
@@ -228,7 +459,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
                 </select>
               </div>
               <div className="flex-1">
-                <label className={labelClass}>Amount</label>
+                <RequiredLabel>Amount</RequiredLabel>
                 <input
                   type="number"
                   step="0.01"
@@ -246,7 +477,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
           {costType === 'variable' && (
             <div className="flex gap-2">
               <div className="w-28">
-                <label className={labelClass}>Percentage</label>
+                <RequiredLabel>Percentage</RequiredLabel>
                 <div className="relative">
                   <input
                     type="number"
@@ -261,7 +492,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
                 </div>
               </div>
               <div className="flex-1">
-                <label className={labelClass}>Of metric</label>
+                <RequiredLabel>Of metric</RequiredLabel>
                 <select
                   value={baseMetric}
                   onChange={e => setBaseMetric(e.target.value)}
@@ -275,53 +506,55 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
             </div>
           )}
 
-          {/* Repeat toggle */}
-          <div>
-            <div className="flex items-center justify-between">
-              <label className={labelClass}>Repeating</label>
-              <button
-                type="button"
-                onClick={() => setRepeat(!repeat)}
-                className={`relative w-9 h-5 rounded-full transition-colors ${repeat ? 'bg-accent' : 'bg-bg-elevated'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${repeat ? 'translate-x-4' : ''}`} />
-              </button>
-            </div>
-            {repeat && (
-              <div className="mt-2">
-                <select
-                  value={repeatInterval}
-                  onChange={e => setRepeatInterval(e.target.value)}
-                  className={inputClass}
+          {/* Repeat toggle — only for fixed costs */}
+          {costType === 'fixed' && (
+            <div>
+              <div className="flex items-center justify-between">
+                <label className={labelClass}>Repeating</label>
+                <button
+                  type="button"
+                  onClick={() => setRepeat(!repeat)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${repeat ? 'bg-accent' : 'bg-bg-elevated'}`}
                 >
-                  {INTERVALS.map(i => (
-                    <option key={i.value} value={i.value}>{i.label}</option>
-                  ))}
-                </select>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${repeat ? 'translate-x-4' : ''}`} />
+                </button>
               </div>
-            )}
-          </div>
+              {repeat && (
+                <div className="mt-2">
+                  <select
+                    value={repeatInterval}
+                    onChange={e => setRepeatInterval(e.target.value)}
+                    className={inputClass}
+                  >
+                    {INTERVALS.map(i => (
+                      <option key={i.value} value={i.value}>{i.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass}>Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>End Date {repeat && <span className="normal-case font-normal">(optional)</span>}</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className={inputClass}
-              />
-            </div>
+            <DatePickerField
+              label="Start Date"
+              value={startDate}
+              onChange={setStartDate}
+              required
+            />
+            <DatePickerField
+              label="End Date"
+              value={endDate}
+              onChange={(d) => { setEndDate(d); setNoEndDate(false); }}
+              required={!endDateOptional}
+              allowNoEnd={endDateOptional}
+              noEndDate={noEndDate}
+              onToggleNoEnd={() => {
+                setNoEndDate(prev => !prev);
+                if (!noEndDate) setEndDate('');
+              }}
+            />
           </div>
 
           {/* Category */}
