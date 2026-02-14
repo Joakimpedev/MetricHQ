@@ -443,7 +443,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex gap-4">
             <div className="flex-1 h-[360px] bg-bg-elevated animate-pulse rounded-lg" />
-            <div className="hidden md:flex flex-col gap-3 w-[170px] pl-4 border-l border-border-dim/50 justify-center">
+            <div className="hidden md:flex flex-col gap-3 w-[220px] pl-5 ml-5 border-l border-border-dim/50 justify-center">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="flex items-center gap-2.5">
                   <div className="w-6 h-6 bg-bg-elevated animate-pulse rounded-md" />

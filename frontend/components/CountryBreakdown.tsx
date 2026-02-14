@@ -41,12 +41,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   linkedin: 'LinkedIn',
 };
 
-const PLATFORM_COLORS: Record<string, string> = {
-  google_ads: '#4285f4',
-  meta: '#e040fb',
-  tiktok: '#fe2c55',
-  linkedin: '#0a66c2',
-};
+// Not used for colored bars anymore — removed brand colors in favor of theme
 
 function CountryFlag({ code }: { code: string }) {
   return (
@@ -75,10 +70,12 @@ function CountryTooltip({ country, campaigns, onClose }: {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose]);
 
-  // Platform spend breakdown
+  // Platform spend + revenue breakdown
   const platformSpend: Record<string, number> = {};
+  const platformRevenue: Record<string, number> = {};
   for (const c of campaigns) {
     platformSpend[c.platform] = (platformSpend[c.platform] || 0) + c.spend;
+    platformRevenue[c.platform] = (platformRevenue[c.platform] || 0) + c.revenue;
   }
   const totalCampaignSpend = Object.values(platformSpend).reduce((s, v) => s + v, 0);
 
@@ -101,50 +98,49 @@ function CountryTooltip({ country, campaigns, onClose }: {
         </span>
       </div>
 
-      {/* Platform spend bar */}
+      {/* Platform breakdown with horizontal bars */}
       {totalCampaignSpend > 0 && (
         <div className="px-4 pt-3 pb-2">
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Spend by platform</div>
-          <div className="flex rounded-full overflow-hidden h-2 bg-bg-body">
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">Platform breakdown</div>
+          <div className="space-y-2">
             {Object.entries(platformSpend)
               .sort(([, a], [, b]) => b - a)
-              .map(([plat, spend]) => (
-                <div
-                  key={plat}
-                  className="h-full transition-all"
-                  style={{
-                    width: `${(spend / totalCampaignSpend) * 100}%`,
-                    backgroundColor: PLATFORM_COLORS[plat] || '#888',
-                    minWidth: '4px',
-                  }}
-                />
-              ))}
-          </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-            {Object.entries(platformSpend)
-              .sort(([, a], [, b]) => b - a)
-              .map(([plat, spend]) => (
-                <div key={plat} className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[plat] || '#888' }} />
-                  <span className="text-[10px] text-text-dim">{PLATFORM_LABELS[plat] || plat}</span>
-                  <span className="text-[10px] text-text-body font-medium">${spend.toLocaleString()}</span>
-                </div>
-              ))}
+              .map(([plat, spend]) => {
+                const rev = platformRevenue[plat] || 0;
+                const barPct = totalCampaignSpend > 0 ? (spend / totalCampaignSpend) * 100 : 0;
+                return (
+                  <div key={plat}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-medium text-text-heading">{PLATFORM_LABELS[plat] || plat}</span>
+                      <span className="text-[10px] text-text-dim">
+                        ${spend.toLocaleString()} spent
+                        {rev > 0 && <span className="ml-2">${rev.toLocaleString()} rev</span>}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-bg-body rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-accent/40 transition-all"
+                        style={{ width: `${Math.max(barPct, 4)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
 
-      {/* Campaign table */}
+      {/* Top campaigns */}
       {sortedCampaigns.length > 0 && (
         <div className="px-4 pt-2 pb-3">
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Campaigns</div>
+          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Top campaigns</div>
           <div className="space-y-0">
             {sortedCampaigns.slice(0, 5).map((c, i) => {
               const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0';
               return (
                 <div key={`${c.platform}-${c.campaign}-${i}`} className="flex items-center justify-between py-1.5 border-b border-border-dim/30 last:border-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PLATFORM_COLORS[c.platform] || '#888' }} />
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-accent/40" />
                     <span className="text-[11px] text-text-body truncate">{c.campaign}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-3">
