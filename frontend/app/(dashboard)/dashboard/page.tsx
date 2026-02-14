@@ -9,6 +9,7 @@ import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import OnboardingWizard from '../../../components/OnboardingWizard';
+import CostBreakdownChart from '../../../components/CostBreakdownChart';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
@@ -79,6 +80,7 @@ interface MetricsData {
   unattributedRevenue?: number;
   unattributedSpend?: number;
   customCostsTotal?: number;
+  customCostsBreakdown?: { name: string; category: string | null; amount: number; currency: string }[];
   dataRetentionLimit?: { days: number; earliestDate: string } | null;
 }
 
@@ -260,6 +262,14 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     },
     unattributedRevenue: Math.round(totalRevenue * 0.15),
     customCostsTotal: Math.round(totalSpend * 0.12),
+    customCostsBreakdown: [
+      { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD' },
+      { name: 'Vercel hosting', category: 'SaaS Tools', amount: 20, currency: 'USD' },
+      { name: 'Railway DB', category: 'SaaS Tools', amount: 15, currency: 'USD' },
+      { name: 'Figma', category: 'SaaS Tools', amount: 12, currency: 'USD' },
+      { name: 'Freelance designer', category: 'Team', amount: 450, currency: 'EUR' },
+      { name: 'Content writer', category: 'Team', amount: 200, currency: 'GBP' },
+    ],
     timeSeries,
   };
 }
@@ -493,6 +503,7 @@ export default function DashboardPage() {
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
   const customCostsTotal = data?.customCostsTotal || 0;
+  const customCostsBreakdown = data?.customCostsBreakdown || [];
   const countryCampaigns = data?.countryCampaigns || {};
   const platforms = demoPatched;
 
@@ -537,7 +548,12 @@ export default function DashboardPage() {
 
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-        <CountryBreakdown countries={countries} unattributedSpend={unattributedSpend} countryCampaigns={countryCampaigns} />
+        <div className="space-y-4">
+          <CountryBreakdown countries={countries} unattributedSpend={unattributedSpend} countryCampaigns={countryCampaigns} />
+          {customCostsBreakdown.length > 0 && (
+            <CostBreakdownChart breakdown={customCostsBreakdown} total={customCostsTotal} />
+          )}
+        </div>
 
         {adPlatforms.length > 0 ? (
           <div className="space-y-4">

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
+import { useCurrency } from '../lib/currency';
 
 interface Country {
   code: string;
@@ -55,10 +56,11 @@ function CountryFlag({ code }: { code: string }) {
   );
 }
 
-function CountryTooltip({ country, campaigns, onClose }: {
+function CountryTooltip({ country, campaigns, onClose, fmt }: {
   country: Country;
   campaigns: CountryCampaign[];
   onClose: () => void;
+  fmt: (n: number) => string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -94,7 +96,7 @@ function CountryTooltip({ country, campaigns, onClose }: {
           <span className="text-[13px] font-semibold text-text-heading">{country.name}</span>
         </div>
         <span className={`text-[12px] font-semibold ${country.profit >= 0 ? 'text-success' : 'text-error'}`}>
-          {country.profit >= 0 ? '+' : ''}${country.profit.toLocaleString()} profit
+          {country.profit >= 0 ? '+' : ''}{fmt(country.profit)} profit
         </span>
       </div>
 
@@ -116,8 +118,8 @@ function CountryTooltip({ country, campaigns, onClose }: {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-text-heading">{PLATFORM_LABELS[plat] || plat}</span>
                       <span className="text-[10px] text-text-dim">
-                        ${spend.toLocaleString()} spent
-                        {rev > 0 && <span className="ml-2">${rev.toLocaleString()} rev</span>}
+                        {fmt(spend)} spent
+                        {rev > 0 && <span className="ml-2">{fmt(rev)} rev</span>}
                       </span>
                     </div>
                     <div className="h-1.5 bg-bg-body rounded-full overflow-hidden mb-1.5">
@@ -132,7 +134,7 @@ function CountryTooltip({ country, campaigns, onClose }: {
                         {platCampaigns.slice(0, 3).map((c, i) => (
                           <div key={`${c.campaign}-${i}`} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
                             <span className="text-[10px] text-text-dim truncate flex-1 min-w-0 pr-2">{c.campaign}</span>
-                            <span className="text-[10px] text-text-body font-medium shrink-0">${c.spend.toLocaleString()}</span>
+                            <span className="text-[10px] text-text-body font-medium shrink-0">{fmt(c.spend)}</span>
                           </div>
                         ))}
                         {platCampaigns.length > 3 && (
@@ -155,12 +157,12 @@ function CountryTooltip({ country, campaigns, onClose }: {
         </div>
         <div>
           <div className="text-[10px] text-text-dim">Revenue</div>
-          <div className="text-[12px] font-semibold text-text-heading">${country.revenue.toLocaleString()}</div>
+          <div className="text-[12px] font-semibold text-text-heading">{fmt(country.revenue)}</div>
         </div>
         <div>
           <div className="text-[10px] text-text-dim">CPA</div>
           <div className="text-[12px] font-semibold text-text-heading">
-            {country.purchases > 0 ? `$${(country.spend / country.purchases).toFixed(2)}` : '—'}
+            {country.purchases > 0 ? fmt(country.spend / country.purchases) : '—'}
           </div>
         </div>
         <div>
@@ -173,6 +175,7 @@ function CountryTooltip({ country, campaigns, onClose }: {
 }
 
 export default function CountryBreakdown({ countries, unattributedSpend = 0, countryCampaigns = {} }: CountryBreakdownProps) {
+  const { formatCurrency: fmtCur } = useCurrency();
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showAll, setShowAll] = useState(false);
@@ -269,13 +272,13 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
                       </span>
                     )}
                   </div>
-                  <span className="text-[12px] text-text-body text-right">${c.spend.toLocaleString()}</span>
+                  <span className="text-[12px] text-text-body text-right">{fmtCur(c.spend)}</span>
                   <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
                   <span className={`text-[12px] font-semibold text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
-                    {c.profit >= 0 ? '+' : ''}${c.profit.toLocaleString()}
+                    {c.profit >= 0 ? '+' : ''}{fmtCur(c.profit)}
                   </span>
                   <span className="text-[12px] text-text-body text-right">
-                    {cpa > 0 ? `$${cpa.toFixed(2)}` : '—'}
+                    {cpa > 0 ? fmtCur(cpa) : '—'}
                   </span>
                 </div>
                 {isHovered && campaigns.length > 0 && (
@@ -283,6 +286,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
                     country={c}
                     campaigns={campaigns}
                     onClose={() => setHoveredCountry(null)}
+                    fmt={fmtCur}
                   />
                 )}
               </div>
@@ -297,7 +301,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
                 <span className="text-[13px] font-medium text-text-dim">Unattributed</span>
                 <span className="text-[10px] text-text-dim/60" title="LinkedIn Ads does not report spend by country">LinkedIn</span>
               </div>
-              <span className="text-[12px] text-text-dim text-right">${unattributedSpend.toLocaleString()}</span>
+              <span className="text-[12px] text-text-dim text-right">{fmtCur(unattributedSpend)}</span>
               <span className="text-[12px] text-text-dim text-right">—</span>
               <span className="text-[12px] text-text-dim text-right">—</span>
               <span className="text-[12px] text-text-dim text-right">—</span>

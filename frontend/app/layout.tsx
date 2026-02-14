@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import ThemeProvider from "../components/ThemeProvider";
+import { CurrencyProvider } from "../lib/currency";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,7 +51,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><CurrencyProvider>{children}</CurrencyProvider></ThemeProvider>
       </body>
     </html>
   );

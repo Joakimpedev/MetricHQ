@@ -221,6 +221,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
 
   // ---- Custom Costs ----
   let customCostsTotal = 0;
+  const customCostsBreakdown = [];
   try {
     const costsResult = await pool.query(
       `SELECT * FROM custom_costs
@@ -250,10 +251,12 @@ async function aggregateMetrics(userId, startDate, endDate) {
     };
 
     for (const cost of costsResult.rows) {
+      let costAmount = 0;
+
       if (cost.cost_type === 'variable') {
         const pct = parseFloat(cost.percentage) || 0;
         const baseVal = baseMetrics[cost.base_metric] || 0;
-        customCostsTotal += (pct / 100) * baseVal;
+        costAmount = (pct / 100) * baseVal;
       } else {
         // Fixed cost
         const amt = parseFloat(cost.amount) || 0;
@@ -274,18 +277,29 @@ async function aggregateMetrics(userId, startDate, endDate) {
           const totalCostDays = costEnd
             ? Math.round((costEnd - costStart) / 86400000) + 1
             : 1;
-          customCostsTotal += (amt / totalCostDays) * daysActive;
+          costAmount = (amt / totalCostDays) * daysActive;
         } else {
           // Repeating fixed
           const interval = cost.repeat_interval;
           if (interval === 'daily') {
-            customCostsTotal += amt * daysActive;
+            costAmount = amt * daysActive;
           } else if (interval === 'weekly') {
-            customCostsTotal += (amt / 7) * daysActive;
+            costAmount = (amt / 7) * daysActive;
           } else if (interval === 'monthly') {
-            customCostsTotal += (amt / 30) * daysActive;
+            costAmount = (amt / 30) * daysActive;
           }
         }
+      }
+
+      costAmount = Math.round(costAmount * 100) / 100;
+      if (costAmount > 0) {
+        customCostsTotal += costAmount;
+        customCostsBreakdown.push({
+          name: cost.name || 'Unnamed cost',
+          category: cost.category || null,
+          amount: costAmount,
+          currency: cost.currency || 'USD',
+        });
       }
     }
 
@@ -297,7 +311,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     }
   }
 
-  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, customCostsTotal };
+  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, customCostsTotal, customCostsBreakdown };
 }
 
 module.exports = { aggregateMetrics };

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useCurrency } from '../lib/currency';
 
 /* ── Small platform logos for sidebar (20×20) ── */
 
@@ -118,36 +119,38 @@ function formatDollarCompact(value: number): string {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function CustomTooltip(props: any) {
-  const { active, payload, label } = props || {};
-  if (!active || !payload?.length) return null;
+function makeCustomTooltip(fmt: (n: number) => string) {
+  return function CustomTooltip(props: any) {
+    const { active, payload, label } = props || {};
+    if (!active || !payload?.length) return null;
 
-  const point = payload[0]?.payload;
-  if (!point) return null;
+    const point = payload[0]?.payload;
+    if (!point) return null;
 
-  const profit = typeof point.profit === 'number' ? point.profit : null;
-  const prevProfit = typeof point.prevProfit === 'number' ? point.prevProfit : null;
-  const prevDate = typeof point.prevDate === 'string' ? point.prevDate : null;
-  const dateLabel = typeof label === 'string' ? label : '';
+    const profit = typeof point.profit === 'number' ? point.profit : null;
+    const prevProfit = typeof point.prevProfit === 'number' ? point.prevProfit : null;
+    const prevDate = typeof point.prevDate === 'string' ? point.prevDate : null;
+    const dateLabel = typeof label === 'string' ? label : '';
 
-  return (
-    <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-[11px] text-text-dim">{dateLabel ? formatDate(dateLabel) : ''}</p>
-      {profit !== null && (
-        <p className={`text-[13px] font-semibold ${profit >= 0 ? 'text-success' : 'text-error'}`}>
-          {profit >= 0 ? '+' : ''}${profit.toLocaleString()}
-        </p>
-      )}
-      {prevProfit !== null && prevDate && (
-        <div className="mt-1.5 pt-1.5 border-t border-border-dim/50">
-          <p className="text-[10px] text-text-dim">{formatDate(prevDate)}</p>
-          <p className="text-[12px] font-medium text-text-dim">
-            {prevProfit >= 0 ? '+' : ''}${prevProfit.toLocaleString()}
+    return (
+      <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg">
+        <p className="text-[11px] text-text-dim">{dateLabel ? formatDate(dateLabel) : ''}</p>
+        {profit !== null && (
+          <p className={`text-[13px] font-semibold ${profit >= 0 ? 'text-success' : 'text-error'}`}>
+            {profit >= 0 ? '+' : ''}{fmt(profit)}
           </p>
-        </div>
-      )}
-    </div>
-  );
+        )}
+        {prevProfit !== null && prevDate && (
+          <div className="mt-1.5 pt-1.5 border-t border-border-dim/50">
+            <p className="text-[10px] text-text-dim">{formatDate(prevDate)}</p>
+            <p className="text-[12px] font-medium text-text-dim">
+              {prevProfit >= 0 ? '+' : ''}{fmt(prevProfit)}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
 }
 
 const ghostData = [
@@ -216,6 +219,7 @@ function InlineBadge({ current, previous, invert }: { current: number; previous:
 }
 
 export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal, platforms }: ProfitTrendProps) {
+  const { formatCurrency: fmtCur, formatCurrencyCompact: fmtCompact } = useCurrency();
   const [showProfit, setShowProfit] = useState(true);
 
   const merged = useMemo<MergedPoint[]>(() => {
@@ -229,6 +233,9 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
 
   const hasPrev = prevData && prevData.length > 0;
   const hasCustomCosts = (customCostsTotal || 0) > 0;
+
+  const TooltipComponent = useMemo(() => makeCustomTooltip(fmtCur), [fmtCur]);
+  const yAxisFormatter = useMemo(() => (value: number) => fmtCompact(value), [fmtCompact]);
 
   // Build platform list for sidebar
   const adPlatforms = useMemo(() => {
@@ -281,7 +288,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
                   <div className="flex items-center gap-2">
                     <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                      {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+                      {summary.totalProfit >= 0 ? '+' : ''}{fmtCur(summary.totalProfit)}
                     </span>
                     {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
                   </div>
@@ -295,7 +302,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
-                      ${summary.totalRevenue.toLocaleString()}
+                      {fmtCur(summary.totalRevenue)}
                     </span>
                     {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
                   </div>
@@ -309,7 +316,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
-                      ${summary.totalSpend.toLocaleString()}
+                      {fmtCur(summary.totalSpend)}
                     </span>
                     {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
                   </div>
@@ -324,7 +331,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                     <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
                     <div className="flex items-center gap-2">
                       <span className="text-[18px] font-semibold tracking-tight leading-none text-text-dim">
-                        ${(customCostsTotal || 0).toLocaleString()}
+                        {fmtCur(customCostsTotal || 0)}
                       </span>
                       {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
                         <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
@@ -351,8 +358,8 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
-                  <YAxis tickFormatter={formatDollar} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <YAxis tickFormatter={yAxisFormatter} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
+                  <Tooltip content={<TooltipComponent />} />
                   {hasPrev && showProfit && (
                     <Area type="monotone" dataKey="prevProfit" stroke="var(--text-dim)" strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} activeDot={false} />
                   )}
@@ -380,7 +387,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                       {LogoComponent && <LogoComponent />}
                       <span className="text-[12px] font-medium text-text-heading flex-1 truncate">{p.label}</span>
                       <span className={`text-[12px] font-semibold tabular-nums ${p.profit >= 0 ? 'text-success' : 'text-error'}`}>
-                        {p.profit >= 0 ? '+' : ''}{formatDollarCompact(p.profit)}
+                        {p.profit >= 0 ? '+' : ''}{fmtCompact(p.profit)}
                       </span>
                     </div>
 
@@ -388,11 +395,11 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                     <div className="flex items-center gap-3 text-[10px]">
                       <div className="flex-1">
                         <span className="text-text-dim">Spend</span>
-                        <div className="text-[11px] text-text-body font-medium tabular-nums">{formatDollarCompact(p.spend)}</div>
+                        <div className="text-[11px] text-text-body font-medium tabular-nums">{fmtCompact(p.spend)}</div>
                       </div>
                       <div className="flex-1">
                         <span className="text-text-dim">Rev</span>
-                        <div className="text-[11px] text-text-body font-medium tabular-nums">{formatDollarCompact(p.revenue)}</div>
+                        <div className="text-[11px] text-text-body font-medium tabular-nums">{fmtCompact(p.revenue)}</div>
                       </div>
                       {p.roas > 0 && (
                         <div>

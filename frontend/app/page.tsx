@@ -384,13 +384,13 @@ export default function LandingPage() {
             <span className="text-accent">See what&apos;s working.</span>
           </h1>
           <p className="text-lg sm:text-xl text-text-dim max-w-2xl mx-auto mb-10">
-            We connect your marketing platforms with Stripe, so you can track what's working and where you lose money.
+            We connect your marketing platforms and payments, so you can track what's working and where you lose money.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {CLERK_ENABLED && (
               <SignInButton mode="modal">
                 <button className="bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors">
-                  Start free trial
+                  Try for free
                 </button>
               </SignInButton>
             )}

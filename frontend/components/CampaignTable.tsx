@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronUp, ChevronDown, Check, Minus, BarChart3, Lock, X, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { useCurrency } from '../lib/currency';
 
 interface Campaign {
   campaignId?: string;
@@ -43,6 +44,7 @@ const PLATFORM_UTM_URLS: Record<string, string> = {
 };
 
 export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner }: CampaignTableProps) {
+  const { formatCurrency: fmtCur } = useCurrency();
   const label = PLATFORM_LABELS[platform] || platform;
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
@@ -199,14 +201,14 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
                     )}
                   </span>
                 )}
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${c.spend.toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.spend)}</span>
                 <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${(c.revenue || 0).toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.revenue || 0)}</span>
                 <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
-                  ${(c.profit || 0).toLocaleString()}
+                  {fmtCur(c.profit || 0)}
                 </span>
                 <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
-                  {(c.purchases || 0) > 0 ? `$${Math.round(c.spend / (c.purchases || 1)).toLocaleString()}` : '—'}
+                  {(c.purchases || 0) > 0 ? fmtCur(Math.round(c.spend / (c.purchases || 1))) : '—'}
                 </span>
               </div>
             );

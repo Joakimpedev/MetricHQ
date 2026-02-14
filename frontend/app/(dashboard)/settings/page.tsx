@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Check } from 'lucide-react';
 import ThemeSwitcher from '../../../components/ThemeSwitcher';
+import { useCurrency, type CurrencyCode } from '../../../lib/currency';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import TeamSection from '../../../components/TeamSection';
 import ApiKeysSection from '../../../components/ApiKeysSection';
@@ -99,6 +100,7 @@ function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number;
 
 export default function SettingsPage() {
   const { user } = useUser();
+  const { currency, setCurrency } = useCurrency();
   const { subscription, loading } = useSubscription();
   const status = subscription?.status || 'none';
   const statusInfo = STATUS_LABELS[status] || STATUS_LABELS.none;
@@ -113,6 +115,31 @@ export default function SettingsPage() {
             <p className="text-[11px] text-text-dim mt-0.5">Choose light or dark mode</p>
           </div>
           <ThemeSwitcher />
+        </div>
+      </div>
+
+      <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+        <h2 className="text-[14px] font-medium text-text-heading mb-4">Currency</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[12px] text-text-body">Display currency</p>
+            <p className="text-[11px] text-text-dim mt-0.5">All dashboard values will be converted</p>
+          </div>
+          <div className="flex gap-1">
+            {(['USD', 'EUR', 'GBP', 'NOK'] as CurrencyCode[]).map(c => (
+              <button
+                key={c}
+                onClick={() => setCurrency(c)}
+                className={`px-2.5 py-1.5 text-[12px] rounded-lg transition-colors ${
+                  currency === c
+                    ? 'bg-accent text-accent-text font-medium'
+                    : 'text-text-dim hover:text-text-body bg-bg-elevated hover:bg-bg-hover'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

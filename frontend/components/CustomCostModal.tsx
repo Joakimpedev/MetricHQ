@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useUser } from '@clerk/nextjs';
 import { X, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -180,12 +181,25 @@ function DatePickerField({ label, value, onChange, required, allowNoEnd, noEndDa
   onToggleNoEnd?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const calRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
+  // Position the calendar below the button
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left });
+  }, [open]);
+
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target)) return;
+      if (calRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -194,12 +208,13 @@ function DatePickerField({ label, value, onChange, required, allowNoEnd, noEndDa
   const isDisabled = noEndDate;
 
   return (
-    <div ref={ref} className="relative">
+    <div>
       <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 flex items-center gap-1">
         {label}
         {required && <span className="text-error text-[13px] leading-none">*</span>}
       </label>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => { if (!isDisabled) setOpen(!open); }}
         className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] bg-bg-body border border-border-dim rounded-lg transition-colors text-left ${
@@ -213,8 +228,12 @@ function DatePickerField({ label, value, onChange, required, allowNoEnd, noEndDa
           {noEndDate ? 'No end date' : value ? displayDate(value) : 'Select date'}
         </span>
       </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-50">
+      {open && createPortal(
+        <div
+          ref={calRef}
+          className="fixed z-[100]"
+          style={{ top: pos.top, left: pos.left }}
+        >
           <DatePickerCalendar
             value={value}
             onChange={onChange}
@@ -226,7 +245,8 @@ function DatePickerField({ label, value, onChange, required, allowNoEnd, noEndDa
               setOpen(false);
             }}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -380,7 +400,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-bg-overlay" onClick={onClose} />
-      <div className="relative bg-bg-surface border border-border-dim rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-bg-surface border border-border-dim rounded-xl shadow-2xl w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
           <h2 className="text-[15px] font-semibold text-text-heading">
