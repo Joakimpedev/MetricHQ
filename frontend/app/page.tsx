@@ -419,17 +419,32 @@ export default function LandingPage() {
       {/* Testimonials */}
       <section className="border-t border-border-dim py-16 overflow-hidden">
         <h2 className="text-2xl font-bold text-center mb-10 text-text-heading">What founders are saying</h2>
-        <div className="relative">
-          <div className="flex animate-marquee gap-6 w-max">
-            {[1, 2, 3, 1, 2, 3].map((n, i) => (
-              <img
-                key={i}
-                src={`/testimonials/tweet-${n}.png`}
-                alt="User testimonial"
-                className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
-                draggable={false}
-              />
-            ))}
+        <div className="space-y-6">
+          <div className="relative">
+            <div className="flex animate-marquee gap-6 w-max">
+              {[1, 2, 3, 1, 2, 3].map((n, i) => (
+                <img
+                  key={i}
+                  src={`/testimonials/tweet-${n}.png`}
+                  alt="User testimonial"
+                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
+                  draggable={false}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="relative">
+            <div className="flex animate-marquee-reverse gap-6 w-max">
+              {[4, 5, 6, 4, 5, 6].map((n, i) => (
+                <img
+                  key={i}
+                  src={`/testimonials/tweet-${n}.png`}
+                  alt="User testimonial"
+                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
+                  draggable={false}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
