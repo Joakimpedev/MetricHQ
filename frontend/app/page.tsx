@@ -209,7 +209,7 @@ function PricingSection() {
           <h2 className="text-2xl font-bold text-text-heading mb-3">
             Try it free for{' '}
             <span className="relative inline-block">
-              <span className="text-text-dim line-through decoration-2 decoration-error/60">7 days</span>
+              <span className="text-text-dim line-through decoration-2 decoration-accent/60">7 days</span>
               <span
                 className="absolute -top-5 -right-10 text-accent font-bold text-2xl -rotate-2"
                 style={{ fontFamily: 'var(--font-caveat)' }}
@@ -418,7 +418,20 @@ export default function LandingPage() {
       </header>
 
       {/* Dashboard Preview */}
-      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-16 scroll-mt-8">
+      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-16 scroll-mt-8 relative">
+        {/* Handwritten arrow + label */}
+        <div className="absolute -top-2 right-8 md:right-16 flex flex-col items-center z-10 select-none pointer-events-none">
+          <span
+            className="text-accent text-xl md:text-2xl font-bold -rotate-3"
+            style={{ fontFamily: 'var(--font-caveat)' }}
+          >
+            interactive demo
+          </span>
+          <svg width="40" height="50" viewBox="0 0 40 50" fill="none" className="text-accent mt-0.5 rotate-6">
+            <path d="M20 2 C18 15, 15 25, 20 45" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+            <path d="M12 38 L20 47 L26 37" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </div>
         <DashboardPreview />
         <div className="text-center mt-6">
           <Link
