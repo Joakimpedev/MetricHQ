@@ -99,7 +99,7 @@ function PlatformCard({ platform, spend, revenue, showUtmBanner }: { platform: s
           >
             <X size={12} />
           </button>
-          <div className="flex flex-col items-center text-center pr-0">
+          <div className="flex flex-col items-center pr-0">
             <AlertTriangle size={14} className="text-warning mb-1.5" />
             <p className="text-[11px] text-text-body leading-snug">
               Revenue isn&apos;t linked to {meta.label} campaigns.{' '}
