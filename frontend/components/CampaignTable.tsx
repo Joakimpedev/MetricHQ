@@ -36,7 +36,6 @@ type SortDir = 'asc' | 'desc';
 
 export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
-  const hasRevenue = campaigns.some(c => (c.revenue || 0) > 0);
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -86,13 +85,10 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
 
   const headerClass = 'text-[10px] uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-text-body';
 
-  const hasPurchases = campaigns.some(c => (c.purchases || 0) > 0);
-  // Column order: Campaign | [UTM] | Spend | [Conv] | [Revenue | Profit | CPA]
+  // Column order: Campaign | [UTM] | Spend | Conv | Revenue | Profit | CPA
   const colDefs: string[] = ['1fr'];
   if (hasAttribution) colDefs.push('2.5rem');
-  colDefs.push('5rem');
-  if (hasPurchases) colDefs.push('4rem');
-  if (hasRevenue) colDefs.push('5rem', '5rem', '4.5rem');
+  colDefs.push('5rem', '4rem', '5rem', '5rem', '4.5rem');
   const gridTemplate = colDefs.join(' ');
 
   return (
@@ -123,24 +119,18 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
-            {hasPurchases && (
-              <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
-                Conv.<SortIcon col="purchases" />
-              </button>
-            )}
-            {hasRevenue && (
-              <>
-                <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
-                  Revenue<SortIcon col="revenue" />
-                </button>
-                <button onClick={() => handleSort('profit')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
-                  Profit<SortIcon col="profit" />
-                </button>
-                <button onClick={() => handleSort('cpa')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'cpa' ? 'text-text-body' : 'text-text-dim'}`}>
-                  CPA<SortIcon col="cpa" />
-                </button>
-              </>
-            )}
+            <button onClick={() => handleSort('purchases')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'purchases' ? 'text-text-body' : 'text-text-dim'}`}>
+              Conv.<SortIcon col="purchases" />
+            </button>
+            <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
+              Revenue<SortIcon col="revenue" />
+            </button>
+            <button onClick={() => handleSort('profit')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'profit' ? 'text-text-body' : 'text-text-dim'}`}>
+              Profit<SortIcon col="profit" />
+            </button>
+            <button onClick={() => handleSort('cpa')} className={`${headerClass} text-right border-l border-border-dim/40 px-2 ${sortKey === 'cpa' ? 'text-text-body' : 'text-text-dim'}`}>
+              CPA<SortIcon col="cpa" />
+            </button>
           </div>
 
           {/* Rows */}
@@ -165,20 +155,14 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
                   </span>
                 )}
                 <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${c.spend.toLocaleString()}</span>
-                {hasPurchases && (
-                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
-                )}
-                {hasRevenue && (
-                  <>
-                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${(c.revenue || 0).toLocaleString()}</span>
-                    <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
-                      ${(c.profit || 0).toLocaleString()}
-                    </span>
-                    <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
-                      {(c.purchases || 0) > 0 ? `$${Math.round(c.spend / (c.purchases || 1)).toLocaleString()}` : '—'}
-                    </span>
-                  </>
-                )}
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">${(c.revenue || 0).toLocaleString()}</span>
+                <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
+                  ${(c.profit || 0).toLocaleString()}
+                </span>
+                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
+                  {(c.purchases || 0) > 0 ? `$${Math.round(c.spend / (c.purchases || 1)).toLocaleString()}` : '—'}
+                </span>
               </div>
             );
           })}
