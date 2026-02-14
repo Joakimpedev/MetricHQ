@@ -475,8 +475,8 @@ export default function LandingPage() {
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
           <h2 className="text-4xl font-bold mb-12 text-text-heading flex items-baseline justify-center gap-3">
-            <span className="text-accent text-right flex-1"><RollingPhrase /></span>
-            <span className="text-left flex-1">in 3 steps</span>
+            <span className="text-accent text-right" style={{ flex: '0 0 55%' }}><RollingPhrase /></span>
+            <span className="text-left">in 3 steps</span>
           </h2>
           <div className="grid md:grid-cols-3 gap-10">
             {/* Step 1 */}
