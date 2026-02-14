@@ -286,7 +286,23 @@ async function aggregateMetrics(userId, startDate, endDate) {
           } else if (interval === 'weekly') {
             costAmount = (amt / 7) * daysActive;
           } else if (interval === 'monthly') {
-            costAmount = (amt / 30) * daysActive;
+            // Walk month-by-month for precise proration using actual days in each month
+            costAmount = 0;
+            const cursor = new Date(overlapStart);
+            while (cursor <= overlapEnd) {
+              const year = cursor.getFullYear();
+              const month = cursor.getMonth();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              // Last day of this month as local midnight
+              const monthLast = new Date(year, month + 1, 0);
+              monthLast.setHours(0, 0, 0, 0);
+              const segEnd = monthLast < overlapEnd ? monthLast : overlapEnd;
+              const segDays = Math.round((segEnd - cursor) / 86400000) + 1;
+              costAmount += (amt / daysInMonth) * segDays;
+              // Move cursor to first day of next month
+              cursor.setFullYear(year, month + 1, 1);
+              cursor.setHours(0, 0, 0, 0);
+            }
           }
         }
       }
@@ -294,12 +310,27 @@ async function aggregateMetrics(userId, startDate, endDate) {
       costAmount = Math.round(costAmount * 100) / 100;
       if (costAmount > 0) {
         customCostsTotal += costAmount;
-        customCostsBreakdown.push({
+        const item = {
           name: cost.name || 'Unnamed cost',
           category: cost.category || null,
           amount: costAmount,
           currency: cost.currency || 'USD',
-        });
+        };
+
+        // Include frequency info for proration display
+        if (cost.cost_type === 'variable') {
+          item.frequency = 'variable';
+        } else if (cost.repeat && cost.repeat_interval) {
+          item.frequency = cost.repeat_interval;
+          item.configuredAmount = parseFloat(cost.amount) || 0;
+          item.configuredCurrency = cost.currency || 'USD';
+        } else {
+          item.frequency = 'one-time';
+          item.configuredAmount = parseFloat(cost.amount) || 0;
+          item.configuredCurrency = cost.currency || 'USD';
+        }
+
+        customCostsBreakdown.push(item);
       }
     }
 

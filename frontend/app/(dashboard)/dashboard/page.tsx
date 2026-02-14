@@ -10,6 +10,7 @@ import DateRangeSelector, { type DateRange } from '../../../components/DateRange
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import OnboardingWizard from '../../../components/OnboardingWizard';
 import CostBreakdownChart from '../../../components/CostBreakdownChart';
+import { useCurrency } from '../../../lib/currency';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
@@ -80,7 +81,7 @@ interface MetricsData {
   unattributedRevenue?: number;
   unattributedSpend?: number;
   customCostsTotal?: number;
-  customCostsBreakdown?: { name: string; category: string | null; amount: number; currency: string }[];
+  customCostsBreakdown?: { name: string; category: string | null; amount: number; currency: string; frequency?: string; configuredAmount?: number; configuredCurrency?: string }[];
   dataRetentionLimit?: { days: number; earliestDate: string } | null;
 }
 
@@ -129,6 +130,8 @@ function formatCompareLabel(range: DateRange): string {
   if (comp.compareStartDate === comp.compareEndDate) return fmt(s);
   return `${fmt(s)} – ${fmt(e)}`;
 }
+
+const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', meta: 'Meta', tiktok: 'TikTok', linkedin: 'LinkedIn' };
 
 function generateDemoData(dateRange: DateRange): MetricsData {
   const start = new Date(dateRange.startDate + 'T00:00:00');
@@ -262,16 +265,13 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     },
     unattributedRevenue: Math.round(totalRevenue * 0.15),
     customCostsBreakdown: [
-      { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD' },
-      { name: 'Vercel hosting', category: 'SaaS Tools', amount: 20, currency: 'USD' },
-      { name: 'Railway DB', category: 'SaaS Tools', amount: 15, currency: 'USD' },
-      { name: 'Figma', category: 'SaaS Tools', amount: 12, currency: 'USD' },
-      { name: 'Freelance designer', category: 'Team', amount: 450, currency: 'EUR' },
-      { name: 'Content writer', category: 'Team', amount: 200, currency: 'GBP' },
+      { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD', frequency: 'variable' },
+      { name: 'Vercel hosting', category: 'SaaS Tools', amount: Math.round(20 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 20, configuredCurrency: 'USD' },
+      { name: 'Railway DB', category: 'SaaS Tools', amount: Math.round(15 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 15, configuredCurrency: 'USD' },
+      { name: 'Figma', category: 'SaaS Tools', amount: Math.round(12 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 12, configuredCurrency: 'USD' },
+      { name: 'Freelance designer', category: 'Team', amount: Math.round(450 / 30 * days * 100) / 100, currency: 'EUR', frequency: 'monthly', configuredAmount: 450, configuredCurrency: 'EUR' },
+      { name: 'Content writer', category: 'Team', amount: Math.round(200 / 30 * days * 100) / 100, currency: 'GBP', frequency: 'monthly', configuredAmount: 200, configuredCurrency: 'GBP' },
     ],
-    customCostsTotal: Math.round(
-      Math.round(totalRevenue * 0.029) + 20 + 15 + 12 + Math.round(450 * 1.08) + Math.round(200 * 1.27)
-    ),
     timeSeries,
   };
 }
@@ -280,6 +280,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const { subscription } = useSubscription();
+  const { convertFromCurrency } = useCurrency();
   const isDemo = searchParams.get('demo') === 'true';
   const isEmbed = searchParams.get('embed') === 'true';
   const [data, setData] = useState<MetricsData | null>(null);
@@ -504,10 +505,27 @@ export default function DashboardPage() {
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
-  const customCostsTotal = data?.customCostsTotal || 0;
   const customCostsBreakdown = data?.customCostsBreakdown || [];
   const countryCampaigns = data?.countryCampaigns || {};
   const platforms = demoPatched;
+
+  // Compute customCostsTotal from breakdown items using live exchange rates (matches donut chart)
+  const customCostsTotal = useMemo(() => {
+    return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency), 0);
+  }, [customCostsBreakdown, convertFromCurrency]);
+
+  // Build combined cost breakdown: ad spend platforms + custom costs
+  const combinedBreakdown = useMemo(() => {
+    const adSpendItems = Object.entries(platforms)
+      .filter(([key]) => key !== 'stripe' && (platforms[key]?.totalSpend || 0) > 0)
+      .map(([key, pData]) => ({
+        name: PLATFORM_LABELS[key] || key,
+        category: 'Ad Spend' as string | null,
+        amount: pData.totalSpend,
+        currency: 'USD',
+      }));
+    return [...adSpendItems, ...customCostsBreakdown];
+  }, [platforms, customCostsBreakdown]);
 
   const retentionLimit = data?.dataRetentionLimit;
   // Show retention banner if the selected start date was before the retention limit
@@ -552,8 +570,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
         <div className="space-y-4">
           <CountryBreakdown countries={countries} unattributedSpend={unattributedSpend} countryCampaigns={countryCampaigns} />
-          {customCostsBreakdown.length > 0 && (
-            <CostBreakdownChart breakdown={customCostsBreakdown} total={customCostsTotal} />
+          {combinedBreakdown.length > 0 && (
+            <CostBreakdownChart breakdown={combinedBreakdown} />
           )}
         </div>
 

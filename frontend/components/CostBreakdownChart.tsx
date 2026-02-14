@@ -9,11 +9,13 @@ interface CostItem {
   category: string | null;
   amount: number;
   currency: string;
+  frequency?: string;
+  configuredAmount?: number;
+  configuredCurrency?: string;
 }
 
 interface CostBreakdownProps {
   breakdown: CostItem[];
-  total: number;
 }
 
 // OKLCH-based palette for donut segments
@@ -30,24 +32,33 @@ const CATEGORY_COLORS = [
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export default function CostBreakdownChart({ breakdown, total }: CostBreakdownProps) {
-  const { formatCurrency, convertFromCurrency, currency } = useCurrency();
+export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
+  const { formatCurrency, convertFromCurrency } = useCurrency();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // Group by category, converting each cost to the display currency
-  const { categories, categoryMap } = useMemo(() => {
-    const map: Record<string, { name: string; amount: number; items: { name: string; amount: number }[] }> = {};
+  const { categories } = useMemo(() => {
+    const map: Record<string, { name: string; amount: number; items: { name: string; amount: number; rateLabel?: string }[] }> = {};
 
     for (const item of breakdown) {
       const cat = item.category || 'Other';
       if (!map[cat]) map[cat] = { name: cat, amount: 0, items: [] };
       const converted = convertFromCurrency(item.amount, item.currency);
       map[cat].amount += converted;
-      map[cat].items.push({ name: item.name, amount: converted });
+
+      // Build rate label like "€450/mo" for configured amounts
+      let rateLabel: string | undefined;
+      if (item.configuredAmount && item.frequency && item.frequency !== 'one-time' && item.frequency !== 'variable') {
+        const sym = item.configuredCurrency === 'EUR' ? '€' : item.configuredCurrency === 'GBP' ? '£' : '$';
+        const freqShort = item.frequency === 'monthly' ? '/mo' : item.frequency === 'weekly' ? '/wk' : '/day';
+        rateLabel = `${sym}${item.configuredAmount}${freqShort}`;
+      }
+
+      map[cat].items.push({ name: item.name, amount: converted, rateLabel });
     }
 
     const cats = Object.values(map).sort((a, b) => b.amount - a.amount);
-    return { categories: cats, categoryMap: map };
+    return { categories: cats };
   }, [breakdown, convertFromCurrency]);
 
   const convertedTotal = useMemo(() => {
@@ -144,8 +155,13 @@ export default function CostBreakdownChart({ breakdown, total }: CostBreakdownPr
                 {isActive && cat.items.length > 0 && (
                   <div className="ml-[18px] mt-1 space-y-0.5">
                     {cat.items.map((item, j) => (
-                      <div key={`${item.name}-${j}`} className="flex items-center justify-between">
-                        <span className="text-[11px] text-text-dim truncate flex-1 pr-2">{item.name}</span>
+                      <div key={`${item.name}-${j}`} className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-text-dim truncate flex-1">{item.name}</span>
+                        {item.rateLabel && (
+                          <span className="text-[10px] text-text-dim/60 tabular-nums shrink-0">
+                            {item.rateLabel}
+                          </span>
+                        )}
                         <span className="text-[11px] text-text-dim tabular-nums shrink-0">
                           {formatCurrency(item.amount)}
                         </span>
