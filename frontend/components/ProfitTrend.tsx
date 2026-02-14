@@ -25,6 +25,11 @@ interface SummaryData {
   totalSpend: number;
 }
 
+interface PlatformSummary {
+  totalSpend: number;
+  totalRevenue?: number;
+}
+
 interface ProfitTrendProps {
   data: DataPoint[];
   prevData?: DataPoint[];
@@ -33,7 +38,22 @@ interface ProfitTrendProps {
   compSummary?: SummaryData;
   customCostsTotal?: number;
   compCustomCostsTotal?: number;
+  platforms?: Record<string, PlatformSummary>;
 }
+
+const PLATFORM_LABELS: Record<string, string> = {
+  google_ads: 'Google Ads',
+  meta: 'Meta Ads',
+  tiktok: 'TikTok Ads',
+  linkedin: 'LinkedIn Ads',
+};
+
+const PLATFORM_COLORS: Record<string, string> = {
+  google_ads: '#4285f4',
+  meta: '#e040fb',
+  tiktok: '#fe2c55',
+  linkedin: '#0a66c2',
+};
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -45,6 +65,12 @@ function formatDollar(value: number): string {
     return `$${(value / 1000).toFixed(1)}k`;
   }
   return `$${value}`;
+}
+
+function formatDollarFull(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1000) return `${value < 0 ? '-' : ''}$${(abs / 1000).toFixed(1)}k`;
+  return `${value < 0 ? '-' : ''}$${abs.toLocaleString()}`;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -96,7 +122,6 @@ const ghostData = [
 function GhostChart() {
   return (
     <div className="h-[360px] relative">
-      {/* Faded, blurred chart */}
       <div className="absolute inset-0 opacity-[0.35] blur-[1.5px] pointer-events-none select-none">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={ghostData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -106,40 +131,13 @@ function GhostChart() {
                 <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border-dim)"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-              axisLine={false}
-              tickLine={false}
-              tickMargin={8}
-            />
-            <YAxis
-              tickFormatter={formatDollar}
-              tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-              axisLine={false}
-              tickLine={false}
-              tickMargin={4}
-              width={48}
-            />
-            <Area
-              type="monotone"
-              dataKey="profit"
-              stroke="var(--accent)"
-              strokeWidth={2}
-              fill="url(#ghostGradient)"
-              isAnimationActive={true}
-              animationDuration={2000}
-              animationEasing="ease-in-out"
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
+            <YAxis tickFormatter={formatDollar} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
+            <Area type="monotone" dataKey="profit" stroke="var(--accent)" strokeWidth={2} fill="url(#ghostGradient)" isAnimationActive={true} animationDuration={2000} animationEasing="ease-in-out" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      {/* Overlay message */}
       <div className="absolute inset-0 flex items-center justify-center z-10">
         <p className="text-text-dim text-[12px] font-medium bg-bg-surface/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border-dim/50">
           Choose a date range with at least two days
@@ -173,10 +171,35 @@ function InlineBadge({ current, previous, invert }: { current: number; previous:
   );
 }
 
-export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal }: ProfitTrendProps) {
+function PlatformLogo({ platform, size = 12 }: { platform: string; size?: number }) {
+  if (platform === 'google_ads') return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M3.272 20.1l4.29-16.2c.36-1.36 1.78-2.18 3.14-1.82l1.36.36c1.36.36 2.18 1.78 1.82 3.14l-4.29 16.2c-.36 1.36-1.78 2.18-3.14 1.82l-1.36-.36c-1.36-.36-2.18-1.78-1.82-3.14z" fill="#fff" opacity="0.7"/>
+      <path d="M10.272 20.1l4.29-16.2c.36-1.36 1.78-2.18 3.14-1.82l1.36.36c1.36.36 2.18 1.78 1.82 3.14l-4.29 16.2c-.36 1.36-1.78 2.18-3.14 1.82l-1.36-.36c-1.36-.36-2.18-1.78-1.82-3.14z" fill="#fff"/>
+      <circle cx="6" cy="20" r="2.5" fill="#fff"/>
+    </svg>
+  );
+  if (platform === 'meta') return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#fff"/>
+    </svg>
+  );
+  if (platform === 'tiktok') return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.08a8.27 8.27 0 004.76 1.5V7.13a4.83 4.83 0 01-1-.44z" fill="#fff"/>
+    </svg>
+  );
+  if (platform === 'linkedin') return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" fill="#fff"/>
+    </svg>
+  );
+  return null;
+}
+
+export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal, platforms }: ProfitTrendProps) {
   const [showProfit, setShowProfit] = useState(true);
 
-  // Merge current and previous period data by index (day 1 -> day 1, etc.)
   const merged = useMemo<MergedPoint[]>(() => {
     return data.map((point, i) => ({
       date: point.date,
@@ -189,11 +212,106 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
   const hasPrev = prevData && prevData.length > 0;
   const hasCustomCosts = (customCostsTotal || 0) > 0;
 
+  // Build platform list for sidebar
+  const adPlatforms = useMemo(() => {
+    if (!platforms) return [];
+    return Object.entries(platforms)
+      .filter(([key]) => key !== 'stripe')
+      .map(([key, data]) => ({
+        key,
+        label: PLATFORM_LABELS[key] || key,
+        color: PLATFORM_COLORS[key] || '#888',
+        spend: data.totalSpend,
+        revenue: data.totalRevenue || 0,
+        profit: (data.totalRevenue || 0) - data.totalSpend,
+      }))
+      .filter(p => p.spend > 0);
+  }, [platforms]);
+
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-      {/* Horizontal flex: chart left, KPIs right. Stacks on mobile. */}
-      <div className="flex flex-col md:flex-row gap-5">
-        {/* Chart area */}
+      {/* KPIs row on top — same as original */}
+      {summary && (
+        <div className="flex items-start gap-6 md:gap-8 mb-5 flex-wrap">
+          {/* Profit — with checkbox */}
+          <button
+            type="button"
+            onClick={() => setShowProfit(prev => !prev)}
+            className="flex items-start gap-2.5 text-left group cursor-pointer"
+          >
+            <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+              showProfit
+                ? 'bg-accent border-accent'
+                : 'border-border-dim bg-transparent'
+            }`}>
+              {showProfit && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                  {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
+              </div>
+            </div>
+          </button>
+
+          {/* Revenue */}
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                  ${summary.totalRevenue.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
+              </div>
+            </div>
+          </div>
+
+          {/* Ad Spend */}
+          <div className="flex items-start gap-2.5">
+            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+            <div>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                  ${summary.totalSpend.toLocaleString()}
+                </span>
+                {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Costs — only when > 0, de-emphasized */}
+          {hasCustomCosts && (
+            <div className="flex items-start gap-2.5">
+              <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/10 shrink-0" />
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[18px] font-semibold tracking-tight leading-none text-text-dim">
+                    ${(customCostsTotal || 0).toLocaleString()}
+                  </span>
+                  {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
+                    <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart + platform sidebar */}
+      <div className="flex flex-col md:flex-row gap-0">
+        {/* Chart */}
         <div className="flex-1 min-w-0">
           {isSingleDay || data.length < 2 ? (
             <GhostChart />
@@ -207,50 +325,15 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                       <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--border-dim)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={formatDate}
-                    tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={8}
-                  />
-                  <YAxis
-                    tickFormatter={formatDollar}
-                    tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={4}
-                    width={48}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
+                  <YAxis tickFormatter={formatDollar} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
                   <Tooltip content={<CustomTooltip />} />
-                  {/* Ghost line: previous period */}
                   {hasPrev && showProfit && (
-                    <Area
-                      type="monotone"
-                      dataKey="prevProfit"
-                      stroke="var(--text-dim)"
-                      strokeWidth={1.5}
-                      strokeDasharray="4 3"
-                      fill="none"
-                      dot={false}
-                      activeDot={false}
-                    />
+                    <Area type="monotone" dataKey="prevProfit" stroke="var(--text-dim)" strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={false} activeDot={false} />
                   )}
-                  {/* Primary: current period */}
                   {showProfit && (
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      stroke="var(--accent)"
-                      strokeWidth={2}
-                      fill="url(#profitGradient)"
-                    />
+                    <Area type="monotone" dataKey="profit" stroke="var(--accent)" strokeWidth={2} fill="url(#profitGradient)" />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
@@ -258,87 +341,25 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
           )}
         </div>
 
-        {/* KPI sidebar — vertical on desktop, horizontal row on mobile */}
-        {summary && (
-          <div className="flex md:flex-col gap-4 md:gap-5 md:w-[200px] md:pl-5 md:border-l md:border-border-dim/50 flex-wrap">
-            {/* Profit — largest, with checkbox */}
-            <button
-              type="button"
-              onClick={() => setShowProfit(prev => !prev)}
-              className="flex items-start gap-2.5 text-left group cursor-pointer"
-            >
-              <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
-                showProfit
-                  ? 'bg-accent border-accent'
-                  : 'border-border-dim bg-transparent'
-              }`}>
-                {showProfit && (
-                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                    <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </span>
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
-                <div className="flex items-center gap-2">
-                  <span className={`text-[24px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                    {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
-                  </span>
+        {/* Platform profit sidebar — only on desktop when we have platform data */}
+        {adPlatforms.length > 0 && (
+          <div className="hidden md:flex flex-col gap-0 w-[170px] ml-4 pl-4 border-l border-border-dim/50 justify-center">
+            {adPlatforms.map(p => (
+              <div key={p.key} className="py-2.5 flex items-center gap-2.5">
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: p.color }}
+                >
+                  <PlatformLogo platform={p.key} size={11} />
                 </div>
-                {compSummary && (
-                  <div className="mt-1">
-                    <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-text-dim truncate">{p.label}</div>
+                  <div className={`text-[14px] font-semibold leading-tight ${p.profit >= 0 ? 'text-success' : 'text-error'}`}>
+                    {p.profit >= 0 ? '+' : ''}{formatDollarFull(p.profit)}
                   </div>
-                )}
-              </div>
-            </button>
-
-            {/* Revenue */}
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[18px] font-semibold tracking-tight leading-none text-text-heading">
-                  ${summary.totalRevenue.toLocaleString()}
-                </span>
-              </div>
-              {compSummary && (
-                <div className="mt-1">
-                  <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />
                 </div>
-              )}
-            </div>
-
-            {/* Ad Spend */}
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[18px] font-semibold tracking-tight leading-none text-text-heading">
-                  ${summary.totalSpend.toLocaleString()}
-                </span>
               </div>
-              {compSummary && (
-                <div className="mt-1">
-                  <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />
-                </div>
-              )}
-            </div>
-
-            {/* Custom Costs — only when > 0 */}
-            {hasCustomCosts && (
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-medium tracking-tight leading-none text-text-dim">
-                    ${(customCostsTotal || 0).toLocaleString()}
-                  </span>
-                </div>
-                {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
-                  <div className="mt-1">
-                    <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
-                  </div>
-                )}
-              </div>
-            )}
+            ))}
           </div>
         )}
       </div>

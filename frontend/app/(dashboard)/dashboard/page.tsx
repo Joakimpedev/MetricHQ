@@ -428,15 +428,29 @@ export default function DashboardPage() {
         <div className="flex justify-end">
           <div className="w-40 h-8 bg-bg-elevated animate-pulse rounded-lg" />
         </div>
-        {/* Chart + KPI sidebar skeleton */}
+        {/* Chart skeleton (KPIs on top, chart + platform sidebar) */}
         <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-          <div className="flex flex-col md:flex-row gap-5">
-            <div className="flex-1 h-[360px] bg-bg-elevated animate-pulse rounded-lg" />
-            <div className="flex md:flex-col gap-4 md:gap-5 md:w-[200px] md:pl-5 md:border-l md:border-border-dim/50">
-              {[...Array(3)].map((_, i) => (
-                <div key={i}>
+          <div className="flex gap-8 mb-5">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="mt-1.5 w-[14px] h-[14px] bg-bg-elevated animate-pulse rounded" />
+                <div>
                   <div className="w-14 h-3 bg-bg-elevated animate-pulse rounded-lg mb-2" />
                   <div className="w-20 h-6 bg-bg-elevated animate-pulse rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1 h-[360px] bg-bg-elevated animate-pulse rounded-lg" />
+            <div className="hidden md:flex flex-col gap-3 w-[170px] pl-4 border-l border-border-dim/50 justify-center">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 bg-bg-elevated animate-pulse rounded-md" />
+                  <div>
+                    <div className="w-14 h-2.5 bg-bg-elevated animate-pulse rounded mb-1.5" />
+                    <div className="w-12 h-4 bg-bg-elevated animate-pulse rounded" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -510,7 +524,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Profit trend chart with KPI sidebar */}
+      {/* Profit trend chart with platform sidebar */}
       <ProfitTrend
         data={timeSeries}
         prevData={compTimeSeries}
@@ -518,6 +532,7 @@ export default function DashboardPage() {
         summary={{ totalProfit: summary.totalProfit, totalRevenue: summary.totalRevenue, totalSpend: summary.totalSpend }}
         compSummary={compSummary ? { totalProfit: compSummary.totalProfit, totalRevenue: compSummary.totalRevenue, totalSpend: compSummary.totalSpend } : undefined}
         customCostsTotal={customCostsTotal}
+        platforms={platforms}
       />
 
       {/* Countries + Campaigns side by side */}

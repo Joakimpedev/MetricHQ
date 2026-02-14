@@ -43,7 +43,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 const PLATFORM_COLORS: Record<string, string> = {
   google_ads: '#4285f4',
-  meta: '#0081fb',
+  meta: '#e040fb',
   tiktok: '#fe2c55',
   linkedin: '#0a66c2',
 };
