@@ -378,6 +378,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="py-10 overflow-hidden">
+        <div className="space-y-6">
+          <div className="relative">
+            <div className="flex animate-marquee gap-6 w-max">
+              {[1, 4, 3, 1, 4, 3].map((n, i) => (
+                <img
+                  key={i}
+                  src={`/testimonials/tweet-${n}.png`}
+                  alt="User testimonial"
+                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
+                  draggable={false}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="relative">
+            <div className="flex animate-marquee-reverse gap-6 w-max">
+              {[2, 5, 6, 2, 5, 6].map((n, i) => (
+                <img
+                  key={i}
+                  src={`/testimonials/tweet-${n}.png`}
+                  alt="User testimonial"
+                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
+                  draggable={false}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works */}
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
@@ -411,39 +443,6 @@ export default function LandingPage() {
               <div className="text-[11px] font-medium uppercase tracking-wider text-accent mb-2">Step 3</div>
               <h3 className="font-semibold text-lg mb-2 text-text-heading">See your P&amp;L</h3>
               <p className="text-text-dim text-sm">Your dashboard shows exactly where you make money and where you lose it — by campaign and country.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="border-t border-border-dim py-16 overflow-hidden">
-        <h2 className="text-2xl font-bold text-center mb-10 text-text-heading">What founders are saying</h2>
-        <div className="space-y-6">
-          <div className="relative">
-            <div className="flex animate-marquee gap-6 w-max">
-              {[1, 2, 3, 1, 2, 3].map((n, i) => (
-                <img
-                  key={i}
-                  src={`/testimonials/tweet-${n}.png`}
-                  alt="User testimonial"
-                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
-                  draggable={false}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="relative">
-            <div className="flex animate-marquee-reverse gap-6 w-max">
-              {[4, 5, 6, 4, 5, 6].map((n, i) => (
-                <img
-                  key={i}
-                  src={`/testimonials/tweet-${n}.png`}
-                  alt="User testimonial"
-                  className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
-                  draggable={false}
-                />
-              ))}
             </div>
           </div>
         </div>
