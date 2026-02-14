@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useUser, SignOutButton } from '@clerk/nextjs';
 import { Sun, Moon, Settings, LogOut, Menu } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
-import { useCurrency, type CurrencyCode } from '../lib/currency';
+import CurrencySelect from './CurrencySelect';
+import { useCurrency } from '../lib/currency';
 
 interface TopBarProps {
   title: string;
@@ -46,6 +47,9 @@ export default function TopBar({ title, syncSlot, onMenuToggle }: TopBarProps) {
       <div className="flex items-center gap-2">
         {/* Sync slot (only on dashboard) */}
         {syncSlot}
+
+        {/* Currency dropdown */}
+        <CurrencySelect value={currency} onChange={setCurrency} compact />
 
         {/* Theme toggle */}
         <button
@@ -93,23 +97,6 @@ export default function TopBar({ title, syncSlot, onMenuToggle }: TopBarProps) {
                   <Settings size={14} />
                   Settings
                 </Link>
-                {/* Currency selector */}
-                <div className="flex items-center gap-1.5 px-3.5 py-2 border-t border-border-dim/40">
-                  <span className="text-[11px] text-text-dim mr-1">Currency</span>
-                  {(['USD', 'EUR', 'GBP', 'NOK'] as CurrencyCode[]).map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setCurrency(c)}
-                      className={`px-1.5 py-0.5 text-[11px] rounded transition-colors ${
-                        currency === c
-                          ? 'bg-accent text-accent-text font-medium'
-                          : 'text-text-dim hover:text-text-body hover:bg-bg-hover'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
                 <SignOutButton>
                   <button className="flex items-center gap-2.5 w-full px-3.5 py-2 text-[12px] text-text-dim hover:text-error hover:bg-error-bg transition-colors">
                     <LogOut size={14} />

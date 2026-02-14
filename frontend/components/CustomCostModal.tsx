@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useUser } from '@clerk/nextjs';
 import { X, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import CurrencySelect from './CurrencySelect';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -28,7 +29,6 @@ interface Props {
   onSaved: () => void;
 }
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'NOK'];
 const INTERVALS = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
@@ -465,18 +465,10 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
 
           {/* Fixed: Currency + Amount */}
           {costType === 'fixed' && (
-            <div className="flex gap-2">
-              <div className="w-24">
+            <div className="flex gap-2 items-end">
+              <div>
                 <label className={labelClass}>Currency</label>
-                <select
-                  value={currency}
-                  onChange={e => setCurrency(e.target.value)}
-                  className={inputClass}
-                >
-                  {CURRENCIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <CurrencySelect value={currency} onChange={setCurrency} compact />
               </div>
               <div className="flex-1">
                 <RequiredLabel>Amount</RequiredLabel>
