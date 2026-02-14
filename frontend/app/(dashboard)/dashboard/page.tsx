@@ -476,7 +476,7 @@ export default function DashboardPage() {
 
       {/* Syncing toast — bottom left */}
       {syncing && (
-        <div className="fixed bottom-5 left-5 z-50 bg-accent rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 max-w-xs">
+        <div className="fixed bottom-5 left-5 md:left-[calc(13rem+1.25rem)] z-40 bg-accent rounded-xl shadow-lg px-4 py-3 flex items-center gap-3 max-w-xs">
           <div className="w-4 h-4 border-2 border-accent-text border-t-transparent rounded-full animate-spin shrink-0" />
           <div>
             <p className="text-[13px] font-medium text-accent-text">Syncing your data</p>
