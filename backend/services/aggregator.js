@@ -219,7 +219,85 @@ async function aggregateMetrics(userId, startDate, endDate) {
     totalPurchases
   };
 
-  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend };
+  // ---- Custom Costs ----
+  let customCostsTotal = 0;
+  try {
+    const costsResult = await pool.query(
+      `SELECT * FROM custom_costs
+       WHERE user_id = $1
+         AND start_date <= $3
+         AND (end_date IS NULL OR end_date >= $2)`,
+      [userId, startDate, endDate]
+    );
+
+    const rangeStart = new Date(startDate + 'T00:00:00');
+    const rangeEnd = new Date(endDate + 'T00:00:00');
+    const rangeDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+
+    // Build base metric lookup for variable costs (pre-custom-cost values)
+    const platformSpendLookup = {};
+    for (const [plat, data] of Object.entries(platformData)) {
+      platformSpendLookup[plat + '_spend'] = data.totalSpend;
+    }
+    const baseMetrics = {
+      revenue: totalRevenue,
+      profit: totalProfit,
+      total_ad_spend: totalSpend,
+      google_ads_spend: platformSpendLookup.google_ads_spend || 0,
+      meta_spend: platformSpendLookup.meta_spend || 0,
+      tiktok_spend: platformSpendLookup.tiktok_spend || 0,
+      linkedin_spend: platformSpendLookup.linkedin_spend || 0,
+    };
+
+    for (const cost of costsResult.rows) {
+      if (cost.cost_type === 'variable') {
+        const pct = parseFloat(cost.percentage) || 0;
+        const baseVal = baseMetrics[cost.base_metric] || 0;
+        customCostsTotal += (pct / 100) * baseVal;
+      } else {
+        // Fixed cost
+        const amt = parseFloat(cost.amount) || 0;
+        const costStart = new Date(cost.start_date instanceof Date ? cost.start_date.toISOString().split('T')[0] + 'T00:00:00' : cost.start_date + 'T00:00:00');
+        const costEnd = cost.end_date
+          ? new Date(cost.end_date instanceof Date ? cost.end_date.toISOString().split('T')[0] + 'T00:00:00' : cost.end_date + 'T00:00:00')
+          : null;
+
+        // Overlap: max(rangeStart, costStart) to min(rangeEnd, costEnd || rangeEnd)
+        const overlapStart = costStart > rangeStart ? costStart : rangeStart;
+        const overlapEnd = costEnd && costEnd < rangeEnd ? costEnd : rangeEnd;
+        const daysActive = Math.max(0, Math.round((overlapEnd - overlapStart) / 86400000) + 1);
+
+        if (daysActive <= 0) continue;
+
+        if (!cost.repeat) {
+          // One-time fixed: prorate across cost's total duration
+          const totalCostDays = costEnd
+            ? Math.round((costEnd - costStart) / 86400000) + 1
+            : 1;
+          customCostsTotal += (amt / totalCostDays) * daysActive;
+        } else {
+          // Repeating fixed
+          const interval = cost.repeat_interval;
+          if (interval === 'daily') {
+            customCostsTotal += amt * daysActive;
+          } else if (interval === 'weekly') {
+            customCostsTotal += (amt / 7) * daysActive;
+          } else if (interval === 'monthly') {
+            customCostsTotal += (amt / 30) * daysActive;
+          }
+        }
+      }
+    }
+
+    customCostsTotal = Math.round(customCostsTotal * 100) / 100;
+  } catch (err) {
+    // Table may not exist yet during migration rollout — gracefully return 0
+    if (err.code !== '42P01') {
+      console.error('[aggregator] Custom costs error:', err.message);
+    }
+  }
+
+  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, customCostsTotal };
 }
 
 module.exports = { aggregateMetrics };

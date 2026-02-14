@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Check, Minus, BarChart3, Lock } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ChevronUp, ChevronDown, Check, Minus, BarChart3, Lock, X, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 interface Campaign {
@@ -22,6 +22,7 @@ interface CampaignTableProps {
   campaigns: Campaign[];
   gated?: boolean;
   onCampaignClick?: (platform: string, index: number) => void;
+  showUtmBanner?: boolean;
 }
 
 type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
@@ -34,11 +35,29 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 type SortDir = 'asc' | 'desc';
 
-export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick }: CampaignTableProps) {
+const PLATFORM_UTM_URLS: Record<string, string> = {
+  google_ads: 'https://support.google.com/google-ads/answer/6305348',
+  meta: 'https://www.facebook.com/business/help/1016122818401732',
+  tiktok: 'https://ads.tiktok.com/help/article/track-offsite-web-events-with-utm-parameters',
+  linkedin: 'https://www.linkedin.com/help/lms/answer/a5968064',
+};
+
+export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const dismissKey = `metrichq-utm-dismissed-${platform}`;
+  const [utmDismissed, setUtmDismissed] = useState(true);
+  useEffect(() => {
+    setUtmDismissed(localStorage.getItem(dismissKey) === '1');
+  }, [dismissKey]);
+  const handleUtmDismiss = () => {
+    localStorage.setItem(dismissKey, '1');
+    setUtmDismissed(true);
+  };
+  const utmVisible = showUtmBanner && !utmDismissed;
 
   const sorted = useMemo(() => {
     const arr = campaigns.map((c, i) => ({ ...c, _origIndex: i }));
@@ -97,6 +116,32 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
       </div>
+
+      {/* UTM banner */}
+      {utmVisible && (
+        <div className="mx-4 mt-3 mb-1 bg-warning/10 border border-warning/25 rounded-lg px-3 py-2.5 flex items-start gap-2.5 relative">
+          <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-[11px] text-text-body leading-snug">
+              Revenue isn&apos;t linked to {label} campaigns.{' '}
+              <a
+                href={PLATFORM_UTM_URLS[platform] || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-warning font-medium underline underline-offset-2 hover:text-warning/80"
+              >
+                Set up UTM tracking
+              </a>
+            </p>
+          </div>
+          <button
+            onClick={handleUtmDismiss}
+            className="text-warning/60 hover:text-warning transition-colors shrink-0"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {gated && (
         <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">

@@ -15,6 +15,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKE
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/integrations': 'Integrations',
+  '/custom-costs': 'Custom Costs',
   '/pricing': 'Pricing',
   '/settings': 'Settings',
 };
@@ -183,11 +184,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             .embed-mode .xl\\:grid-cols-2 {
               grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-          }
-
-          /* Slightly narrower attribution cards to fit 3 across */
-          .embed-mode .w-\\[220px\\] {
-            width: 190px;
           }
 
           /* Hide "Connect platform" card in embed */

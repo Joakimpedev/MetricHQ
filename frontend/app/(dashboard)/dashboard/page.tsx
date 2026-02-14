@@ -7,7 +7,6 @@ import { useSearchParams } from 'next/navigation';
 import CampaignTable from '../../../components/CampaignTable';
 import CountryBreakdown from '../../../components/CountryBreakdown';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
-import MarketingAttribution from '../../../components/MarketingAttribution';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import OnboardingWizard from '../../../components/OnboardingWizard';
 
@@ -79,6 +78,7 @@ interface MetricsData {
   comparison?: { summary: Summary; timeSeries: TimeSeriesPoint[] } | Summary;
   unattributedRevenue?: number;
   unattributedSpend?: number;
+  customCostsTotal?: number;
   dataRetentionLimit?: { days: number; earliestDate: string } | null;
 }
 
@@ -259,6 +259,7 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       },
     },
     unattributedRevenue: Math.round(totalRevenue * 0.15),
+    customCostsTotal: Math.round(totalSpend * 0.12),
     timeSeries,
   };
 }
@@ -427,34 +428,19 @@ export default function DashboardPage() {
         <div className="flex justify-end">
           <div className="w-40 h-8 bg-bg-elevated animate-pulse rounded-lg" />
         </div>
-        {/* Chart skeleton (with inline KPI placeholders) */}
+        {/* Chart + KPI sidebar skeleton */}
         <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-          <div className="flex gap-8 mb-5">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <div className="mt-1.5 w-[14px] h-[14px] bg-bg-elevated animate-pulse rounded" />
-                <div>
+          <div className="flex flex-col md:flex-row gap-5">
+            <div className="flex-1 h-[360px] bg-bg-elevated animate-pulse rounded-lg" />
+            <div className="flex md:flex-col gap-4 md:gap-5 md:w-[200px] md:pl-5 md:border-l md:border-border-dim/50">
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>
                   <div className="w-14 h-3 bg-bg-elevated animate-pulse rounded-lg mb-2" />
                   <div className="w-20 h-6 bg-bg-elevated animate-pulse rounded-lg" />
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className="h-[240px] bg-bg-elevated animate-pulse rounded-lg" />
-        </div>
-        {/* Attribution cards skeleton */}
-        <div className="flex flex-wrap gap-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="w-[220px] bg-bg-surface rounded-xl border border-border-dim p-4">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 bg-bg-elevated animate-pulse rounded-lg" />
-                <div className="w-20 h-3 bg-bg-elevated animate-pulse rounded-lg" />
-              </div>
-              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-1.5" />
-              <div className="w-16 h-3 bg-bg-elevated animate-pulse rounded-lg mb-3" />
-              <div className="w-24 h-6 bg-bg-elevated animate-pulse rounded-lg" />
+              ))}
             </div>
-          ))}
+          </div>
         </div>
         {/* Tables skeleton */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
@@ -492,6 +478,7 @@ export default function DashboardPage() {
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
+  const customCostsTotal = data?.customCostsTotal || 0;
   const countryCampaigns = data?.countryCampaigns || {};
   const platforms = demoPatched;
 
@@ -523,19 +510,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Profit trend chart with inline KPIs */}
+      {/* Profit trend chart with KPI sidebar */}
       <ProfitTrend
         data={timeSeries}
         prevData={compTimeSeries}
         isSingleDay={isSingleDay}
         summary={{ totalProfit: summary.totalProfit, totalRevenue: summary.totalRevenue, totalSpend: summary.totalSpend }}
         compSummary={compSummary ? { totalProfit: compSummary.totalProfit, totalRevenue: compSummary.totalRevenue, totalSpend: compSummary.totalSpend } : undefined}
+        customCostsTotal={customCostsTotal}
       />
-
-      {/* Marketing Attribution */}
-      {(adPlatforms.length > 0 || unattributedRevenue > 0) && (
-        <MarketingAttribution platforms={platforms} unattributedRevenue={unattributedRevenue} totalRevenue={summary.totalRevenue} />
-      )}
 
       {/* Countries + Campaigns side by side */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
@@ -551,6 +534,7 @@ export default function DashboardPage() {
                 campaigns={pData.campaigns}
                 gated={pData.gated}
                 onCampaignClick={isDemo ? handleDemoCampaignClick : undefined}
+                showUtmBanner={summary.totalRevenue > 0 && pData.totalSpend > 0 && !(pData.totalRevenue || 0)}
               />
             ))}
           </div>

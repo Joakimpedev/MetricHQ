@@ -31,6 +31,8 @@ interface ProfitTrendProps {
   isSingleDay?: boolean;
   summary?: SummaryData;
   compSummary?: SummaryData;
+  customCostsTotal?: number;
+  compCustomCostsTotal?: number;
 }
 
 function formatDate(dateStr: string): string {
@@ -93,7 +95,7 @@ const ghostData = [
 
 function GhostChart() {
   return (
-    <div className="h-[240px] relative">
+    <div className="h-[360px] relative">
       {/* Faded, blurred chart */}
       <div className="absolute inset-0 opacity-[0.35] blur-[1.5px] pointer-events-none select-none">
         <ResponsiveContainer width="100%" height="100%">
@@ -171,10 +173,10 @@ function InlineBadge({ current, previous, invert }: { current: number; previous:
   );
 }
 
-export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary }: ProfitTrendProps) {
+export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal }: ProfitTrendProps) {
   const [showProfit, setShowProfit] = useState(true);
 
-  // Merge current and previous period data by index (day 1 → day 1, etc.)
+  // Merge current and previous period data by index (day 1 -> day 1, etc.)
   const merged = useMemo<MergedPoint[]>(() => {
     return data.map((point, i) => ({
       date: point.date,
@@ -185,131 +187,161 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
   }, [data, prevData]);
 
   const hasPrev = prevData && prevData.length > 0;
+  const hasCustomCosts = (customCostsTotal || 0) > 0;
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-      {/* Inline metrics row */}
-      {summary && (
-        <div className="flex items-start gap-6 md:gap-8 mb-5 flex-wrap">
-          {/* Profit — with checkbox */}
-          <button
-            type="button"
-            onClick={() => setShowProfit(prev => !prev)}
-            className="flex items-start gap-2.5 text-left group cursor-pointer"
-          >
-            <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
-              showProfit
-                ? 'bg-accent border-accent'
-                : 'border-border-dim bg-transparent'
-            }`}>
-              {showProfit && (
-                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </span>
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                  {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
-                </span>
-                {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
-              </div>
+      {/* Horizontal flex: chart left, KPIs right. Stacks on mobile. */}
+      <div className="flex flex-col md:flex-row gap-5">
+        {/* Chart area */}
+        <div className="flex-1 min-w-0">
+          {isSingleDay || data.length < 2 ? (
+            <GhostChart />
+          ) : (
+            <div className="h-[360px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={merged} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                  <defs>
+                    <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.2} />
+                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--border-dim)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatDate}
+                    tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    tickFormatter={formatDollar}
+                    tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={4}
+                    width={48}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  {/* Ghost line: previous period */}
+                  {hasPrev && showProfit && (
+                    <Area
+                      type="monotone"
+                      dataKey="prevProfit"
+                      stroke="var(--text-dim)"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      fill="none"
+                      dot={false}
+                      activeDot={false}
+                    />
+                  )}
+                  {/* Primary: current period */}
+                  {showProfit && (
+                    <Area
+                      type="monotone"
+                      dataKey="profit"
+                      stroke="var(--accent)"
+                      strokeWidth={2}
+                      fill="url(#profitGradient)"
+                    />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          </button>
+          )}
+        </div>
 
-          {/* Revenue — no checkbox */}
-          <div className="flex items-start gap-2.5">
-            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+        {/* KPI sidebar — vertical on desktop, horizontal row on mobile */}
+        {summary && (
+          <div className="flex md:flex-col gap-4 md:gap-5 md:w-[200px] md:pl-5 md:border-l md:border-border-dim/50 flex-wrap">
+            {/* Profit — largest, with checkbox */}
+            <button
+              type="button"
+              onClick={() => setShowProfit(prev => !prev)}
+              className="flex items-start gap-2.5 text-left group cursor-pointer"
+            >
+              <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+                showProfit
+                  ? 'bg-accent border-accent'
+                  : 'border-border-dim bg-transparent'
+              }`}>
+                {showProfit && (
+                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                    <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[24px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                    {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+                  </span>
+                </div>
+                {compSummary && (
+                  <div className="mt-1">
+                    <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {/* Revenue */}
             <div>
               <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
               <div className="flex items-center gap-2">
-                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                <span className="text-[18px] font-semibold tracking-tight leading-none text-text-heading">
                   ${summary.totalRevenue.toLocaleString()}
                 </span>
-                {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
               </div>
+              {compSummary && (
+                <div className="mt-1">
+                  <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Ad Spend — no checkbox */}
-          <div className="flex items-start gap-2.5">
-            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+            {/* Ad Spend */}
             <div>
               <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
               <div className="flex items-center gap-2">
-                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                <span className="text-[18px] font-semibold tracking-tight leading-none text-text-heading">
                   ${summary.totalSpend.toLocaleString()}
                 </span>
-                {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
               </div>
+              {compSummary && (
+                <div className="mt-1">
+                  <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      )}
 
-      {isSingleDay || data.length < 2 ? (
-        <GhostChart />
-      ) : (
-        <div className="h-[240px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={merged} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="var(--border-dim)"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDate}
-                tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-                axisLine={false}
-                tickLine={false}
-                tickMargin={8}
-              />
-              <YAxis
-                tickFormatter={formatDollar}
-                tick={{ fontSize: 11, fill: 'var(--text-dim)' }}
-                axisLine={false}
-                tickLine={false}
-                tickMargin={4}
-                width={48}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              {/* Ghost line: previous period */}
-              {hasPrev && showProfit && (
-                <Area
-                  type="monotone"
-                  dataKey="prevProfit"
-                  stroke="var(--text-dim)"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 3"
-                  fill="none"
-                  dot={false}
-                  activeDot={false}
-                />
-              )}
-              {/* Primary: current period */}
-              {showProfit && (
-                <Area
-                  type="monotone"
-                  dataKey="profit"
-                  stroke="var(--accent)"
-                  strokeWidth={2}
-                  fill="url(#profitGradient)"
-                />
-              )}
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+            {/* Custom Costs — only when > 0 */}
+            {hasCustomCosts && (
+              <div>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-medium tracking-tight leading-none text-text-dim">
+                    ${(customCostsTotal || 0).toLocaleString()}
+                  </span>
+                </div>
+                {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
+                  <div className="mt-1">
+                    <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

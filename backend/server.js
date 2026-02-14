@@ -466,6 +466,14 @@ app.get('/api/billing/downgrade-impact', billing.getDowngradeImpact);
 const teamRoutes = require('./routes/team');
 app.use('/api/team', teamRoutes);
 
+// Custom costs routes
+const customCosts = require('./routes/custom-costs');
+app.get('/api/custom-costs/categories', customCosts.listCategories);
+app.get('/api/custom-costs', customCosts.listCustomCosts);
+app.post('/api/custom-costs', customCosts.createCustomCost);
+app.put('/api/custom-costs/:id', customCosts.updateCustomCost);
+app.delete('/api/custom-costs/:id', customCosts.deleteCustomCost);
+
 // API key management routes (Clerk-authed)
 const apiKeys = require('./routes/api-keys');
 app.post('/api/settings/api-keys', apiKeys.createApiKey);
