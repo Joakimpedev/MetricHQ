@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { useCurrency } from '../lib/currency';
 
 /* ── Small platform logos for sidebar (20×20) ── */
@@ -92,6 +93,8 @@ interface ProfitTrendProps {
   compCustomCostsTotal?: number;
   platforms?: Record<string, PlatformSummary>;
 }
+
+const ALL_AD_PLATFORMS = ['google_ads', 'meta', 'tiktok', 'linkedin'];
 
 const PLATFORM_LABELS: Record<string, string> = {
   google_ads: 'Google Ads',
@@ -376,7 +379,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
         {adPlatforms.length > 0 && (
           <div className="hidden md:flex flex-col w-[220px] ml-5 pl-5 border-l border-border-dim/50">
             <div className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-3">Platforms</div>
-            <div className="flex flex-col flex-1 justify-center gap-1">
+            <div className="flex flex-col flex-1 justify-start gap-1">
               {adPlatforms.map((p) => {
                 const LogoComponent = MINI_LOGOS[p.key];
 
@@ -411,6 +414,15 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   </div>
                 );
               })}
+              {!ALL_AD_PLATFORMS.every(p => adPlatforms.some(ap => ap.key === p)) && (
+                <Link
+                  href="/integrations"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-dim/60 px-3 py-2.5 text-[11px] font-medium text-text-dim hover:border-accent/50 hover:text-accent transition-colors"
+                >
+                  <Plus size={12} />
+                  Add platform
+                </Link>
+              )}
             </div>
           </div>
         )}

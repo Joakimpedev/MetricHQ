@@ -261,7 +261,6 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       },
     },
     unattributedRevenue: Math.round(totalRevenue * 0.15),
-    customCostsTotal: Math.round(totalSpend * 0.12),
     customCostsBreakdown: [
       { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD' },
       { name: 'Vercel hosting', category: 'SaaS Tools', amount: 20, currency: 'USD' },
@@ -270,6 +269,9 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       { name: 'Freelance designer', category: 'Team', amount: 450, currency: 'EUR' },
       { name: 'Content writer', category: 'Team', amount: 200, currency: 'GBP' },
     ],
+    customCostsTotal: Math.round(
+      Math.round(totalRevenue * 0.029) + 20 + 15 + 12 + Math.round(450 * 1.08) + Math.round(200 * 1.27)
+    ),
     timeSeries,
   };
 }

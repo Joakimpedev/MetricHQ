@@ -4,6 +4,19 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { ALL_CURRENCIES, POPULAR_CURRENCIES } from '../lib/currency';
 
+/** Flag emoji lookup by currency code */
+const CURRENCY_FLAGS: Record<string, string> = {
+  USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', CAD: '🇨🇦', AUD: '🇦🇺', JPY: '🇯🇵', CHF: '🇨🇭', CNY: '🇨🇳',
+  SEK: '🇸🇪', NOK: '🇳🇴', DKK: '🇩🇰', NZD: '🇳🇿', SGD: '🇸🇬', HKD: '🇭🇰', KRW: '🇰🇷', INR: '🇮🇳',
+  BRL: '🇧🇷', MXN: '🇲🇽', ZAR: '🇿🇦', TRY: '🇹🇷', PLN: '🇵🇱', THB: '🇹🇭', IDR: '🇮🇩', MYR: '🇲🇾',
+  PHP: '🇵🇭', VND: '🇻🇳', CZK: '🇨🇿', ILS: '🇮🇱', HUF: '🇭🇺', RON: '🇷🇴', BGN: '🇧🇬', HRK: '🇭🇷',
+  ISK: '🇮🇸', RUB: '🇷🇺', UAH: '🇺🇦', AED: '🇦🇪', ARS: '🇦🇷', BDT: '🇧🇩', CLP: '🇨🇱', COP: '🇨🇴',
+  EGP: '🇪🇬', GEL: '🇬🇪', GHS: '🇬🇭', KES: '🇰🇪', KWD: '🇰🇼', NGN: '🇳🇬', PKR: '🇵🇰', QAR: '🇶🇦',
+  SAR: '🇸🇦', TWD: '🇹🇼', TZS: '🇹🇿', UGX: '🇺🇬', PEN: '🇵🇪', LKR: '🇱🇰', MAD: '🇲🇦', JOD: '🇯🇴',
+  BHD: '🇧🇭', OMR: '🇴🇲', TTD: '🇹🇹', DOP: '🇩🇴', GTQ: '🇬🇹', CRC: '🇨🇷', PAB: '🇵🇦', RSD: '🇷🇸',
+  BAM: '🇧🇦', MKD: '🇲🇰', GIP: '🇬🇮',
+};
+
 /** Currency name lookup for better UX */
 const CURRENCY_NAMES: Record<string, string> = {
   USD: 'US Dollar', EUR: 'Euro', GBP: 'British Pound', CAD: 'Canadian Dollar',
@@ -97,7 +110,7 @@ export default function CurrencySelect({ value, onChange, className, compact }: 
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-64 bg-bg-surface border border-border-dim rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-56 bg-bg-surface border border-border-dim rounded-xl shadow-2xl z-50 overflow-hidden">
           {/* Search */}
           <div className="p-2 border-b border-border-dim">
             <div className="relative">
@@ -164,6 +177,7 @@ function CurrencyRow({ code, selected, onClick }: { code: string; selected: bool
         selected ? 'bg-accent/10 text-accent' : 'text-text-body hover:bg-bg-hover'
       }`}
     >
+      {CURRENCY_FLAGS[code] && <span className="w-4 text-center shrink-0">{CURRENCY_FLAGS[code]}</span>}
       <span className="w-8 text-text-dim text-right shrink-0">{symbol}</span>
       <span className="font-medium">{code}</span>
       {name && <span className="text-text-dim truncate">{name}</span>}
