@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* Dark mode (default) */
 :root,
 [data-theme="dark"] {
