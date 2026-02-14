@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import { BarChart3, TrendingUp, Globe, Sun, Moon, Check } from 'lucide-react';
+import { Sun, Moon, Check } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import DashboardPreview from '@/components/DashboardPreview';
 import { PLANS } from '@/lib/plans';
@@ -166,10 +166,15 @@ function PricingSection() {
   return (
     <section id="pricing" className="border-t border-border-dim">
       <div className="max-w-4xl mx-auto px-6 py-20">
-        <h2 className="text-2xl font-bold text-center mb-3 text-text-heading">Simple, transparent pricing</h2>
-        <p className="text-text-dim text-center mb-8 max-w-lg mx-auto">
-          A fraction of what Triple Whale or Hyros charge. No hidden fees.
-        </p>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-text-heading mb-3">Try it free for 14 days</h2>
+          <p className="text-text-dim max-w-md mx-auto mb-4">
+            No credit card required. Cancel anytime.
+          </p>
+          <span className="inline-block bg-accent/10 text-accent text-[12px] font-semibold px-3 py-1.5 rounded-full animate-pulse">
+            Starting at $29/mo &mdash; 10x cheaper than competitors
+          </span>
+        </div>
 
         {/* Toggle */}
         <div className="flex items-center justify-center gap-3 mb-12">
@@ -413,7 +418,7 @@ export default function LandingPage() {
       {/* How It Works */}
       <section className="border-t border-border-dim">
         <div className="max-w-4xl mx-auto px-6 py-20">
-          <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">See your profit in 3 steps</h2>
+          <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">Marketing attribution in 3 steps</h2>
           <div className="grid md:grid-cols-3 gap-10">
             {/* Step 1 */}
             <div className="text-center">
@@ -444,28 +449,6 @@ export default function LandingPage() {
               <h3 className="font-semibold text-lg mb-2 text-text-heading">See your P&amp;L</h3>
               <p className="text-text-dim text-sm">Your dashboard shows exactly where you make money and where you lose it — by campaign and country.</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">Built for SaaS founders running paid ads</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
-            <div className="mb-3"><BarChart3 size={28} className="text-accent" /></div>
-            <h3 className="font-semibold text-lg mb-2 text-text-heading">Multi-platform ad tracking</h3>
-            <p className="text-text-dim text-sm">Google Ads, Meta, and LinkedIn spend pulled into one view — broken down by country.</p>
-          </div>
-          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
-            <div className="mb-3"><TrendingUp size={28} className="text-accent" /></div>
-            <h3 className="font-semibold text-lg mb-2 text-text-heading">Revenue attribution</h3>
-            <p className="text-text-dim text-sm">Stripe payments matched to ad campaigns via UTM parameters. See profit per campaign.</p>
-          </div>
-          <div className="p-6 rounded-xl bg-bg-surface border border-border-dim">
-            <div className="mb-3"><Globe size={28} className="text-accent" /></div>
-            <h3 className="font-semibold text-lg mb-2 text-text-heading">Country-level P&amp;L</h3>
-            <p className="text-text-dim text-sm">Know exactly which countries are profitable. Stop wasting spend where it doesn&apos;t pay off.</p>
           </div>
         </div>
       </section>
