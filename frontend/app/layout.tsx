@@ -27,9 +27,7 @@ const themeScript = `
 (function(){
   try {
     var t = localStorage.getItem('metrichq-theme');
-    if (t === 'light' || t === 'dark') {
-      document.documentElement.setAttribute('data-theme', t);
-    }
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
   } catch(e) {}
 })();
 `;
