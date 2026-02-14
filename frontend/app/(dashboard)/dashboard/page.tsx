@@ -181,28 +181,36 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     ],
     platforms: {
       google_ads: {
-        totalSpend: Math.round(totalSpend * 0.5),
-        totalRevenue: Math.round(totalRevenue * 0.35),
+        totalSpend: Math.round(totalSpend * 0.4),
+        totalRevenue: Math.round(totalRevenue * 0.3),
         campaigns: [
-          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.2), impressions: 14200, clicks: 890, revenue: Math.round(totalRevenue * 0.35), purchases: Math.round(totalPurchases * 0.3), profit: Math.round(totalRevenue * 0.35) - Math.round(totalSpend * 0.2), attributed: true },
-          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.15), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.15), attributed: false },
-          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.15), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.15), attributed: false },
+          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.18), impressions: 14200, clicks: 890, revenue: Math.round(totalRevenue * 0.3), purchases: Math.round(totalPurchases * 0.25), profit: Math.round(totalRevenue * 0.3) - Math.round(totalSpend * 0.18), attributed: true },
+          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.12), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.12), attributed: false },
+          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.1), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.1), attributed: false },
         ],
       },
       meta: {
-        totalSpend: Math.round(totalSpend * 0.3),
-        totalRevenue: Math.round(totalRevenue * 0.35),
+        totalSpend: Math.round(totalSpend * 0.25),
+        totalRevenue: Math.round(totalRevenue * 0.3),
         campaigns: [
-          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.18), impressions: 22000, clicks: 440, revenue: Math.round(totalRevenue * 0.2), purchases: Math.round(totalPurchases * 0.2), profit: Math.round(totalRevenue * 0.2) - Math.round(totalSpend * 0.18), attributed: true },
-          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.12), impressions: 9500, clicks: 380, revenue: Math.round(totalRevenue * 0.15), purchases: Math.round(totalPurchases * 0.15), profit: Math.round(totalRevenue * 0.15) - Math.round(totalSpend * 0.12), attributed: true },
+          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.15), impressions: 22000, clicks: 440, revenue: Math.round(totalRevenue * 0.18), purchases: Math.round(totalPurchases * 0.18), profit: Math.round(totalRevenue * 0.18) - Math.round(totalSpend * 0.15), attributed: true },
+          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.1), impressions: 9500, clicks: 380, revenue: Math.round(totalRevenue * 0.12), purchases: Math.round(totalPurchases * 0.12), profit: Math.round(totalRevenue * 0.12) - Math.round(totalSpend * 0.1), attributed: true },
+        ],
+      },
+      tiktok: {
+        totalSpend: Math.round(totalSpend * 0.2),
+        totalRevenue: Math.round(totalRevenue * 0.1),
+        campaigns: [
+          { campaignName: 'SaaS Demo Signups', spend: Math.round(totalSpend * 0.12), impressions: 68000, clicks: 1200, revenue: Math.round(totalRevenue * 0.07), purchases: Math.round(totalPurchases * 0.06), profit: Math.round(totalRevenue * 0.07) - Math.round(totalSpend * 0.12), attributed: true },
+          { campaignName: 'Founder Testimonials', spend: Math.round(totalSpend * 0.08), impressions: 45000, clicks: 820, revenue: Math.round(totalRevenue * 0.03), purchases: Math.round(totalPurchases * 0.03), profit: Math.round(totalRevenue * 0.03) - Math.round(totalSpend * 0.08), attributed: true },
         ],
       },
       linkedin: {
-        totalSpend: Math.round(totalSpend * 0.2),
+        totalSpend: Math.round(totalSpend * 0.15),
         totalRevenue: Math.round(totalRevenue * 0.15),
         campaigns: [
-          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.12), impressions: 6200, clicks: 95, revenue: Math.round(totalRevenue * 0.1), purchases: Math.round(totalPurchases * 0.08), profit: Math.round(totalRevenue * 0.1) - Math.round(totalSpend * 0.12), attributed: true },
-          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.08), impressions: 3800, clicks: 62, revenue: Math.round(totalRevenue * 0.05), purchases: Math.round(totalPurchases * 0.04), profit: Math.round(totalRevenue * 0.05) - Math.round(totalSpend * 0.08), attributed: true },
+          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.09), impressions: 6200, clicks: 95, revenue: Math.round(totalRevenue * 0.1), purchases: Math.round(totalPurchases * 0.08), profit: Math.round(totalRevenue * 0.1) - Math.round(totalSpend * 0.09), attributed: true },
+          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.06), impressions: 3800, clicks: 62, revenue: Math.round(totalRevenue * 0.05), purchases: Math.round(totalPurchases * 0.04), profit: Math.round(totalRevenue * 0.05) - Math.round(totalSpend * 0.06), attributed: true },
         ],
       },
     },
