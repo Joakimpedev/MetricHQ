@@ -448,7 +448,7 @@ export default function DashboardPage() {
 
       {/* Marketing Attribution */}
       {(adPlatforms.length > 0 || unattributedRevenue > 0) && (
-        <MarketingAttribution platforms={platforms} unattributedRevenue={unattributedRevenue} />
+        <MarketingAttribution platforms={platforms} unattributedRevenue={unattributedRevenue} totalRevenue={summary.totalRevenue} />
       )}
 
       {/* Countries + Campaigns side by side */}

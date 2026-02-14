@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Globe, Plus } from 'lucide-react';
+import { Globe, Plus, X, AlertTriangle } from 'lucide-react';
 
 interface MarketingAttributionProps {
   platforms: Record<string, { totalSpend: number; totalRevenue?: number }>;
   unattributedRevenue: number;
+  totalRevenue?: number;
 }
 
 const PLATFORM_META: Record<string, { label: string; color: string; borderColor?: string }> = {
@@ -52,11 +54,25 @@ function formatDollar(n: number): string {
   return `${n < 0 ? '-' : ''}$${abs.toLocaleString()}`;
 }
 
-function PlatformCard({ platform, spend, revenue }: { platform: string; spend: number; revenue: number }) {
+function PlatformCard({ platform, spend, revenue, showUtmBanner }: { platform: string; spend: number; revenue: number; showUtmBanner: boolean }) {
   const meta = PLATFORM_META[platform];
   if (!meta) return null;
   const profit = revenue - spend;
   const roas = spend > 0 ? revenue / spend : 0;
+
+  const dismissKey = `metrichq-utm-dismissed-${platform}`;
+  const [dismissed, setDismissed] = useState(true);
+
+  useEffect(() => {
+    setDismissed(localStorage.getItem(dismissKey) === '1');
+  }, [dismissKey]);
+
+  const handleDismiss = () => {
+    localStorage.setItem(dismissKey, '1');
+    setDismissed(true);
+  };
+
+  const utmVisible = showUtmBanner && !dismissed;
 
   return (
     <div className="w-[220px] bg-bg-surface rounded-xl border border-border-dim p-4">
@@ -73,6 +89,33 @@ function PlatformCard({ platform, spend, revenue }: { platform: string; spend: n
       </p>
       {spend > 0 && (
         <p className="text-[11px] text-text-dim mt-1">ROAS {roas.toFixed(1)}x</p>
+      )}
+
+      {utmVisible && (
+        <div className="mt-3 bg-warning/10 border border-warning/25 rounded-lg p-2.5 relative">
+          <button
+            onClick={handleDismiss}
+            className="absolute top-1.5 right-1.5 text-warning/60 hover:text-warning transition-colors"
+          >
+            <X size={12} />
+          </button>
+          <div className="flex items-start gap-2 pr-4">
+            <AlertTriangle size={13} className="text-warning shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[11px] text-text-body leading-snug">
+                Revenue isn&apos;t linked to {meta.label} campaigns yet.{' '}
+                <a
+                  href="https://docs.metrichq.com/utm-tracking"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-warning font-medium underline underline-offset-2 hover:text-warning/80"
+                >
+                  Set up UTM tracking
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -108,8 +151,9 @@ function ConnectCard() {
   );
 }
 
-export default function MarketingAttribution({ platforms, unattributedRevenue }: MarketingAttributionProps) {
+export default function MarketingAttribution({ platforms, unattributedRevenue, totalRevenue = 0 }: MarketingAttributionProps) {
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
+  const hasRevenue = totalRevenue > 0;
 
   return (
     <div className="flex flex-wrap gap-4 justify-center">
@@ -119,6 +163,7 @@ export default function MarketingAttribution({ platforms, unattributedRevenue }:
           platform={platform}
           spend={data.totalSpend}
           revenue={data.totalRevenue || 0}
+          showUtmBanner={hasRevenue && data.totalSpend > 0 && (data.totalRevenue || 0) === 0}
         />
       ))}
       {unattributedRevenue > 0 && <OrganicCard revenue={unattributedRevenue} />}
