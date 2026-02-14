@@ -154,7 +154,7 @@ export default function MarketingAttribution({ platforms, unattributedRevenue, t
   const hasRevenue = totalRevenue > 0;
 
   return (
-    <div className="flex flex-wrap gap-4 justify-center">
+    <div className="flex flex-wrap gap-4 justify-center items-start">
       {adPlatforms.map(([platform, data]) => (
         <PlatformCard
           key={platform}
