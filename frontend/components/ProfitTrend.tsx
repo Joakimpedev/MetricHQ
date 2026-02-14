@@ -6,13 +6,6 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 
 /* ── Small platform logos for sidebar (20×20) ── */
 
-const PLATFORM_COLORS: Record<string, string> = {
-  google_ads: '#4285f4',
-  meta: '#1877f2',
-  tiktok: '#111111',
-  linkedin: '#0a66c2',
-};
-
 function MiniGoogleAdsLogo() {
   return (
     <div className="w-5 h-5 rounded-[5px] flex items-center justify-center flex-shrink-0" style={{ background: '#4285f4' }}>
@@ -379,10 +372,6 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
             <div className="flex flex-col flex-1 justify-center gap-1">
               {adPlatforms.map((p) => {
                 const LogoComponent = MINI_LOGOS[p.key];
-                const brandColor = PLATFORM_COLORS[p.key] || 'var(--accent)';
-                const spendPct = p.spend + p.revenue > 0
-                  ? (p.spend / (p.spend + p.revenue)) * 100
-                  : 50;
 
                 return (
                   <div key={p.key} className="rounded-lg bg-bg-elevated/50 px-3 py-2.5">
@@ -393,18 +382,6 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                       <span className={`text-[12px] font-semibold tabular-nums ${p.profit >= 0 ? 'text-success' : 'text-error'}`}>
                         {p.profit >= 0 ? '+' : ''}{formatDollarCompact(p.profit)}
                       </span>
-                    </div>
-
-                    {/* Spend vs Revenue proportion bar */}
-                    <div className="h-[3px] rounded-full bg-bg-body overflow-hidden mb-2">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${spendPct}%`,
-                          background: `linear-gradient(90deg, ${brandColor}, ${brandColor}cc)`,
-                          opacity: 0.6,
-                        }}
-                      />
                     </div>
 
                     {/* Stats row */}
