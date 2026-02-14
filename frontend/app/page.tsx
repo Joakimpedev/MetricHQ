@@ -178,8 +178,8 @@ function RollingPhrase() {
       setTimeout(() => {
         setIndex(i => (i + 1) % ROLLING_PHRASES.length);
         setRolling(false);
-      }, 400);
-    }, 3000);
+      }, 250);
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
 
