@@ -219,7 +219,7 @@ function PricingSection() {
             </span>
           </h2>
           <p className="text-text-dim max-w-md mx-auto">
-            No credit card required. Cancel anytime.
+            No credit card required.
           </p>
         </div>
 
