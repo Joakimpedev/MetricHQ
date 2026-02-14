@@ -416,6 +416,24 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="border-t border-border-dim py-16 overflow-hidden">
+        <h2 className="text-2xl font-bold text-center mb-10 text-text-heading">What founders are saying</h2>
+        <div className="relative">
+          <div className="flex animate-marquee gap-6 w-max">
+            {[1, 2, 3, 1, 2, 3].map((n, i) => (
+              <img
+                key={i}
+                src={`/testimonials/tweet-${n}.png`}
+                alt="User testimonial"
+                className="h-[160px] w-auto rounded-xl border border-border-dim shadow-sm object-contain"
+                draggable={false}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="max-w-6xl mx-auto px-6 py-20">
         <h2 className="text-2xl font-bold text-center mb-12 text-text-heading">Built for SaaS founders running paid ads</h2>
