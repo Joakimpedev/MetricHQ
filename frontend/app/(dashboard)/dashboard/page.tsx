@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
@@ -225,6 +225,29 @@ export default function DashboardPage() {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  // Demo-only: secret 5-click-in-5s to toggle UTM off per campaign
+  const [demoUtmOff, setDemoUtmOff] = useState<Set<string>>(new Set());
+  const clickTracker = useRef<Record<string, number[]>>({});
+
+  const handleDemoCampaignClick = useCallback((platform: string, index: number) => {
+    if (!isDemo) return;
+    const key = `${platform}::${index}`;
+    const now = Date.now();
+    const clicks = clickTracker.current[key] || [];
+    clicks.push(now);
+    // Keep only clicks within last 5 seconds
+    const recent = clicks.filter(t => now - t < 5000);
+    clickTracker.current[key] = recent;
+    if (recent.length >= 5) {
+      clickTracker.current[key] = [];
+      setDemoUtmOff(prev => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key); else next.add(key);
+        return next;
+      });
+    }
+  }, [isDemo]);
+
   const rangeDays = useMemo(() => getRangeDays(dateRange), [dateRange]);
   const isSingleDay = rangeDays <= 1;
   const compareLabel = useMemo(() => formatCompareLabel(dateRange), [dateRange]);
@@ -390,10 +413,27 @@ export default function DashboardPage() {
   const rawComp = data?.comparison;
   const compSummary = rawComp && 'summary' in rawComp ? rawComp.summary : (rawComp as Summary | undefined);
   const compTimeSeries = rawComp && 'timeSeries' in rawComp ? rawComp.timeSeries : [];
-  const platforms = data?.platforms || {};
+  const rawPlatforms = data?.platforms || {};
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
   const unattributedRevenue = data?.unattributedRevenue || 0;
+
+  // Demo-only: apply UTM-off overrides to platform/campaign data
+  const platforms = useMemo(() => {
+    if (!isDemo || demoUtmOff.size === 0) return rawPlatforms;
+    const patched: Record<string, Platform> = {};
+    for (const [plat, pData] of Object.entries(rawPlatforms)) {
+      const campaigns = pData.campaigns.map((c, i) => {
+        if (demoUtmOff.has(`${plat}::${i}`)) {
+          return { ...c, revenue: 0, purchases: 0, profit: -c.spend, attributed: false };
+        }
+        return c;
+      });
+      const totalRevenue = campaigns.reduce((s, c) => s + (c.revenue || 0), 0);
+      patched[plat] = { ...pData, totalRevenue, campaigns };
+    }
+    return patched;
+  }, [isDemo, demoUtmOff, rawPlatforms]);
 
   const adPlatforms = Object.entries(platforms).filter(([key]) => key !== 'stripe');
 
@@ -464,6 +504,7 @@ export default function DashboardPage() {
                 totalSpend={pData.totalSpend}
                 campaigns={pData.campaigns}
                 gated={pData.gated}
+                onCampaignClick={isDemo ? handleDemoCampaignClick : undefined}
               />
             ))}
           </div>

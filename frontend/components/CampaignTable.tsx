@@ -21,6 +21,7 @@ interface CampaignTableProps {
   totalSpend: number;
   campaigns: Campaign[];
   gated?: boolean;
+  onCampaignClick?: (platform: string, index: number) => void;
 }
 
 type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
@@ -33,7 +34,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 type SortDir = 'asc' | 'desc';
 
-export default function CampaignTable({ platform, totalSpend, campaigns, gated }: CampaignTableProps) {
+export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick }: CampaignTableProps) {
   const label = PLATFORM_LABELS[platform] || platform;
   const hasRevenue = campaigns.some(c => (c.revenue || 0) > 0);
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
@@ -41,7 +42,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated }
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const sorted = useMemo(() => {
-    const arr = [...campaigns];
+    const arr = campaigns.map((c, i) => ({ ...c, _origIndex: i }));
     arr.sort((a, b) => {
       let av: number, bv: number;
       if (sortKey === 'cpa') {
@@ -149,6 +150,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated }
             return (
               <div
                 key={name + i}
+                onClick={() => onCampaignClick?.(platform, c._origIndex)}
                 className="grid px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
                 style={{ gridTemplateColumns: gridTemplate }}
               >
