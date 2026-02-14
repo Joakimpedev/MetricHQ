@@ -4,17 +4,17 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { ALL_CURRENCIES, POPULAR_CURRENCIES } from '../lib/currency';
 
-/** Flag emoji lookup by currency code */
-const CURRENCY_FLAGS: Record<string, string> = {
-  USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', CAD: '🇨🇦', AUD: '🇦🇺', JPY: '🇯🇵', CHF: '🇨🇭', CNY: '🇨🇳',
-  SEK: '🇸🇪', NOK: '🇳🇴', DKK: '🇩🇰', NZD: '🇳🇿', SGD: '🇸🇬', HKD: '🇭🇰', KRW: '🇰🇷', INR: '🇮🇳',
-  BRL: '🇧🇷', MXN: '🇲🇽', ZAR: '🇿🇦', TRY: '🇹🇷', PLN: '🇵🇱', THB: '🇹🇭', IDR: '🇮🇩', MYR: '🇲🇾',
-  PHP: '🇵🇭', VND: '🇻🇳', CZK: '🇨🇿', ILS: '🇮🇱', HUF: '🇭🇺', RON: '🇷🇴', BGN: '🇧🇬', HRK: '🇭🇷',
-  ISK: '🇮🇸', RUB: '🇷🇺', UAH: '🇺🇦', AED: '🇦🇪', ARS: '🇦🇷', BDT: '🇧🇩', CLP: '🇨🇱', COP: '🇨🇴',
-  EGP: '🇪🇬', GEL: '🇬🇪', GHS: '🇬🇭', KES: '🇰🇪', KWD: '🇰🇼', NGN: '🇳🇬', PKR: '🇵🇰', QAR: '🇶🇦',
-  SAR: '🇸🇦', TWD: '🇹🇼', TZS: '🇹🇿', UGX: '🇺🇬', PEN: '🇵🇪', LKR: '🇱🇰', MAD: '🇲🇦', JOD: '🇯🇴',
-  BHD: '🇧🇭', OMR: '🇴🇲', TTD: '🇹🇹', DOP: '🇩🇴', GTQ: '🇬🇹', CRC: '🇨🇷', PAB: '🇵🇦', RSD: '🇷🇸',
-  BAM: '🇧🇦', MKD: '🇲🇰', GIP: '🇬🇮',
+/** Country code lookup for flag images (currency code → ISO 3166-1 alpha-2) */
+const CURRENCY_COUNTRY: Record<string, string> = {
+  USD: 'us', EUR: 'eu', GBP: 'gb', CAD: 'ca', AUD: 'au', JPY: 'jp', CHF: 'ch', CNY: 'cn',
+  SEK: 'se', NOK: 'no', DKK: 'dk', NZD: 'nz', SGD: 'sg', HKD: 'hk', KRW: 'kr', INR: 'in',
+  BRL: 'br', MXN: 'mx', ZAR: 'za', TRY: 'tr', PLN: 'pl', THB: 'th', IDR: 'id', MYR: 'my',
+  PHP: 'ph', VND: 'vn', CZK: 'cz', ILS: 'il', HUF: 'hu', RON: 'ro', BGN: 'bg', HRK: 'hr',
+  ISK: 'is', RUB: 'ru', UAH: 'ua', AED: 'ae', ARS: 'ar', BDT: 'bd', CLP: 'cl', COP: 'co',
+  EGP: 'eg', GEL: 'ge', GHS: 'gh', KES: 'ke', KWD: 'kw', NGN: 'ng', PKR: 'pk', QAR: 'qa',
+  SAR: 'sa', TWD: 'tw', TZS: 'tz', UGX: 'ug', PEN: 'pe', LKR: 'lk', MAD: 'ma', JOD: 'jo',
+  BHD: 'bh', OMR: 'om', TTD: 'tt', DOP: 'do', GTQ: 'gt', CRC: 'cr', PAB: 'pa', RSD: 'rs',
+  BAM: 'ba', MKD: 'mk', GIP: 'gi',
 };
 
 /** Currency name lookup for better UX */
@@ -78,15 +78,15 @@ export default function CurrencySelect({ value, onChange, className, compact }: 
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const all = ALL_CURRENCIES as unknown as string[];
+    // Only show currencies that have a name defined
+    const all = (ALL_CURRENCIES as unknown as string[]).filter(c => CURRENCY_NAMES[c]);
     if (!q) {
-      // Show popular first, then the rest
       const rest = all.filter(c => !POPULAR_CURRENCIES.includes(c));
       return { popular: [...POPULAR_CURRENCIES], other: rest };
     }
     const matches = all.filter(c =>
       c.toLowerCase().includes(q) ||
-      (CURRENCY_NAMES[c] || '').toLowerCase().includes(q)
+      CURRENCY_NAMES[c].toLowerCase().includes(q)
     );
     return { popular: [], other: matches };
   }, [search]);
@@ -177,7 +177,9 @@ function CurrencyRow({ code, selected, onClick }: { code: string; selected: bool
         selected ? 'bg-accent/10 text-accent' : 'text-text-body hover:bg-bg-hover'
       }`}
     >
-      {CURRENCY_FLAGS[code] && <span className="w-4 text-center shrink-0">{CURRENCY_FLAGS[code]}</span>}
+      {CURRENCY_COUNTRY[code] && (
+        <img src={`https://flagcdn.com/16x12/${CURRENCY_COUNTRY[code]}.png`} width={16} height={12} alt="" className="shrink-0 rounded-[1px]" />
+      )}
       <span className="w-8 text-text-dim text-right shrink-0">{symbol}</span>
       <span className="font-medium">{code}</span>
       {name && <span className="text-text-dim truncate">{name}</span>}
