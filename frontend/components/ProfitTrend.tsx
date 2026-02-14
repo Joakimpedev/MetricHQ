@@ -200,97 +200,92 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
       .sort((a, b) => b.spend - a.spend);
   }, [platforms]);
 
-  // For horizontal spend bars — find the max spend across platforms
-  const maxSpend = useMemo(() => {
-    if (adPlatforms.length === 0) return 1;
-    return Math.max(...adPlatforms.map(p => p.spend));
-  }, [adPlatforms]);
-
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
-      {/* KPIs row on top */}
-      {summary && (
-        <div className="flex items-start gap-6 md:gap-8 mb-5 flex-wrap">
-          {/* Profit — with checkbox */}
-          <button
-            type="button"
-            onClick={() => setShowProfit(prev => !prev)}
-            className="flex items-start gap-2.5 text-left group cursor-pointer"
-          >
-            <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
-              showProfit
-                ? 'bg-accent border-accent'
-                : 'border-border-dim bg-transparent'
-            }`}>
-              {showProfit && (
-                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </span>
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                  {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
-                </span>
-                {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
-              </div>
-            </div>
-          </button>
-
-          {/* Revenue */}
-          <div className="flex items-start gap-2.5">
-            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
-                  ${summary.totalRevenue.toLocaleString()}
-                </span>
-                {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
-              </div>
-            </div>
-          </div>
-
-          {/* Ad Spend */}
-          <div className="flex items-start gap-2.5">
-            <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
-            <div>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
-                  ${summary.totalSpend.toLocaleString()}
-                </span>
-                {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Costs — only when > 0 */}
-          {hasCustomCosts && (
-            <div className="flex items-start gap-2.5">
-              <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/10 shrink-0" />
-              <div>
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[18px] font-semibold tracking-tight leading-none text-text-dim">
-                    ${(customCostsTotal || 0).toLocaleString()}
-                  </span>
-                  {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
-                    <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
+      {/* Outer flex: left column (KPIs + chart) | right column (platform sidebar, full height) */}
+      <div className="flex flex-col md:flex-row">
+        {/* Left: KPIs above chart */}
+        <div className="flex-1 min-w-0">
+          {/* KPI row */}
+          {summary && (
+            <div className="flex items-start gap-6 md:gap-8 mb-5 flex-wrap">
+              {/* Profit — with checkbox */}
+              <button
+                type="button"
+                onClick={() => setShowProfit(prev => !prev)}
+                className="flex items-start gap-2.5 text-left group cursor-pointer"
+              >
+                <span className={`mt-1.5 w-[14px] h-[14px] rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  showProfit
+                    ? 'bg-accent border-accent'
+                    : 'border-border-dim bg-transparent'
+                }`}>
+                  {showProfit && (
+                    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                      <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   )}
+                </span>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Profit</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[22px] font-bold tracking-tight leading-none ${summary.totalProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                      {summary.totalProfit >= 0 ? '+' : ''}${summary.totalProfit.toLocaleString()}
+                    </span>
+                    {compSummary && <InlineBadge current={summary.totalProfit} previous={compSummary.totalProfit} />}
+                  </div>
+                </div>
+              </button>
+
+              {/* Revenue */}
+              <div className="flex items-start gap-2.5">
+                <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Revenue</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                      ${summary.totalRevenue.toLocaleString()}
+                    </span>
+                    {compSummary && <InlineBadge current={summary.totalRevenue} previous={compSummary.totalRevenue} />}
+                  </div>
                 </div>
               </div>
+
+              {/* Ad Spend */}
+              <div className="flex items-start gap-2.5">
+                <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/20 shrink-0" />
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Ad Spend</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[22px] font-bold tracking-tight leading-none text-text-heading">
+                      ${summary.totalSpend.toLocaleString()}
+                    </span>
+                    {compSummary && <InlineBadge current={summary.totalSpend} previous={compSummary.totalSpend} invert />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Costs — only when > 0 */}
+              {hasCustomCosts && (
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-1.5 w-[14px] h-[14px] rounded-full bg-text-dim/10 shrink-0" />
+                  <div>
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-text-dim">Custom Costs</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[18px] font-semibold tracking-tight leading-none text-text-dim">
+                        ${(customCostsTotal || 0).toLocaleString()}
+                      </span>
+                      {compCustomCostsTotal !== undefined && compCustomCostsTotal > 0 && (
+                        <InlineBadge current={customCostsTotal || 0} previous={compCustomCostsTotal} invert />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Chart + platform sidebar */}
-      <div className="flex flex-col md:flex-row">
-        {/* Chart */}
-        <div className="flex-1 min-w-0">
+          {/* Chart */}
           {isSingleDay || data.length < 2 ? (
             <GhostChart />
           ) : (
@@ -319,46 +314,39 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
           )}
         </div>
 
-        {/* Platform breakdown sidebar */}
+        {/* Right: Platform breakdown — full height of component */}
         {adPlatforms.length > 0 && (
           <div className="hidden md:flex flex-col w-[220px] ml-5 pl-5 border-l border-border-dim/50">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-3">Platforms</div>
-            <div className="flex flex-col flex-1 justify-center gap-0">
-              {adPlatforms.map((p, i) => {
-                const barPct = maxSpend > 0 ? (p.spend / maxSpend) * 100 : 0;
-                return (
-                  <div key={p.key} className={`py-3 ${i > 0 ? 'border-t border-border-dim/30' : ''}`}>
-                    {/* Name + profit */}
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[12px] font-medium text-text-heading">{p.label}</span>
-                      <span className={`text-[12px] font-semibold ${p.profit >= 0 ? 'text-success' : 'text-error'}`}>
-                        {p.profit >= 0 ? '+' : ''}{formatDollarCompact(p.profit)}
-                      </span>
-                    </div>
-                    {/* Spend bar */}
-                    <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden mb-2">
-                      <div
-                        className="h-full rounded-full bg-accent/50 transition-all"
-                        style={{ width: `${Math.max(barPct, 4)}%` }}
-                      />
-                    </div>
-                    {/* Stats row */}
-                    <div className="flex items-center gap-3 text-[10px]">
-                      <span className="text-text-dim">
-                        Spend <span className="text-text-body font-medium">{formatDollarCompact(p.spend)}</span>
-                      </span>
-                      <span className="text-text-dim">
-                        Rev <span className="text-text-body font-medium">{formatDollarCompact(p.revenue)}</span>
-                      </span>
-                      {p.roas > 0 && (
-                        <span className="text-text-dim">
-                          ROAS <span className="text-text-body font-medium">{p.roas.toFixed(1)}x</span>
-                        </span>
-                      )}
-                    </div>
+            <div className="text-[10px] font-medium uppercase tracking-wider text-text-dim mb-2">Platforms</div>
+            <div className="flex flex-col flex-1 justify-center">
+              {adPlatforms.map((p, i) => (
+                <div key={p.key} className={`py-3 ${i > 0 ? 'border-t border-border-dim/30' : ''}`}>
+                  {/* Name + profit */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[12px] font-medium text-text-heading">{p.label}</span>
+                    <span className={`text-[12px] font-semibold ${p.profit >= 0 ? 'text-success' : 'text-error'}`}>
+                      {p.profit >= 0 ? '+' : ''}{formatDollarCompact(p.profit)}
+                    </span>
                   </div>
-                );
-              })}
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                    <div>
+                      <span className="text-text-dim">Spend</span>
+                      <div className="text-[11px] text-text-body font-medium">{formatDollarCompact(p.spend)}</div>
+                    </div>
+                    <div>
+                      <span className="text-text-dim">Revenue</span>
+                      <div className="text-[11px] text-text-body font-medium">{formatDollarCompact(p.revenue)}</div>
+                    </div>
+                    {p.roas > 0 && (
+                      <div>
+                        <span className="text-text-dim">ROAS</span>
+                        <div className="text-[11px] text-text-body font-medium">{p.roas.toFixed(1)}x</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

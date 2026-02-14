@@ -98,18 +98,21 @@ function CountryTooltip({ country, campaigns, onClose }: {
         </span>
       </div>
 
-      {/* Platform breakdown with horizontal bars */}
+      {/* Platform breakdown with campaigns nested under each */}
       {totalCampaignSpend > 0 && (
-        <div className="px-4 pt-3 pb-2">
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-2">Platform breakdown</div>
-          <div className="space-y-2">
+        <div className="px-4 pt-3 pb-3">
+          <div className="space-y-3">
             {Object.entries(platformSpend)
               .sort(([, a], [, b]) => b - a)
               .map(([plat, spend]) => {
                 const rev = platformRevenue[plat] || 0;
                 const barPct = totalCampaignSpend > 0 ? (spend / totalCampaignSpend) * 100 : 0;
+                const platCampaigns = campaigns
+                  .filter(c => c.platform === plat)
+                  .sort((a, b) => b.spend - a.spend);
                 return (
                   <div key={plat}>
+                    {/* Platform header + bar */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-text-heading">{PLATFORM_LABELS[plat] || plat}</span>
                       <span className="text-[10px] text-text-dim">
@@ -117,43 +120,29 @@ function CountryTooltip({ country, campaigns, onClose }: {
                         {rev > 0 && <span className="ml-2">${rev.toLocaleString()} rev</span>}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-bg-body rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-bg-body rounded-full overflow-hidden mb-1.5">
                       <div
                         className="h-full rounded-full bg-accent/40 transition-all"
                         style={{ width: `${Math.max(barPct, 4)}%` }}
                       />
                     </div>
+                    {/* Campaigns under this platform */}
+                    {platCampaigns.length > 0 && (
+                      <div className="ml-2 space-y-0">
+                        {platCampaigns.slice(0, 3).map((c, i) => (
+                          <div key={`${c.campaign}-${i}`} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
+                            <span className="text-[10px] text-text-dim truncate flex-1 min-w-0 pr-2">{c.campaign}</span>
+                            <span className="text-[10px] text-text-body font-medium shrink-0">${c.spend.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        {platCampaigns.length > 3 && (
+                          <div className="text-[9px] text-text-dim/60 pt-0.5">+{platCampaigns.length - 3} more</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-          </div>
-        </div>
-      )}
-
-      {/* Top campaigns */}
-      {sortedCampaigns.length > 0 && (
-        <div className="px-4 pt-2 pb-3">
-          <div className="text-[10px] uppercase tracking-wider text-text-dim mb-1.5">Top campaigns</div>
-          <div className="space-y-0">
-            {sortedCampaigns.slice(0, 5).map((c, i) => {
-              const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0';
-              return (
-                <div key={`${c.platform}-${c.campaign}-${i}`} className="flex items-center justify-between py-1.5 border-b border-border-dim/30 last:border-0">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-accent/40" />
-                    <span className="text-[11px] text-text-body truncate">{c.campaign}</span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <span className="text-[11px] text-text-dim">{c.clicks.toLocaleString()} clicks</span>
-                    <span className="text-[11px] text-text-dim">{ctr}% CTR</span>
-                    <span className="text-[11px] text-text-body font-medium w-16 text-right">${c.spend.toLocaleString()}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {sortedCampaigns.length > 5 && (
-              <div className="text-[10px] text-text-dim pt-1">+{sortedCampaigns.length - 5} more</div>
-            )}
           </div>
         </div>
       )}
