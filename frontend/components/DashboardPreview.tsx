@@ -1,9 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useTheme } from './ThemeProvider';
 
 export default function DashboardPreview() {
   const [loaded, setLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { theme } = useTheme();
+
+  // Sync theme to iframe
+  useEffect(() => {
+    if (!loaded || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage({ type: 'theme', theme }, '*');
+  }, [theme, loaded]);
 
   return (
     <div className="rounded-2xl border border-border-dim bg-bg-surface shadow-lg overflow-hidden">
@@ -29,6 +38,7 @@ export default function DashboardPreview() {
           </div>
         )}
         <iframe
+          ref={iframeRef}
           src="/dashboard?demo=true&embed=true"
           title="MetricHQ Dashboard Demo"
           className="w-full h-full border-0"

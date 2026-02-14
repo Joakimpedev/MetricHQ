@@ -29,6 +29,17 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
       setThemeState(stored);
       document.documentElement.setAttribute('data-theme', stored);
     }
+
+    // Listen for theme messages from parent (when inside iframe)
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'theme' && (e.data.theme === 'light' || e.data.theme === 'dark')) {
+        setThemeState(e.data.theme);
+        localStorage.setItem('metrichq-theme', e.data.theme);
+        document.documentElement.setAttribute('data-theme', e.data.theme);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const setTheme = (t: Theme) => {
