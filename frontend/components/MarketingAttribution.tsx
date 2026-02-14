@@ -8,11 +8,11 @@ interface MarketingAttributionProps {
   totalRevenue?: number;
 }
 
-const PLATFORM_META: Record<string, { label: string; color: string; borderColor?: string }> = {
-  google_ads: { label: 'Google Ads', color: '#4285f4' },
-  meta: { label: 'Meta Ads', color: '#1877f2' },
-  tiktok: { label: 'TikTok Ads', color: '#111', borderColor: 'var(--border-dim)' },
-  linkedin: { label: 'LinkedIn Ads', color: '#0a66c2' },
+const PLATFORM_META: Record<string, { label: string; color: string; borderColor?: string; utmHelpUrl: string }> = {
+  google_ads: { label: 'Google Ads', color: '#4285f4', utmHelpUrl: 'https://support.google.com/google-ads/answer/6305348' },
+  meta: { label: 'Meta Ads', color: '#1877f2', utmHelpUrl: 'https://www.facebook.com/business/help/1016122818401732' },
+  tiktok: { label: 'TikTok Ads', color: '#111', borderColor: 'var(--border-dim)', utmHelpUrl: 'https://ads.tiktok.com/help/article/track-offsite-web-events-with-utm-parameters' },
+  linkedin: { label: 'LinkedIn Ads', color: '#0a66c2', utmHelpUrl: 'https://www.linkedin.com/help/lms/answer/a5968064' },
 };
 
 function PlatformLogo({ platform }: { platform: string }) {
@@ -99,21 +99,19 @@ function PlatformCard({ platform, spend, revenue, showUtmBanner }: { platform: s
           >
             <X size={12} />
           </button>
-          <div className="flex items-start gap-2 pr-4">
-            <AlertTriangle size={13} className="text-warning shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[11px] text-text-body leading-snug">
-                Revenue isn&apos;t linked to {meta.label} campaigns yet.{' '}
-                <a
-                  href="https://docs.metrichq.com/utm-tracking"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-warning font-medium underline underline-offset-2 hover:text-warning/80"
-                >
-                  Set up UTM tracking
-                </a>
-              </p>
-            </div>
+          <div className="flex flex-col items-center text-center pr-0">
+            <AlertTriangle size={14} className="text-warning mb-1.5" />
+            <p className="text-[11px] text-text-body leading-snug">
+              Revenue isn&apos;t linked to {meta.label} campaigns.{' '}
+              <a
+                href={meta.utmHelpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-warning font-medium underline underline-offset-2 hover:text-warning/80"
+              >
+                Set up UTM tracking
+              </a>
+            </p>
           </div>
         </div>
       )}
