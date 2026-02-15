@@ -151,20 +151,33 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
       {/* Country breakdown */}
       {campaignCountries.length > 0 && (
         <div className="px-4 py-2.5">
-          <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Countries</div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-text-dim uppercase tracking-wider">Countries</span>
+            <div className="flex gap-3">
+              <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Rev</span>
+              <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Spend</span>
+              <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Profit</span>
+            </div>
+          </div>
           <div className="space-y-0">
-            {campaignCountries.slice(0, 5).map(c => (
-              <div key={c.code} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <CampaignFlag code={c.code} />
-                  <span className="text-[10px] text-text-body truncate">{c.name}</span>
+            {campaignCountries.slice(0, 5).map(c => {
+              const cProfit = c.revenue - c.spend;
+              return (
+                <div key={c.code} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <CampaignFlag code={c.code} />
+                    <span className="text-[10px] text-text-body truncate">{c.name}</span>
+                  </div>
+                  <div className="flex gap-3 text-[10px] shrink-0 ml-2">
+                    <span className="w-[3.5rem] text-right text-text-dim">{isAttributed && c.revenue > 0 ? fmt(c.revenue) : '—'}</span>
+                    <span className="w-[3.5rem] text-right text-error">{fmt(c.spend)}</span>
+                    <span className={`w-[3.5rem] text-right ${isAttributed && c.revenue > 0 ? (cProfit >= 0 ? 'text-success' : 'text-error') : 'text-text-dim'}`}>
+                      {isAttributed && c.revenue > 0 ? `${cProfit >= 0 ? '+' : ''}${fmt(cProfit)}` : '—'}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-text-dim shrink-0 ml-2">
-                  {fmt(c.spend)} spent
-                  {isAttributed && c.revenue > 0 && <span className="ml-1.5">{fmt(c.revenue)} rev</span>}
-                </span>
-              </div>
-            ))}
+              );
+            })}
             {campaignCountries.length > 5 && (
               <div className="text-[9px] text-text-dim/80 pt-0.5">+{campaignCountries.length - 5} more</div>
             )}

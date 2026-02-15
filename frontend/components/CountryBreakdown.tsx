@@ -102,32 +102,33 @@ function CountryTooltip({ country, campaigns, onClose, fmt }: {
 
       {/* Platform breakdown with campaigns nested under each */}
       {totalCampaignSpend > 0 && (
-        <div className="px-4 pt-3 pb-3">
-          <div className="space-y-3">
+        <div className="px-4 pt-3 pb-1">
+          {/* Column labels */}
+          <div className="flex justify-end gap-3 mb-1.5">
+            <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Rev</span>
+            <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Spend</span>
+            <span className="text-[9px] uppercase tracking-wider text-text-dim/60 w-[3.5rem] text-right">Profit</span>
+          </div>
+          <div className="divide-y divide-border-dim/30">
             {Object.entries(platformSpend)
               .sort(([, a], [, b]) => b - a)
               .map(([plat, spend]) => {
                 const rev = platformRevenue[plat] || 0;
+                const profit = rev - spend;
                 const barPct = totalCampaignSpend > 0 ? (spend / totalCampaignSpend) * 100 : 0;
                 const platCampaigns = campaigns
                   .filter(c => c.platform === plat)
                   .sort((a, b) => b.spend - a.spend);
                 return (
-                  <div key={plat}>
-                    {/* Platform header + bar */}
+                  <div key={plat} className="py-2.5 first:pt-0 last:pb-1.5">
+                    {/* Platform header */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-text-heading">{PLATFORM_LABELS[plat] || plat}</span>
-                      <span className="text-[10px] text-text-dim">
-                        {rev > 0 && <span>{fmt(rev)} rev</span>}
-                        {rev > 0 && <span className="mx-1">·</span>}
-                        <span className="text-error">{fmt(spend)} spent</span>
-                        {rev > 0 && (
-                          <>
-                            <span className="mx-1">·</span>
-                            <span className={rev - spend >= 0 ? 'text-success' : 'text-error'}>{fmt(rev - spend)} profit</span>
-                          </>
-                        )}
-                      </span>
+                      <div className="flex gap-3 text-[10px] font-medium">
+                        <span className="w-[3.5rem] text-right text-text-body">{rev > 0 ? fmt(rev) : '—'}</span>
+                        <span className="w-[3.5rem] text-right text-error">{fmt(spend)}</span>
+                        <span className={`w-[3.5rem] text-right ${rev > 0 ? (profit >= 0 ? 'text-success' : 'text-error') : 'text-text-dim'}`}>{rev > 0 ? `${profit >= 0 ? '+' : ''}${fmt(profit)}` : '—'}</span>
+                      </div>
                     </div>
                     <div className="h-1.5 bg-bg-body rounded-full overflow-hidden mb-1.5">
                       <div
@@ -138,12 +139,19 @@ function CountryTooltip({ country, campaigns, onClose, fmt }: {
                     {/* Campaigns under this platform */}
                     {platCampaigns.length > 0 && (
                       <div className="ml-2 space-y-0">
-                        {platCampaigns.slice(0, 3).map((c, i) => (
-                          <div key={`${c.campaign}-${i}`} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
-                            <span className="text-[10px] text-text-dim truncate flex-1 min-w-0 pr-2">{c.campaign}</span>
-                            <span className="text-[10px] text-text-body font-medium shrink-0">{fmt(c.spend)}</span>
-                          </div>
-                        ))}
+                        {platCampaigns.slice(0, 3).map((c, i) => {
+                          const cProfit = c.revenue - c.spend;
+                          return (
+                            <div key={`${c.campaign}-${i}`} className="flex items-center justify-between py-1 border-b border-border-dim/15 last:border-0">
+                              <span className="text-[10px] text-text-dim truncate flex-1 min-w-0 pr-2">{c.campaign}</span>
+                              <div className="flex gap-3 text-[9px] shrink-0">
+                                <span className="w-[3.5rem] text-right text-text-dim">{c.revenue > 0 ? fmt(c.revenue) : '—'}</span>
+                                <span className="w-[3.5rem] text-right text-text-dim">{fmt(c.spend)}</span>
+                                <span className={`w-[3.5rem] text-right ${c.revenue > 0 ? (cProfit >= 0 ? 'text-success/70' : 'text-error/70') : 'text-text-dim'}`}>{c.revenue > 0 ? `${cProfit >= 0 ? '+' : ''}${fmt(cProfit)}` : '—'}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
                         {platCampaigns.length > 3 && (
                           <div className="text-[9px] text-text-dim/80 pt-0.5">+{platCampaigns.length - 3} more</div>
                         )}
