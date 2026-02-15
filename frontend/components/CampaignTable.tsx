@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronUp, ChevronDown, Check, Minus, BarChart3, Lock, X, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useCurrency } from '../lib/currency';
@@ -17,6 +17,18 @@ interface Campaign {
   attributed?: boolean;
 }
 
+interface CountryCampaignEntry {
+  campaign: string;
+  platform: string;
+  spend: number;
+  revenue: number;
+}
+
+interface CountryInfo {
+  code: string;
+  name: string;
+}
+
 interface CampaignTableProps {
   platform: string;
   totalSpend: number;
@@ -24,6 +36,8 @@ interface CampaignTableProps {
   gated?: boolean;
   onCampaignClick?: (platform: string, index: number) => void;
   showUtmBanner?: boolean;
+  countryCampaigns?: Record<string, CountryCampaignEntry[]>;
+  countries?: CountryInfo[];
 }
 
 type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
@@ -43,12 +57,131 @@ const PLATFORM_UTM_URLS: Record<string, string> = {
   linkedin: 'https://www.linkedin.com/help/lms/answer/a5968064',
 };
 
-export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner }: CampaignTableProps) {
+function CampaignFlag({ code }: { code: string }) {
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+      srcSet={`https://flagcdn.com/w40/${code.toLowerCase()}.png 1x, https://flagcdn.com/w80/${code.toLowerCase()}.png 2x`}
+      alt={code}
+      className="w-4 h-3 object-cover rounded-[2px] shrink-0"
+      loading="lazy"
+    />
+  );
+}
+
+function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onClose, fmt }: {
+  campaign: Campaign;
+  platform: string;
+  countryCampaigns: Record<string, CountryCampaignEntry[]>;
+  countries: CountryInfo[];
+  onClose: () => void;
+  fmt: (n: number) => string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  const name = campaign.campaignName || campaign.campaignId || 'Campaign';
+  const profit = campaign.profit || 0;
+  const impressions = campaign.impressions || 0;
+  const clicks = campaign.clicks || 0;
+  const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+  const isAttributed = campaign.attributed !== false;
+  const roas = isAttributed && (campaign.revenue || 0) > 0 && campaign.spend > 0
+    ? (campaign.revenue || 0) / campaign.spend : 0;
+
+  // Find countries where this campaign runs
+  const campaignCountries: { code: string; name: string; spend: number; revenue: number }[] = [];
+  for (const [code, entries] of Object.entries(countryCampaigns)) {
+    for (const entry of entries) {
+      if (entry.campaign === name && entry.platform === platform) {
+        const countryInfo = countries.find(c => c.code === code);
+        campaignCountries.push({
+          code,
+          name: countryInfo?.name || code,
+          spend: entry.spend,
+          revenue: entry.revenue,
+        });
+      }
+    }
+  }
+  campaignCountries.sort((a, b) => b.spend - a.spend);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 right-0 z-30 mx-3 mt-0.5 bg-bg-elevated border border-border-dim rounded-lg shadow-xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border-dim/60 flex items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold text-text-heading truncate">{name}</span>
+        <span className={`text-[12px] font-semibold shrink-0 ${profit >= 0 ? 'text-success' : 'text-error'}`}>
+          {profit >= 0 ? '+' : ''}{fmt(profit)} profit
+        </span>
+      </div>
+
+      {/* Stats grid */}
+      <div className="px-4 py-2.5 flex gap-4 border-b border-border-dim/40">
+        <div>
+          <div className="text-[10px] text-text-dim">Impressions</div>
+          <div className="text-[12px] font-semibold text-text-heading">{impressions.toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-text-dim">Clicks</div>
+          <div className="text-[12px] font-semibold text-text-heading">{clicks.toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-text-dim">CTR</div>
+          <div className="text-[12px] font-semibold text-text-heading">{ctr.toFixed(1)}%</div>
+        </div>
+        {isAttributed && roas > 0 && (
+          <div>
+            <div className="text-[10px] text-text-dim">ROAS</div>
+            <div className="text-[12px] font-semibold text-text-heading">{roas.toFixed(1)}x</div>
+          </div>
+        )}
+      </div>
+
+      {/* Country breakdown */}
+      {campaignCountries.length > 0 && (
+        <div className="px-4 py-2.5">
+          <div className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Countries</div>
+          <div className="space-y-0">
+            {campaignCountries.slice(0, 5).map(c => (
+              <div key={c.code} className="flex items-center justify-between py-1 border-b border-border-dim/20 last:border-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <CampaignFlag code={c.code} />
+                  <span className="text-[10px] text-text-body truncate">{c.name}</span>
+                </div>
+                <span className="text-[10px] text-text-dim shrink-0 ml-2">
+                  {fmt(c.spend)} spent
+                  {isAttributed && c.revenue > 0 && <span className="ml-1.5">{fmt(c.revenue)} rev</span>}
+                </span>
+              </div>
+            ))}
+            {campaignCountries.length > 5 && (
+              <div className="text-[9px] text-text-dim/80 pt-0.5">+{campaignCountries.length - 5} more</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner, countryCampaigns = {}, countries = [] }: CampaignTableProps) {
   const { formatCurrency: fmtCur } = useCurrency();
   const label = PLATFORM_LABELS[platform] || platform;
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [hoveredCampaign, setHoveredCampaign] = useState<number | null>(null);
 
   const dismissKey = `metrichq-utm-dismissed-${platform}`;
   const [utmDismissed, setUtmDismissed] = useState(true);
@@ -113,7 +246,7 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
   const gridTemplate = colDefs.join(' ');
 
   return (
-    <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
+    <div className="bg-bg-surface rounded-xl border border-border-dim overflow-visible">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
         <h3 className="text-[13px] font-medium text-text-heading">{label}</h3>
@@ -183,33 +316,47 @@ export default function CampaignTable({ platform, totalSpend, campaigns, gated, 
           {/* Rows */}
           {sorted.map((c, i) => {
             const name = c.campaignName || c.campaignId || `Campaign ${i + 1}`;
+            const isHovered = hoveredCampaign === i;
 
             return (
-              <div
-                key={name + i}
-                onClick={() => onCampaignClick?.(platform, c._origIndex)}
-                className="grid px-5 py-3 border-b border-border-dim/40 last:border-0 hover:bg-bg-hover transition-colors items-center"
-                style={{ gridTemplateColumns: gridTemplate }}
-              >
-                <span className="text-[13px] font-medium text-text-heading truncate pr-2">{name}</span>
-                {hasAttribution && (
-                  <span className="flex items-center justify-center border-l border-border-dim/40 px-2">
-                    {c.attributed ? (
-                      <Check size={13} className="text-success" />
-                    ) : (
-                      <Minus size={13} className="text-text-dim" />
-                    )}
+              <div key={name + i} className="relative">
+                <div
+                  onClick={() => { onCampaignClick?.(platform, c._origIndex); setHoveredCampaign(isHovered ? null : i); }}
+                  onMouseEnter={() => setHoveredCampaign(i)}
+                  onMouseLeave={() => setHoveredCampaign(null)}
+                  className={`grid px-5 py-3 border-b border-border-dim/40 last:border-0 transition-colors items-center cursor-pointer ${isHovered ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  <span className="text-[13px] font-medium text-text-heading truncate pr-2">{name}</span>
+                  {hasAttribution && (
+                    <span className="flex items-center justify-center border-l border-border-dim/40 px-2">
+                      {c.attributed ? (
+                        <Check size={13} className="text-success" />
+                      ) : (
+                        <Minus size={13} className="text-text-dim" />
+                      )}
+                    </span>
+                  )}
+                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.spend)}</span>
+                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
+                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.revenue || 0)}</span>
+                  <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
+                    {fmtCur(c.profit || 0)}
                   </span>
+                  <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
+                    {(c.purchases || 0) > 0 ? fmtCur(Math.round(c.spend / (c.purchases || 1))) : '—'}
+                  </span>
+                </div>
+                {isHovered && (
+                  <CampaignTooltip
+                    campaign={c}
+                    platform={platform}
+                    countryCampaigns={countryCampaigns}
+                    countries={countries}
+                    onClose={() => setHoveredCampaign(null)}
+                    fmt={fmtCur}
+                  />
                 )}
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.spend)}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{(c.purchases || 0).toLocaleString()}</span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">{fmtCur(c.revenue || 0)}</span>
-                <span className={`text-[12px] text-right font-medium border-l border-border-dim/40 px-2 ${(c.profit || 0) >= 0 ? 'text-success' : 'text-error'}`}>
-                  {fmtCur(c.profit || 0)}
-                </span>
-                <span className="text-[12px] text-text-body text-right border-l border-border-dim/40 px-2">
-                  {(c.purchases || 0) > 0 ? fmtCur(Math.round(c.spend / (c.purchases || 1))) : '—'}
-                </span>
               </div>
             );
           })}

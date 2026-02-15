@@ -118,8 +118,15 @@ function CountryTooltip({ country, campaigns, onClose, fmt }: {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-text-heading">{PLATFORM_LABELS[plat] || plat}</span>
                       <span className="text-[10px] text-text-dim">
-                        {fmt(spend)} spent
-                        {rev > 0 && <span className="ml-2">{fmt(rev)} rev</span>}
+                        {rev > 0 && <span>{fmt(rev)} rev</span>}
+                        {rev > 0 && <span className="mx-1">·</span>}
+                        <span className="text-error">{fmt(spend)} spent</span>
+                        {rev > 0 && (
+                          <>
+                            <span className="mx-1">·</span>
+                            <span className={rev - spend >= 0 ? 'text-success' : 'text-error'}>{fmt(rev - spend)} profit</span>
+                          </>
+                        )}
                       </span>
                     </div>
                     <div className="h-1.5 bg-bg-body rounded-full overflow-hidden mb-1.5">

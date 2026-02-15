@@ -104,6 +104,13 @@ function last7DaysRange(): DateRange {
   return { startDate: fmtDate(start), endDate: fmtDate(today) };
 }
 
+function last30DaysRange(): DateRange {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - 29);
+  return { startDate: fmtDate(start), endDate: fmtDate(today) };
+}
+
 /** Calculate comparison period: same length, immediately preceding */
 function getComparisonRange(range: DateRange): { compareStartDate: string; compareEndDate: string } {
   const start = new Date(range.startDate + 'T00:00:00');
@@ -132,6 +139,25 @@ function formatCompareLabel(range: DateRange): string {
 }
 
 const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', meta: 'Meta', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+
+/** Prorate a monthly amount across a date range using actual days per month (matches backend) */
+function prorateMonthly(monthlyAmount: number, rangeStart: Date, rangeEnd: Date): number {
+  let total = 0;
+  const cursor = new Date(rangeStart);
+  while (cursor <= rangeEnd) {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthLast = new Date(year, month + 1, 0);
+    monthLast.setHours(0, 0, 0, 0);
+    const segEnd = monthLast < rangeEnd ? monthLast : rangeEnd;
+    const segDays = Math.round((segEnd.getTime() - cursor.getTime()) / 86400000) + 1;
+    total += (monthlyAmount / daysInMonth) * segDays;
+    cursor.setFullYear(year, month + 1, 1);
+    cursor.setHours(0, 0, 0, 0);
+  }
+  return Math.round(total * 100) / 100;
+}
 
 function generateDemoData(dateRange: DateRange): MetricsData {
   const start = new Date(dateRange.startDate + 'T00:00:00');
@@ -266,11 +292,11 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     unattributedRevenue: Math.round(totalRevenue * 0.15),
     customCostsBreakdown: [
       { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD', frequency: 'variable' },
-      { name: 'Vercel hosting', category: 'SaaS Tools', amount: Math.round(20 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 20, configuredCurrency: 'USD' },
-      { name: 'Railway DB', category: 'SaaS Tools', amount: Math.round(15 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 15, configuredCurrency: 'USD' },
-      { name: 'Figma', category: 'SaaS Tools', amount: Math.round(12 / 30 * days * 100) / 100, currency: 'USD', frequency: 'monthly', configuredAmount: 12, configuredCurrency: 'USD' },
-      { name: 'Freelance designer', category: 'Team', amount: Math.round(450 / 30 * days * 100) / 100, currency: 'EUR', frequency: 'monthly', configuredAmount: 450, configuredCurrency: 'EUR' },
-      { name: 'Content writer', category: 'Team', amount: Math.round(200 / 30 * days * 100) / 100, currency: 'GBP', frequency: 'monthly', configuredAmount: 200, configuredCurrency: 'GBP' },
+      { name: 'Vercel hosting', category: 'SaaS Tools', amount: prorateMonthly(20, start, end), currency: 'USD', frequency: 'monthly', configuredAmount: 20, configuredCurrency: 'USD' },
+      { name: 'Railway DB', category: 'SaaS Tools', amount: prorateMonthly(15, start, end), currency: 'USD', frequency: 'monthly', configuredAmount: 15, configuredCurrency: 'USD' },
+      { name: 'Figma', category: 'SaaS Tools', amount: prorateMonthly(12, start, end), currency: 'USD', frequency: 'monthly', configuredAmount: 12, configuredCurrency: 'USD' },
+      { name: 'Freelance designer', category: 'Team', amount: prorateMonthly(450, start, end), currency: 'EUR', frequency: 'monthly', configuredAmount: 450, configuredCurrency: 'EUR' },
+      { name: 'Content writer', category: 'Team', amount: prorateMonthly(200, start, end), currency: 'GBP', frequency: 'monthly', configuredAmount: 200, configuredCurrency: 'GBP' },
     ],
     timeSeries,
   };
@@ -286,7 +312,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(isEmbed ? last7DaysRange : todayRange);
+  const [dateRange, setDateRange] = useState<DateRange>(isDemo ? last30DaysRange : (isEmbed ? last7DaysRange : todayRange));
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
 
@@ -586,6 +612,8 @@ export default function DashboardPage() {
                 gated={pData.gated}
                 onCampaignClick={isDemo ? handleDemoCampaignClick : undefined}
                 showUtmBanner={summary.totalRevenue > 0 && pData.totalSpend > 0 && !(pData.totalRevenue || 0)}
+                countryCampaigns={countryCampaigns}
+                countries={countries}
               />
             ))}
           </div>

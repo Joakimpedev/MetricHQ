@@ -414,7 +414,7 @@ export default function LandingPage() {
       </header>
 
       {/* Dashboard Preview */}
-      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-16 scroll-mt-8 relative">
+      <section id="dashboard-preview" className="max-w-7xl mx-auto px-6 py-16 scroll-mt-20 relative">
         {/* Handwritten arrow + label */}
         <div className="absolute -top-2 right-8 md:right-16 flex flex-col items-center z-10 select-none pointer-events-none">
           <span
