@@ -78,6 +78,7 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
   fmt: (n: number) => string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [flipped, setFlipped] = useState(false);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -86,6 +87,14 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose]);
+
+  // Flip above if tooltip overflows viewport bottom
+  useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight;
+    if (rect.bottom > viewportH - 8) setFlipped(true);
+  }, []);
 
   const name = campaign.campaignName || campaign.campaignId || 'Campaign';
   const profit = campaign.profit || 0;
@@ -116,7 +125,7 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
   return (
     <div
       ref={ref}
-      className="absolute left-0 right-0 z-30 mx-3 mt-0.5 bg-bg-elevated border border-border-dim rounded-lg shadow-xl overflow-hidden"
+      className={`absolute left-0 right-0 z-30 mx-3 bg-bg-elevated border border-border-dim rounded-lg shadow-xl overflow-hidden ${flipped ? 'bottom-full mb-0.5' : 'mt-0.5'}`}
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-dim/60 flex items-center justify-between gap-2">
