@@ -184,6 +184,130 @@ function generateDemoData(dateRange: DateRange): MetricsData {
 
   const totalPurchases = timeSeries.reduce((s, p) => s + p.purchases, 0);
 
+  // ── Single source of truth: atomic country+campaign rows ──
+  // All other structures (countries, platforms, countryCampaigns) are derived from this.
+  // spend/revenue/purchases use fractions of totals; impressions/clicks are absolute.
+  const COUNTRY_NAMES: Record<string, string> = { US: 'United States', GB: 'United Kingdom', DE: 'Germany', NO: 'Norway', CA: 'Canada', AU: 'Australia' };
+  const atoms = [
+    // google_ads — Brand Search US (attributed)
+    { country: 'US', platform: 'google_ads', campaign: 'Brand Search US', attributed: true,  sf: 0.12, rf: 0.14, pf: 0.10, imp: 9800,  clk: 620 },
+    { country: 'GB', platform: 'google_ads', campaign: 'Brand Search US', attributed: true,  sf: 0.04, rf: 0.05, pf: 0.05, imp: 3200,  clk: 180 },
+    { country: 'DE', platform: 'google_ads', campaign: 'Brand Search US', attributed: true,  sf: 0.03, rf: 0.04, pf: 0.04, imp: 2100,  clk: 120 },
+    { country: 'NO', platform: 'google_ads', campaign: 'Brand Search US', attributed: true,  sf: 0.02, rf: 0.03, pf: 0.03, imp: 1400,  clk: 85  },
+    // google_ads — Competitor Keywords (unattributed)
+    { country: 'US', platform: 'google_ads', campaign: 'Competitor Keywords', attributed: false, sf: 0.06, rf: 0, pf: 0, imp: 5200,  clk: 195 },
+    { country: 'CA', platform: 'google_ads', campaign: 'Competitor Keywords', attributed: false, sf: 0.04, rf: 0, pf: 0, imp: 2800,  clk: 95  },
+    // google_ads — Display Retargeting (unattributed)
+    { country: 'US', platform: 'google_ads', campaign: 'Display Retargeting', attributed: false, sf: 0.04, rf: 0, pf: 0, imp: 28000, clk: 380 },
+    { country: 'AU', platform: 'google_ads', campaign: 'Display Retargeting', attributed: false, sf: 0.03, rf: 0, pf: 0, imp: 8500,  clk: 120 },
+    // meta — Lookalike
+    { country: 'US', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.06, rf: 0.08, pf: 0.07, imp: 15400, clk: 310 },
+    { country: 'GB', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.04, rf: 0.04, pf: 0.04, imp: 4800,  clk: 95  },
+    { country: 'DE', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 3500,  clk: 72  },
+    { country: 'CA', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 2200,  clk: 48  },
+    // meta — Retargeting
+    { country: 'US', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.04, rf: 0.05, pf: 0.04, imp: 6200,  clk: 250 },
+    { country: 'NO', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 2800,  clk: 68  },
+    { country: 'AU', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.02, rf: 0.02, pf: 0.02, imp: 1800,  clk: 42  },
+    // tiktok — SaaS Demo Signups
+    { country: 'US', platform: 'tiktok', campaign: 'SaaS Demo Signups', attributed: true, sf: 0.05, rf: 0.03, pf: 0.03, imp: 38000, clk: 680 },
+    { country: 'DE', platform: 'tiktok', campaign: 'SaaS Demo Signups', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 18000, clk: 340 },
+    { country: 'CA', platform: 'tiktok', campaign: 'SaaS Demo Signups', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 12000, clk: 220 },
+    // tiktok — Founder Testimonials
+    { country: 'GB', platform: 'tiktok', campaign: 'Founder Testimonials', attributed: true, sf: 0.04, rf: 0.02, pf: 0.02, imp: 22000, clk: 410 },
+    { country: 'US', platform: 'tiktok', campaign: 'Founder Testimonials', attributed: true, sf: 0.03, rf: 0.01, pf: 0.01, imp: 18000, clk: 320 },
+    // linkedin — no country breakdown (unattributed to country)
+    // LinkedIn doesn't report by country, so these don't appear in countryCampaigns
+  ];
+
+  // LinkedIn campaigns — exist in platforms but not in countryCampaigns (matches real behavior)
+  const linkedinCampaigns = [
+    { campaign: 'B2B Decision Makers', sf: 0.06, rf: 0.07, pf: 0.05, imp: 6200, clk: 95 },
+    { campaign: 'SaaS Founders - EU', sf: 0.04, rf: 0.03, pf: 0.03, imp: 3800, clk: 62 },
+  ];
+
+  // ── Derive countryCampaigns ──
+  const countryCampaigns: Record<string, CountryCampaign[]> = {};
+  for (const a of atoms) {
+    if (!countryCampaigns[a.country]) countryCampaigns[a.country] = [];
+    countryCampaigns[a.country].push({
+      platform: a.platform,
+      campaign: a.campaign,
+      spend: Math.round(totalSpend * a.sf),
+      revenue: Math.round(totalRevenue * a.rf),
+      impressions: a.imp,
+      clicks: a.clk,
+      purchases: Math.round(totalPurchases * a.pf),
+    });
+  }
+
+  // ── Derive countries by aggregating atoms ──
+  const countryAgg: Record<string, { spend: number; revenue: number; purchases: number }> = {};
+  for (const a of atoms) {
+    if (!countryAgg[a.country]) countryAgg[a.country] = { spend: 0, revenue: 0, purchases: 0 };
+    countryAgg[a.country].spend += Math.round(totalSpend * a.sf);
+    countryAgg[a.country].revenue += Math.round(totalRevenue * a.rf);
+    countryAgg[a.country].purchases += Math.round(totalPurchases * a.pf);
+  }
+  const countries: Country[] = Object.entries(countryAgg)
+    .map(([code, d]) => ({
+      code,
+      name: COUNTRY_NAMES[code] || code,
+      spend: d.spend,
+      revenue: d.revenue,
+      profit: d.revenue - d.spend,
+      roas: d.spend > 0 ? Math.round((d.revenue / d.spend) * 10) / 10 : 0,
+      purchases: d.purchases,
+    }))
+    .sort((a, b) => b.spend - a.spend);
+
+  // ── Derive platforms + campaigns by aggregating atoms ──
+  type CampAgg = { spend: number; revenue: number; purchases: number; impressions: number; clicks: number; attributed: boolean };
+  const campAgg: Record<string, Record<string, CampAgg>> = {};
+  for (const a of atoms) {
+    if (!campAgg[a.platform]) campAgg[a.platform] = {};
+    if (!campAgg[a.platform][a.campaign]) campAgg[a.platform][a.campaign] = { spend: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, attributed: a.attributed };
+    const c = campAgg[a.platform][a.campaign];
+    c.spend += Math.round(totalSpend * a.sf);
+    c.revenue += Math.round(totalRevenue * a.rf);
+    c.purchases += Math.round(totalPurchases * a.pf);
+    c.impressions += a.imp;
+    c.clicks += a.clk;
+  }
+  // Add LinkedIn campaigns to campAgg
+  campAgg['linkedin'] = {};
+  for (const lc of linkedinCampaigns) {
+    campAgg['linkedin'][lc.campaign] = {
+      spend: Math.round(totalSpend * lc.sf),
+      revenue: Math.round(totalRevenue * lc.rf),
+      purchases: Math.round(totalPurchases * lc.pf),
+      impressions: lc.imp,
+      clicks: lc.clk,
+      attributed: true,
+    };
+  }
+
+  const platforms: Record<string, Platform> = {};
+  const usesCampaignName = new Set(['meta', 'tiktok']);
+  for (const [plat, camps] of Object.entries(campAgg)) {
+    const campaignList: Campaign[] = Object.entries(camps).map(([name, d]) => ({
+      ...(usesCampaignName.has(plat) ? { campaignName: name } : { campaignId: name }),
+      spend: d.spend,
+      impressions: d.impressions,
+      clicks: d.clicks,
+      revenue: d.attributed ? d.revenue : 0,
+      purchases: d.attributed ? d.purchases : 0,
+      profit: d.attributed ? d.revenue - d.spend : -d.spend,
+      attributed: d.attributed,
+    }));
+    const platSpend = campaignList.reduce((s, c) => s + c.spend, 0);
+    const platRevenue = campaignList.reduce((s, c) => s + (c.revenue || 0), 0);
+    platforms[plat] = { totalSpend: platSpend, totalRevenue: platRevenue, campaigns: campaignList };
+  }
+
+  // LinkedIn unattributed spend (no country breakdown)
+  const linkedinSpend = platforms['linkedin']?.totalSpend || 0;
+
   return {
     summary: {
       totalSpend,
@@ -215,81 +339,11 @@ function generateDemoData(dateRange: DateRange): MetricsData {
         };
       }),
     },
-    countries: [
-      { code: 'US', name: 'United States', spend: Math.round(totalSpend * 0.45), revenue: Math.round(totalRevenue * 0.5), profit: Math.round(totalRevenue * 0.5 - totalSpend * 0.45), roas: 2.1, purchases: Math.round(totalPurchases * 0.4) },
-      { code: 'GB', name: 'United Kingdom', spend: Math.round(totalSpend * 0.18), revenue: Math.round(totalRevenue * 0.2), profit: Math.round(totalRevenue * 0.2 - totalSpend * 0.18), roas: 1.8, purchases: Math.round(totalPurchases * 0.2) },
-      { code: 'DE', name: 'Germany', spend: Math.round(totalSpend * 0.12), revenue: Math.round(totalRevenue * 0.12), profit: Math.round(totalRevenue * 0.12 - totalSpend * 0.12), roas: 1.5, purchases: Math.round(totalPurchases * 0.15) },
-      { code: 'NO', name: 'Norway', spend: Math.round(totalSpend * 0.08), revenue: Math.round(totalRevenue * 0.1), profit: Math.round(totalRevenue * 0.1 - totalSpend * 0.08), roas: 2.4, purchases: Math.round(totalPurchases * 0.1) },
-      { code: 'CA', name: 'Canada', spend: Math.round(totalSpend * 0.1), revenue: Math.round(totalRevenue * 0.05), profit: Math.round(totalRevenue * 0.05 - totalSpend * 0.1), roas: 0.8, purchases: Math.round(totalPurchases * 0.08) },
-      { code: 'AU', name: 'Australia', spend: Math.round(totalSpend * 0.07), revenue: Math.round(totalRevenue * 0.03), profit: Math.round(totalRevenue * 0.03 - totalSpend * 0.07), roas: 0.6, purchases: Math.round(totalPurchases * 0.07) },
-    ],
-    countryCampaigns: {
-      US: [
-        { platform: 'google_ads', campaign: 'Brand Search US', spend: Math.round(totalSpend * 0.18), revenue: Math.round(totalRevenue * 0.22), impressions: 9800, clicks: 620, purchases: Math.round(totalPurchases * 0.15) },
-        { platform: 'meta', campaign: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.12), revenue: Math.round(totalRevenue * 0.15), impressions: 15400, clicks: 310, purchases: Math.round(totalPurchases * 0.12) },
-        { platform: 'tiktok', campaign: 'SaaS Demo Signups', spend: Math.round(totalSpend * 0.08), revenue: Math.round(totalRevenue * 0.06), impressions: 38000, clicks: 680, purchases: Math.round(totalPurchases * 0.06) },
-        { platform: 'meta', campaign: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.07), revenue: Math.round(totalRevenue * 0.07), impressions: 6200, clicks: 250, purchases: Math.round(totalPurchases * 0.07) },
-      ],
-      GB: [
-        { platform: 'google_ads', campaign: 'Brand Search US', spend: Math.round(totalSpend * 0.06), revenue: Math.round(totalRevenue * 0.08), impressions: 3200, clicks: 180, purchases: Math.round(totalPurchases * 0.08) },
-        { platform: 'meta', campaign: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.07), revenue: Math.round(totalRevenue * 0.07), impressions: 4800, clicks: 95, purchases: Math.round(totalPurchases * 0.06) },
-        { platform: 'tiktok', campaign: 'Founder Testimonials', spend: Math.round(totalSpend * 0.05), revenue: Math.round(totalRevenue * 0.05), impressions: 22000, clicks: 410, purchases: Math.round(totalPurchases * 0.06) },
-      ],
-      DE: [
-        { platform: 'google_ads', campaign: 'Brand Search US', spend: Math.round(totalSpend * 0.04), revenue: Math.round(totalRevenue * 0.05), impressions: 2100, clicks: 120, purchases: Math.round(totalPurchases * 0.06) },
-        { platform: 'meta', campaign: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.05), revenue: Math.round(totalRevenue * 0.04), impressions: 3500, clicks: 72, purchases: Math.round(totalPurchases * 0.05) },
-        { platform: 'tiktok', campaign: 'SaaS Demo Signups', spend: Math.round(totalSpend * 0.03), revenue: Math.round(totalRevenue * 0.03), impressions: 18000, clicks: 340, purchases: Math.round(totalPurchases * 0.04) },
-      ],
-      NO: [
-        { platform: 'google_ads', campaign: 'Brand Search US', spend: Math.round(totalSpend * 0.03), revenue: Math.round(totalRevenue * 0.05), impressions: 1400, clicks: 85, purchases: Math.round(totalPurchases * 0.05) },
-        { platform: 'meta', campaign: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.05), revenue: Math.round(totalRevenue * 0.05), impressions: 2800, clicks: 68, purchases: Math.round(totalPurchases * 0.05) },
-      ],
-      CA: [
-        { platform: 'google_ads', campaign: 'Competitor Keywords', spend: Math.round(totalSpend * 0.05), revenue: 0, impressions: 2800, clicks: 95, purchases: 0 },
-        { platform: 'meta', campaign: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.03), revenue: Math.round(totalRevenue * 0.03), impressions: 2200, clicks: 48, purchases: Math.round(totalPurchases * 0.05) },
-        { platform: 'tiktok', campaign: 'SaaS Demo Signups', spend: Math.round(totalSpend * 0.02), revenue: Math.round(totalRevenue * 0.02), impressions: 12000, clicks: 220, purchases: Math.round(totalPurchases * 0.03) },
-      ],
-      AU: [
-        { platform: 'google_ads', campaign: 'Display Retargeting', spend: Math.round(totalSpend * 0.04), revenue: 0, impressions: 8500, clicks: 120, purchases: 0 },
-        { platform: 'meta', campaign: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.03), revenue: Math.round(totalRevenue * 0.03), impressions: 1800, clicks: 42, purchases: Math.round(totalPurchases * 0.07) },
-      ],
-    },
-    platforms: {
-      google_ads: {
-        totalSpend: Math.round(totalSpend * 0.4),
-        totalRevenue: Math.round(totalRevenue * 0.3),
-        campaigns: [
-          { campaignId: 'Brand Search US', spend: Math.round(totalSpend * 0.18), impressions: 14200, clicks: 890, revenue: Math.round(totalRevenue * 0.3), purchases: Math.round(totalPurchases * 0.25), profit: Math.round(totalRevenue * 0.3) - Math.round(totalSpend * 0.18), attributed: true },
-          { campaignId: 'Competitor Keywords', spend: Math.round(totalSpend * 0.12), impressions: 8400, clicks: 320, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.12), attributed: false },
-          { campaignId: 'Display Retargeting', spend: Math.round(totalSpend * 0.1), impressions: 42000, clicks: 580, revenue: 0, purchases: 0, profit: -Math.round(totalSpend * 0.1), attributed: false },
-        ],
-      },
-      meta: {
-        totalSpend: Math.round(totalSpend * 0.25),
-        totalRevenue: Math.round(totalRevenue * 0.3),
-        campaigns: [
-          { campaignName: 'Lookalike - US SaaS Founders', spend: Math.round(totalSpend * 0.15), impressions: 22000, clicks: 440, revenue: Math.round(totalRevenue * 0.18), purchases: Math.round(totalPurchases * 0.18), profit: Math.round(totalRevenue * 0.18) - Math.round(totalSpend * 0.15), attributed: true },
-          { campaignName: 'Retargeting - Site Visitors', spend: Math.round(totalSpend * 0.1), impressions: 9500, clicks: 380, revenue: Math.round(totalRevenue * 0.12), purchases: Math.round(totalPurchases * 0.12), profit: Math.round(totalRevenue * 0.12) - Math.round(totalSpend * 0.1), attributed: true },
-        ],
-      },
-      tiktok: {
-        totalSpend: Math.round(totalSpend * 0.2),
-        totalRevenue: Math.round(totalRevenue * 0.1),
-        campaigns: [
-          { campaignName: 'SaaS Demo Signups', spend: Math.round(totalSpend * 0.12), impressions: 68000, clicks: 1200, revenue: Math.round(totalRevenue * 0.07), purchases: Math.round(totalPurchases * 0.06), profit: Math.round(totalRevenue * 0.07) - Math.round(totalSpend * 0.12), attributed: true },
-          { campaignName: 'Founder Testimonials', spend: Math.round(totalSpend * 0.08), impressions: 45000, clicks: 820, revenue: Math.round(totalRevenue * 0.03), purchases: Math.round(totalPurchases * 0.03), profit: Math.round(totalRevenue * 0.03) - Math.round(totalSpend * 0.08), attributed: true },
-        ],
-      },
-      linkedin: {
-        totalSpend: Math.round(totalSpend * 0.15),
-        totalRevenue: Math.round(totalRevenue * 0.15),
-        campaigns: [
-          { campaignId: 'B2B Decision Makers', spend: Math.round(totalSpend * 0.09), impressions: 6200, clicks: 95, revenue: Math.round(totalRevenue * 0.1), purchases: Math.round(totalPurchases * 0.08), profit: Math.round(totalRevenue * 0.1) - Math.round(totalSpend * 0.09), attributed: true },
-          { campaignId: 'SaaS Founders - EU', spend: Math.round(totalSpend * 0.06), impressions: 3800, clicks: 62, revenue: Math.round(totalRevenue * 0.05), purchases: Math.round(totalPurchases * 0.04), profit: Math.round(totalRevenue * 0.05) - Math.round(totalSpend * 0.06), attributed: true },
-        ],
-      },
-    },
+    countries,
+    countryCampaigns,
+    platforms,
     unattributedRevenue: Math.round(totalRevenue * 0.15),
+    unattributedSpend: linkedinSpend,
     customCostsBreakdown: [
       { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD', frequency: 'variable' },
       { name: 'Vercel hosting', category: 'SaaS Tools', amount: prorateMonthly(20, start, end), currency: 'USD', frequency: 'monthly', configuredAmount: 20, configuredCurrency: 'USD' },
