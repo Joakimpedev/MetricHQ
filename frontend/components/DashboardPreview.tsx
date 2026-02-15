@@ -31,7 +31,7 @@ export default function DashboardPreview() {
       </div>
 
       {/* Iframe */}
-      <div className="relative px-3 pb-3" style={{ height: '850px' }}>
+      <div className="relative" style={{ height: '820px' }}>
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-bg-body">
             <div className="text-text-dim text-[13px]">Loading dashboard...</div>

@@ -191,7 +191,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             display: none;
           }
         `}</style>
-        <main className="p-4">{children}</main>
+        <main className="px-8 py-4">{children}</main>
       </div>
     );
   }
