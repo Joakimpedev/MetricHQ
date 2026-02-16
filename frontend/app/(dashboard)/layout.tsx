@@ -14,6 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKE
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/events': 'Event Tracker',
   '/integrations': 'Integrations',
   '/custom-costs': 'Custom Costs',
   '/pricing': 'Pricing',

@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const { pool } = require('../db/database');
 const { fetchAdSpend: fetchTikTokSpend } = require('./tiktok');
 const { fetchAdSpend: fetchMetaSpend } = require('./meta');
-const { fetchRevenueData } = require('./posthog');
+const { fetchRevenueData, fetchEventCounts } = require('./posthog');
 const { fetchRevenueData: fetchStripeRevenue } = require('./stripe');
 const { fetchAdSpend: fetchGoogleAdSpend } = require('./google-ads');
 const { fetchAdSpend: fetchLinkedInSpend } = require('./linkedin');
@@ -470,6 +470,138 @@ async function syncStripe(userId, apiKey) {
   }
 }
 
+// ---- Custom event sections sync ----
+
+/**
+ * Sync a single custom event section.
+ */
+async function syncCustomEventSection(userId, sectionId) {
+  // Get the section
+  const secResult = await pool.query(
+    'SELECT * FROM custom_event_sections WHERE id = $1 AND user_id = $2',
+    [sectionId, userId]
+  );
+  if (secResult.rows.length === 0) return;
+  const section = secResult.rows[0];
+
+  // Get PostHog credentials
+  const accResult = await pool.query(
+    `SELECT access_token, account_id, COALESCE(settings, '{}'::jsonb) as settings
+     FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'`,
+    [userId]
+  );
+  if (accResult.rows.length === 0) return;
+  const { access_token, account_id, settings } = accResult.rows[0];
+
+  // Determine date range
+  const endDate = new Date().toISOString().slice(0, 10);
+  const existingCache = await pool.query(
+    'SELECT COUNT(*) as cnt FROM custom_event_cache WHERE section_id = $1',
+    [sectionId]
+  );
+  const hasData = parseInt(existingCache.rows[0].cnt, 10) > 0;
+  const daysBack = hasData ? 3 : 30;
+  const start = new Date();
+  start.setDate(start.getDate() - daysBack);
+  const startDate = start.toISOString().slice(0, 10);
+
+  // Fetch total counts
+  const totalRows = await fetchEventCounts(access_token, account_id, startDate, endDate, section.event_name, {
+    posthogHost: settings.posthogHost
+  });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Delete existing cache for this date range
+    await client.query(
+      'DELETE FROM custom_event_cache WHERE section_id = $1 AND date >= $2 AND date <= $3',
+      [sectionId, startDate, endDate]
+    );
+
+    // Insert total counts
+    for (const row of (totalRows || [])) {
+      const date = Array.isArray(row) ? row[0] : row.date;
+      const count = Array.isArray(row) ? parseInt(row[1], 10) : parseInt(row.cnt || 0, 10);
+      const dateStr = String(date).slice(0, 10);
+
+      await client.query(
+        `INSERT INTO custom_event_cache (section_id, date, property_value, count, cached_at)
+         VALUES ($1, $2, '_total', $3, NOW())
+         ON CONFLICT (section_id, date, property_value) DO UPDATE
+           SET count = $3, cached_at = NOW()`,
+        [sectionId, dateStr, count]
+      );
+    }
+
+    // If grouped, fetch grouped counts
+    if (section.group_by_property) {
+      const groupedRows = await fetchEventCounts(access_token, account_id, startDate, endDate, section.event_name, {
+        posthogHost: settings.posthogHost,
+        groupByProperty: section.group_by_property
+      });
+
+      // Limit to top 20 property values by total count
+      const valueTotals = {};
+      for (const row of (groupedRows || [])) {
+        const propValue = Array.isArray(row) ? row[1] : row.prop_value;
+        const count = Array.isArray(row) ? parseInt(row[2], 10) : parseInt(row.cnt || 0, 10);
+        const key = String(propValue || 'unknown');
+        valueTotals[key] = (valueTotals[key] || 0) + count;
+      }
+      const topValues = new Set(
+        Object.entries(valueTotals)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .map(([k]) => k)
+      );
+
+      for (const row of (groupedRows || [])) {
+        const date = Array.isArray(row) ? row[0] : row.date;
+        const propValue = String(Array.isArray(row) ? row[1] : row.prop_value || 'unknown');
+        const count = Array.isArray(row) ? parseInt(row[2], 10) : parseInt(row.cnt || 0, 10);
+        const dateStr = String(date).slice(0, 10);
+
+        if (!topValues.has(propValue)) continue;
+
+        await client.query(
+          `INSERT INTO custom_event_cache (section_id, date, property_value, count, cached_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (section_id, date, property_value) DO UPDATE
+             SET count = $4, cached_at = NOW()`,
+          [sectionId, dateStr, propValue, count]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Sync all custom event sections for a user.
+ */
+async function syncCustomEvents(userId) {
+  const sections = await pool.query(
+    'SELECT id FROM custom_event_sections WHERE user_id = $1',
+    [userId]
+  );
+
+  for (const section of sections.rows) {
+    try {
+      await syncCustomEventSection(userId, section.id);
+    } catch (err) {
+      console.error(`[sync] Custom event section ${section.id} sync failed for user ${userId}:`, err.message);
+    }
+  }
+}
+
 // ---- Sync all platforms for one user ----
 
 async function syncForUser(userId) {
@@ -521,6 +653,13 @@ async function syncForUser(userId) {
   }
 
   await Promise.all(promises);
+
+  // Sync custom event sections (requires PostHog)
+  try {
+    await syncCustomEvents(userId);
+  } catch (err) {
+    console.error(`[sync] Custom events sync failed for user ${userId}:`, err.message);
+  }
 }
 
 // ---- Full sync: all users ----
@@ -612,5 +751,7 @@ module.exports = {
   syncForUser,
   runFullSync,
   startCronJob,
-  getSyncStatus
+  getSyncStatus,
+  syncCustomEventSection,
+  syncCustomEvents
 };

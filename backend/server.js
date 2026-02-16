@@ -474,6 +474,15 @@ app.post('/api/custom-costs', customCosts.createCustomCost);
 app.put('/api/custom-costs/:id', customCosts.updateCustomCost);
 app.delete('/api/custom-costs/:id', customCosts.deleteCustomCost);
 
+// Custom events routes
+const customEvents = require('./routes/custom-events');
+app.get('/api/custom-events/properties', customEvents.getEventProperties);
+app.get('/api/custom-events/sections', customEvents.listSections);
+app.post('/api/custom-events/sections', customEvents.createSection);
+app.put('/api/custom-events/sections/:id', customEvents.updateSection);
+app.delete('/api/custom-events/sections/:id', customEvents.deleteSection);
+app.get('/api/custom-events/sections/:id/data', customEvents.getSectionData);
+
 // API key management routes (Clerk-authed)
 const apiKeys = require('./routes/api-keys');
 app.post('/api/settings/api-keys', apiKeys.createApiKey);

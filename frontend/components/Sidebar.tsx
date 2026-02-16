@@ -3,10 +3,11 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Plug, DollarSign, CreditCard, Settings, X } from 'lucide-react';
+import { LayoutDashboard, Plug, DollarSign, CreditCard, Settings, X, BarChart3 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/events', label: 'Events', icon: BarChart3 },
   { href: '/integrations', label: 'Integrations', icon: Plug },
   { href: '/custom-costs', label: 'Custom Costs', icon: DollarSign },
   { href: '/pricing', label: 'Billing', icon: CreditCard },
