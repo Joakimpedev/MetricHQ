@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { X, Loader2 } from 'lucide-react';
 
@@ -33,6 +33,8 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [eventDropdownOpen, setEventDropdownOpen] = useState(false);
+  const eventRef = useRef<HTMLDivElement>(null);
 
   // Fetch available events
   useEffect(() => {
@@ -44,6 +46,17 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
       .catch(() => {})
       .finally(() => setLoadingEvents(false));
   }, [user?.id]);
+
+  // Close event dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (eventRef.current && !eventRef.current.contains(e.target as Node)) {
+        setEventDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Fetch properties when event changes
   useEffect(() => {
@@ -117,40 +130,49 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
 
         <div className="px-5 py-4 space-y-4">
           {/* Event name */}
-          <div>
+          <div ref={eventRef}>
             <label className={labelClass}>
               Event Name <span className="text-error text-[13px] leading-none">*</span>
             </label>
-            {loadingEvents ? (
-              <div className="flex items-center gap-2 px-3 py-2 text-[13px] text-text-dim">
-                <Loader2 size={14} className="animate-spin" /> Loading events...
-              </div>
-            ) : events.length > 0 ? (
-              <select
-                value={eventName}
-                onChange={e => {
-                  setEventName(e.target.value);
-                  setGroupByProperty('');
-                }}
-                className={inputClass}
-              >
-                <option value="">Select an event</option>
-                {events.map(e => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
-            ) : (
+            <div className="relative">
               <input
                 type="text"
                 value={eventName}
                 onChange={e => {
                   setEventName(e.target.value);
                   setGroupByProperty('');
+                  setEventDropdownOpen(true);
                 }}
-                placeholder="e.g. page_view, signup"
+                onFocus={() => setEventDropdownOpen(true)}
+                placeholder="Type or select an event name"
                 className={inputClass}
               />
-            )}
+              {loadingEvents && (
+                <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-text-dim" />
+              )}
+              {eventDropdownOpen && events.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-10 py-1 max-h-[200px] overflow-y-auto">
+                  {events
+                    .filter(e => !eventName || e.toLowerCase().includes(eventName.toLowerCase()))
+                    .map(e => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => {
+                          setEventName(e);
+                          setGroupByProperty('');
+                          setEventDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-[12px] text-left transition-colors ${
+                          e === eventName ? 'text-accent bg-accent/5' : 'text-text-body hover:bg-bg-hover'
+                        }`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Title */}
