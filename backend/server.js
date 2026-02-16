@@ -482,6 +482,7 @@ app.post('/api/custom-events/sections', customEvents.createSection);
 app.put('/api/custom-events/sections/:id', customEvents.updateSection);
 app.delete('/api/custom-events/sections/:id', customEvents.deleteSection);
 app.get('/api/custom-events/sections/:id/data', customEvents.getSectionData);
+app.post('/api/custom-events/sync', customEvents.syncAllSections);
 
 // API key management routes (Clerk-authed)
 const apiKeys = require('./routes/api-keys');

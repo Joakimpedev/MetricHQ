@@ -267,4 +267,28 @@ async function getEventProperties(req, res) {
   }
 }
 
-module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties };
+// POST /api/custom-events/sync?userId=X
+async function syncAllSections(req, res) {
+  const { userId } = req.body || {};
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { syncCustomEvents } = require('../services/sync');
+    await syncCustomEvents(dataOwnerId);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Sync custom events error:', error);
+    res.status(500).json({ error: 'Sync failed' });
+  }
+}
+
+module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties, syncAllSections };

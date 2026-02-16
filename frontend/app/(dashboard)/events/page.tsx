@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { Plus, BarChart3, Plug } from 'lucide-react';
+import { Plus, BarChart3, Plug, RefreshCw } from 'lucide-react';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import AddEventSectionModal from '../../../components/AddEventSectionModal';
 
@@ -36,6 +36,26 @@ export default function EventsPage() {
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<EventSection | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleSync = async () => {
+    if (!user?.id || syncing) return;
+    setSyncing(true);
+    try {
+      await fetch(`${API_URL}/api/custom-events/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      await fetchSections();
+      setRefreshKey(k => k + 1);
+    } catch {
+      // silently ignore
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchSections = useCallback(async () => {
     if (!user?.id) return;
@@ -105,8 +125,16 @@ export default function EventsPage() {
 
   return (
     <div className="max-w-[900px] mx-auto">
-      {/* Date range selector */}
-      <div className="flex items-center justify-end mb-5">
+      {/* Date range selector + sync */}
+      <div className="flex items-center justify-end gap-2 mb-5">
+        <button
+          onClick={handleSync}
+          disabled={syncing || sections.length === 0}
+          className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+          {syncing ? 'Syncing...' : 'Sync'}
+        </button>
         <DateRangeSelector value={dateRange} onChange={setDateRange} />
       </div>
 
@@ -146,7 +174,7 @@ export default function EventsPage() {
         <div className="space-y-6">
           {sections.map(section => (
             <EventSectionCard
-              key={section.id}
+              key={`${section.id}-${refreshKey}`}
               section={section}
               startDate={dateRange.startDate}
               endDate={dateRange.endDate}
