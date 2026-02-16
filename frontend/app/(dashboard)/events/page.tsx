@@ -57,11 +57,11 @@ export default function EventsPage() {
   // Check if PostHog is connected
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API_URL}/api/integrations?userId=${encodeURIComponent(user.id)}`)
+    fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => {
-        const accounts = j.accounts || [];
-        setHasPostHog(accounts.some((a: { platform: string }) => a.platform === 'posthog'));
+        const connections = j.connections || {};
+        setHasPostHog(!!connections.posthog?.connected);
       })
       .catch(() => setHasPostHog(false));
   }, [user?.id]);
