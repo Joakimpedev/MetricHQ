@@ -472,6 +472,8 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
                   value={amount}
                   onChange={e => {
                     let raw = e.target.value;
+                    // Strip spaces (thousand separators in some locales, e.g. "1 670,65")
+                    raw = raw.replace(/\s/g, '');
                     // If there's exactly one comma and no dots, treat comma as decimal separator
                     // Otherwise strip commas (thousand separators like 1,234.56 or 1,000)
                     const commaCount = (raw.match(/,/g) || []).length;

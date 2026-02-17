@@ -33,7 +33,7 @@ const CATEGORY_COLORS = [
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
-  const { formatCurrency, convertFromCurrency } = useCurrency();
+  const { formatCurrency, convertFromCurrency, currency } = useCurrency();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // Group by category, converting each cost to the display currency
@@ -140,7 +140,7 @@ export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[10px] text-text-dim uppercase tracking-wider">Total</span>
-            <span className="text-[16px] font-bold text-text-heading">{formatCurrency(convertedTotal)}</span>
+            <span className="text-[16px] font-bold text-text-heading">{formatCurrency(convertedTotal, currency)}</span>
           </div>
         </div>
 
@@ -165,7 +165,7 @@ export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
                   />
                   <span className="text-[12px] text-text-heading font-medium flex-1 truncate">{cat.name}</span>
                   <span className="text-[12px] text-text-body font-medium tabular-nums shrink-0">
-                    {formatCurrency(cat.amount)}
+                    {formatCurrency(cat.amount, currency)}
                   </span>
                 </div>
 
@@ -181,7 +181,7 @@ export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
                           </span>
                         )}
                         <span className="text-[11px] text-text-dim tabular-nums shrink-0">
-                          {formatCurrency(item.amount)}
+                          {formatCurrency(item.amount, currency)}
                         </span>
                       </div>
                     ))}
