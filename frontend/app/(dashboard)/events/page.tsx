@@ -16,6 +16,7 @@ interface EventSection {
   event_name: string;
   title: string | null;
   group_by_property: string | null;
+  property_value_contains: string | null;
   display_order: number;
 }
 

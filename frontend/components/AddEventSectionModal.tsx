@@ -11,6 +11,7 @@ interface EventSection {
   event_name: string;
   title: string | null;
   group_by_property: string | null;
+  property_value_contains: string | null;
   display_order: number;
 }
 
@@ -27,6 +28,7 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
   const [eventName, setEventName] = useState(section?.event_name || '');
   const [title, setTitle] = useState(section?.title || '');
   const [groupByProperty, setGroupByProperty] = useState(section?.group_by_property || '');
+  const [valueContains, setValueContains] = useState(section?.property_value_contains || '');
   const [events, setEvents] = useState<string[]>([]);
   const [properties, setProperties] = useState<string[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -87,6 +89,7 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
       event_name: eventName.trim(),
       title: title.trim() || null,
       group_by_property: groupByProperty.trim() || null,
+      property_value_contains: valueContains.trim() || null,
     };
 
     try {
@@ -219,6 +222,23 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
               Breaks down counts by property values (e.g. country, source)
             </p>
           </div>
+
+          {/* Value contains filter — only when grouped */}
+          {groupByProperty && (
+            <div>
+              <label className={labelClass}>Value contains</label>
+              <input
+                type="text"
+                value={valueContains}
+                onChange={e => setValueContains(e.target.value)}
+                placeholder="e.g. v2_"
+                className={inputClass}
+              />
+              <p className="text-[10px] text-text-dim/60 mt-1">
+                Only sync values that contain this text (leave empty for all)
+              </p>
+            </div>
+          )}
 
           {/* Error */}
           {error && <p className="text-error text-[12px]">{error}</p>}

@@ -5,7 +5,7 @@ const { fetchEventCounts, fetchEventProperties } = require('../services/posthog'
 
 // POST /api/custom-events/sections
 async function createSection(req, res) {
-  const { userId, event_name, title, group_by_property } = req.body || {};
+  const { userId, event_name, title, group_by_property, property_value_contains } = req.body || {};
 
   if (!userId || !event_name) {
     return res.status(400).json({ error: 'userId and event_name are required' });
@@ -26,10 +26,10 @@ async function createSection(req, res) {
     const displayOrder = orderResult.rows[0].next_order;
 
     const result = await pool.query(
-      `INSERT INTO custom_event_sections (user_id, event_name, title, group_by_property, display_order)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO custom_event_sections (user_id, event_name, title, group_by_property, property_value_contains, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [dataOwnerId, event_name.trim(), title?.trim() || null, group_by_property?.trim() || null, displayOrder]
+      [dataOwnerId, event_name.trim(), title?.trim() || null, group_by_property?.trim() || null, property_value_contains?.trim() || null, displayOrder]
     );
 
     const section = result.rows[0];
@@ -104,9 +104,10 @@ async function updateSection(req, res) {
     const old = existing.rows[0];
     const eventChanged = fields.event_name && fields.event_name !== old.event_name;
     const propertyChanged = 'group_by_property' in fields && fields.group_by_property !== old.group_by_property;
+    const filterChanged = 'property_value_contains' in fields && fields.property_value_contains !== old.property_value_contains;
 
     // Build dynamic update
-    const allowed = ['event_name', 'title', 'group_by_property', 'display_order'];
+    const allowed = ['event_name', 'title', 'group_by_property', 'property_value_contains', 'display_order'];
     const sets = [];
     const values = [];
     let paramIdx = 1;
@@ -131,8 +132,8 @@ async function updateSection(req, res) {
       values
     );
 
-    // Clear cache if event or property changed
-    if (eventChanged || propertyChanged) {
+    // Clear cache if event, property, or filter changed
+    if (eventChanged || propertyChanged || filterChanged) {
       await pool.query('DELETE FROM custom_event_cache WHERE section_id = $1', [sectionId]);
 
       // Trigger re-sync

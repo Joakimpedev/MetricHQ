@@ -545,22 +545,19 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
 
       console.log(`[sync] Section ${sectionId} grouped by "${section.group_by_property}": PostHog returned ${(groupedRows || []).length} rows (${startDate} to ${endDate})`);
 
-      // Limit to top 20 property values by total count
+      // Apply "contains" filter if set
+      const containsFilter = section.property_value_contains ? section.property_value_contains.toLowerCase() : null;
+
       const valueTotals = {};
       for (const row of (groupedRows || [])) {
         const propValue = Array.isArray(row) ? row[1] : row.prop_value;
         const count = Array.isArray(row) ? parseInt(row[2], 10) : parseInt(row.cnt || 0, 10);
         const key = String(propValue || 'unknown');
+        if (containsFilter && !key.toLowerCase().includes(containsFilter)) continue;
         valueTotals[key] = (valueTotals[key] || 0) + count;
       }
 
-      console.log(`[sync] Section ${sectionId} distinct values from PostHog:`, JSON.stringify(valueTotals));
-
-      const topValues = new Set(
-        Object.entries(valueTotals)
-          .sort((a, b) => b[1] - a[1])
-          .map(([k]) => k)
-      );
+      console.log(`[sync] Section ${sectionId} distinct values from PostHog${containsFilter ? ` (filter: "${containsFilter}")` : ''}:`, JSON.stringify(valueTotals));
 
       let insertedCount = 0;
       for (const row of (groupedRows || [])) {
@@ -569,7 +566,7 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
         const count = Array.isArray(row) ? parseInt(row[2], 10) : parseInt(row.cnt || 0, 10);
         const dateStr = String(date).slice(0, 10);
 
-        if (!topValues.has(propValue)) continue;
+        if (!(propValue in valueTotals)) continue;
 
         await client.query(
           `INSERT INTO custom_event_cache (section_id, date, property_value, count, cached_at)
