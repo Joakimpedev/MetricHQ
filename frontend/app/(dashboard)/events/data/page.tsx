@@ -73,7 +73,7 @@ export default function RawDataPage() {
             <Database size={22} className="text-text-dim" />
           </div>
           <p className="text-text-dim text-[13px]">No synced data yet</p>
-          <p className="text-text-dim/60 text-[11px]">Add event trackers and sync to see data here</p>
+          <p className="text-text-dim/60 text-[11px]">Add event trackers on the Events tab, then click Sync to fetch data</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -120,7 +120,9 @@ export default function RawDataPage() {
 
                           {isPropExpanded && (
                             <div className="pl-16 pr-5 py-1 bg-bg-body/50">
-                              {values.map((v, i) => (
+                              {values.length === 0 ? (
+                                <p className="text-[11px] text-text-dim py-2">No values cached yet. Sync on the Events page to fetch data.</p>
+                              ) : values.map((v, i) => (
                                 <div key={i} className="flex justify-between py-1.5 border-b border-border-dim/20 last:border-0">
                                   <span className="text-[12px] text-text-body">{v.value === '_total' ? '(total)' : v.value}</span>
                                   <span className="text-[12px] text-text-heading font-medium tabular-nums">{v.count.toLocaleString()}</span>

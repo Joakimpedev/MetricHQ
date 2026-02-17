@@ -216,7 +216,7 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
               />
             )}
             <p className="text-[10px] text-text-dim/60 mt-1">
-              Splits the bar chart by property values (e.g. country, source)
+              Breaks down counts by property values (e.g. country, source)
             </p>
           </div>
 

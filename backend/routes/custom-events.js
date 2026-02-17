@@ -316,6 +316,9 @@ async function getRawData(req, res) {
         [section.id]
       );
 
+      // Skip sections with no cached data
+      if (cache.rows.length === 0) continue;
+
       const eventKey = section.event_name;
       if (!events[eventKey]) {
         events[eventKey] = { event_name: eventKey, properties: {} };
