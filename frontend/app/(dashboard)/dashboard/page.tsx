@@ -568,18 +568,45 @@ export default function DashboardPage() {
     return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency, 'USD'), 0);
   }, [customCostsBreakdown, convertFromCurrency]);
 
+  // Apply revenue allocation: distribute unattributed revenue to the chosen platform(s)
+  const unattributedRevenue = data?.unattributedRevenue || 0;
+  const platforms = useMemo(() => {
+    if (revenueAllocation === 'none' || unattributedRevenue <= 0) return demoPatched;
+    const patched: Record<string, Platform> = {};
+    const adKeys = Object.keys(demoPatched).filter(k => k !== 'stripe');
+
+    if (revenueAllocation === 'even' && adKeys.length > 0) {
+      const share = unattributedRevenue / adKeys.length;
+      for (const [key, pData] of Object.entries(demoPatched)) {
+        if (key === 'stripe') { patched[key] = pData; continue; }
+        patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + share };
+      }
+    } else if (demoPatched[revenueAllocation]) {
+      for (const [key, pData] of Object.entries(demoPatched)) {
+        if (key === revenueAllocation) {
+          patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + unattributedRevenue };
+        } else {
+          patched[key] = pData;
+        }
+      }
+    } else {
+      return demoPatched;
+    }
+    return patched;
+  }, [demoPatched, revenueAllocation, unattributedRevenue]);
+
   // Build combined cost breakdown: ad spend platforms + custom costs
   const combinedBreakdown = useMemo(() => {
-    const adSpendItems = Object.entries(demoPatched)
-      .filter(([key]) => key !== 'stripe' && (demoPatched[key]?.totalSpend || 0) > 0)
+    const adSpendItems = Object.entries(platforms)
+      .filter(([key]) => key !== 'stripe' && (platforms[key]?.totalSpend || 0) > 0)
       .map(([key, pData]) => ({
-        name: PLATFORM_LABELS[key] || key,
+        name: customSourceLabels[key] || PLATFORM_LABELS[key] || key,
         category: 'Ad Spend' as string | null,
         amount: pData.totalSpend,
         currency: 'USD',
       }));
     return [...adSpendItems, ...customCostsBreakdown];
-  }, [demoPatched, customCostsBreakdown]);
+  }, [platforms, customCostsBreakdown, customSourceLabels]);
 
   // Show onboarding wizard if user has zero connections
   if (showOnboarding && !isDemo) {
@@ -682,35 +709,8 @@ export default function DashboardPage() {
   const compTimeSeries = rawComp && 'timeSeries' in rawComp ? rawComp.timeSeries : [];
   const countries = data?.countries || [];
   const timeSeries = data?.timeSeries || [];
-  const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
   const countryCampaigns = data?.countryCampaigns || {};
-
-  // Apply revenue allocation: distribute unattributed revenue to the chosen platform(s)
-  const platforms = useMemo(() => {
-    if (revenueAllocation === 'none' || unattributedRevenue <= 0) return demoPatched;
-    const patched: Record<string, Platform> = {};
-    const adKeys = Object.keys(demoPatched).filter(k => k !== 'stripe');
-
-    if (revenueAllocation === 'even' && adKeys.length > 0) {
-      const share = unattributedRevenue / adKeys.length;
-      for (const [key, pData] of Object.entries(demoPatched)) {
-        if (key === 'stripe') { patched[key] = pData; continue; }
-        patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + share };
-      }
-    } else if (demoPatched[revenueAllocation]) {
-      for (const [key, pData] of Object.entries(demoPatched)) {
-        if (key === revenueAllocation) {
-          patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + unattributedRevenue };
-        } else {
-          patched[key] = pData;
-        }
-      }
-    } else {
-      return demoPatched;
-    }
-    return patched;
-  }, [demoPatched, revenueAllocation, unattributedRevenue]);
 
   const retentionLimit = data?.dataRetentionLimit;
   // Show retention banner if the selected start date was before the retention limit
