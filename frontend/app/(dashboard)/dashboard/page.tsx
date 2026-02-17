@@ -581,7 +581,8 @@ export default function DashboardPage() {
         if (key === 'stripe') { patched[key] = pData; continue; }
         patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + share };
       }
-    } else if (demoPatched[revenueAllocation]) {
+    } else {
+      // Allocate all unattributed revenue to a specific platform
       for (const [key, pData] of Object.entries(demoPatched)) {
         if (key === revenueAllocation) {
           patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + unattributedRevenue };
@@ -589,8 +590,10 @@ export default function DashboardPage() {
           patched[key] = pData;
         }
       }
-    } else {
-      return demoPatched;
+      // If the target platform doesn't exist yet (e.g. custom source with no spend data), create it
+      if (!patched[revenueAllocation]) {
+        patched[revenueAllocation] = { totalSpend: 0, totalRevenue: unattributedRevenue, campaigns: [] };
+      }
     }
     return patched;
   }, [demoPatched, revenueAllocation, unattributedRevenue]);

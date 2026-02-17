@@ -287,8 +287,8 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   const [error, setError] = useState('');
   const categoryRef = useRef<HTMLDivElement>(null);
 
-  // End date is optional when: variable cost, or fixed + repeating
-  const endDateOptional = costType === 'variable' || (costType === 'fixed' && repeat);
+  // End date is always optional — for fixed non-repeating without end date, cost applies to start date only
+  const endDateOptional = true;
 
   // When switching cost type, reset fields that don't apply
   useEffect(() => {
@@ -342,12 +342,6 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
 
     if (costType === 'variable' && !percentage) {
       setError('Percentage is required for variable costs');
-      return;
-    }
-
-    // End date required for fixed non-repeating
-    if (!endDateOptional && !endDate) {
-      setError('End date is required for one-time fixed costs');
       return;
     }
 
@@ -473,11 +467,17 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
               <div className="flex-1">
                 <RequiredLabel>Amount</RequiredLabel>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  onChange={e => {
+                    // Allow digits, dots, and commas; treat comma as decimal separator
+                    const raw = e.target.value.replace(/,/g, '.');
+                    // Only allow valid decimal patterns (digits with at most one dot)
+                    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                      setAmount(raw);
+                    }
+                  }}
                   placeholder="0.00"
                   className={inputClass}
                 />

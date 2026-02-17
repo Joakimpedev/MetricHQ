@@ -284,7 +284,7 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
           roas: spend > 0 ? revenue / spend : 0,
         };
       })
-      .filter(p => p.spend > 0)
+      .filter(p => p.spend > 0 || p.revenue > 0)
       .sort((a, b) => b.spend - a.spend);
   }, [platforms]);
 

@@ -226,6 +226,13 @@ async function aggregateMetrics(userId, startDate, endDate) {
   // Spend from platforms that don't report country breakdowns (LinkedIn)
   const unattributedSpend = Math.round(Math.max(0, campaignTotalSpend - countrySpend) * 100) / 100;
 
+  // Revenue not attributed to any ad platform campaign
+  let attributedRevenue = 0;
+  for (const data of Object.values(platformData)) {
+    attributedRevenue += data.totalRevenue;
+  }
+  const unattributedRevenue = Math.round(Math.max(0, totalRevenue - attributedRevenue) * 100) / 100;
+
   const summary = {
     totalSpend,
     totalRevenue,
@@ -280,17 +287,20 @@ async function aggregateMetrics(userId, startDate, endDate) {
           ? new Date(cost.end_date instanceof Date ? cost.end_date.toISOString().split('T')[0] + 'T00:00:00' : cost.end_date + 'T00:00:00')
           : null;
 
-        // Overlap: max(rangeStart, costStart) to min(rangeEnd, costEnd || rangeEnd)
+        // For one-time fixed costs without end date, treat as single-day cost on start date
+        const effectiveCostEnd = costEnd || (cost.repeat ? null : costStart);
+
+        // Overlap: max(rangeStart, costStart) to min(rangeEnd, effectiveCostEnd || rangeEnd)
         const overlapStart = costStart > rangeStart ? costStart : rangeStart;
-        const overlapEnd = costEnd && costEnd < rangeEnd ? costEnd : rangeEnd;
+        const overlapEnd = effectiveCostEnd && effectiveCostEnd < rangeEnd ? effectiveCostEnd : rangeEnd;
         const daysActive = Math.max(0, Math.round((overlapEnd - overlapStart) / 86400000) + 1);
 
         if (daysActive <= 0) continue;
 
         if (!cost.repeat) {
           // One-time fixed: prorate across cost's total duration
-          const totalCostDays = costEnd
-            ? Math.round((costEnd - costStart) / 86400000) + 1
+          const totalCostDays = effectiveCostEnd
+            ? Math.round((effectiveCostEnd - costStart) / 86400000) + 1
             : 1;
           costAmount = (amt / totalCostDays) * daysActive;
         } else {
@@ -357,7 +367,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
     }
   }
 
-  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, customCostsTotal, customCostsBreakdown };
+  return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, unattributedRevenue, customCostsTotal, customCostsBreakdown };
 }
 
 module.exports = { aggregateMetrics };
