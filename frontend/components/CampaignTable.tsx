@@ -38,6 +38,7 @@ interface CampaignTableProps {
   showUtmBanner?: boolean;
   countryCampaigns?: Record<string, CountryCampaignEntry[]>;
   countries?: CountryInfo[];
+  label?: string;
 }
 
 type SortKey = 'spend' | 'revenue' | 'profit' | 'purchases' | 'cpa';
@@ -197,9 +198,9 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
   );
 }
 
-export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner, countryCampaigns = {}, countries = [] }: CampaignTableProps) {
+export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner, countryCampaigns = {}, countries = [], label: labelProp }: CampaignTableProps) {
   const { formatCurrency: fmtCur } = useCurrency();
-  const label = PLATFORM_LABELS[platform] || platform;
+  const label = labelProp || PLATFORM_LABELS[platform] || platform;
   const hasAttribution = campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');

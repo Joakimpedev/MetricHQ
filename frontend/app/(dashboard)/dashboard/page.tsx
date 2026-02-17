@@ -138,7 +138,7 @@ function formatCompareLabel(range: DateRange): string {
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
-const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', meta: 'Meta', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', meta: 'Meta', tiktok: 'TikTok', linkedin: 'LinkedIn', custom_99: 'Reddit Ads' };
 
 /** Prorate a monthly amount across a date range using actual days per month (matches backend) */
 function prorateMonthly(monthlyAmount: number, rangeStart: Date, rangeEnd: Date): number {
@@ -226,6 +226,13 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     { campaign: 'SaaS Founders - EU', sf: 0.04, rf: 0.03, pf: 0.03, imp: 3800, clk: 62 },
   ];
 
+  // Custom source: Reddit Ads (demo)
+  const redditAtoms = [
+    { country: 'US', campaign: 'r/SaaS Promo', sf: 0.03, rf: 0.02, pf: 0.02, imp: 12000, clk: 280 },
+    { country: 'GB', campaign: 'r/SaaS Promo', sf: 0.01, rf: 0.01, pf: 0.01, imp: 4200, clk: 95 },
+    { country: 'US', campaign: 'r/startups Sidebar', sf: 0.02, rf: 0.01, pf: 0.01, imp: 8500, clk: 190 },
+  ];
+
   // ── Derive countryCampaigns ──
   const countryCampaigns: Record<string, CountryCampaign[]> = {};
   for (const a of atoms) {
@@ -240,10 +247,23 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       purchases: Math.round(totalPurchases * a.pf),
     });
   }
+  // Add Reddit Ads custom source to countryCampaigns
+  for (const a of redditAtoms) {
+    if (!countryCampaigns[a.country]) countryCampaigns[a.country] = [];
+    countryCampaigns[a.country].push({
+      platform: 'custom_99',
+      campaign: a.campaign,
+      spend: Math.round(totalSpend * a.sf),
+      revenue: Math.round(totalRevenue * a.rf),
+      impressions: a.imp,
+      clicks: a.clk,
+      purchases: Math.round(totalPurchases * a.pf),
+    });
+  }
 
   // ── Derive countries by aggregating atoms ──
   const countryAgg: Record<string, { spend: number; revenue: number; purchases: number }> = {};
-  for (const a of atoms) {
+  for (const a of [...atoms, ...redditAtoms.map(r => ({ ...r, platform: 'custom_99' }))]) {
     if (!countryAgg[a.country]) countryAgg[a.country] = { spend: 0, revenue: 0, purchases: 0 };
     countryAgg[a.country].spend += Math.round(totalSpend * a.sf);
     countryAgg[a.country].revenue += Math.round(totalRevenue * a.rf);
@@ -286,9 +306,22 @@ function generateDemoData(dateRange: DateRange): MetricsData {
       attributed: true,
     };
   }
+  // Add Reddit Ads custom source to campAgg
+  campAgg['custom_99'] = {};
+  for (const ra of redditAtoms) {
+    if (!campAgg['custom_99'][ra.campaign]) {
+      campAgg['custom_99'][ra.campaign] = { spend: 0, revenue: 0, purchases: 0, impressions: 0, clicks: 0, attributed: true };
+    }
+    const c = campAgg['custom_99'][ra.campaign];
+    c.spend += Math.round(totalSpend * ra.sf);
+    c.revenue += Math.round(totalRevenue * ra.rf);
+    c.purchases += Math.round(totalPurchases * ra.pf);
+    c.impressions += ra.imp;
+    c.clicks += ra.clk;
+  }
 
   const platforms: Record<string, Platform> = {};
-  const usesCampaignName = new Set(['meta', 'tiktok']);
+  const usesCampaignName = new Set(['meta', 'tiktok', 'custom_99']);
   for (const [plat, camps] of Object.entries(campAgg)) {
     const campaignList: Campaign[] = Object.entries(camps).map(([name, d]) => ({
       ...(usesCampaignName.has(plat) ? { campaignName: name } : { campaignId: name }),
@@ -369,6 +402,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange>(isDemo ? last30DaysRange : (isEmbed ? last7DaysRange : todayRange));
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [customSourceLabels, setCustomSourceLabels] = useState<Record<string, string>>(isDemo ? { custom_99: 'Reddit Ads' } : {});
 
   // Demo-only: secret 5-click-in-5s to toggle UTM off per campaign
   const [demoUtmOff, setDemoUtmOff] = useState<Set<string>>(new Set());
@@ -451,6 +485,24 @@ export default function DashboardPage() {
       } catch {
         setShowOnboarding(false);
       }
+    })();
+  }, [user?.id, isDemo]);
+
+  // Fetch custom source names for label mapping
+  useEffect(() => {
+    if (isDemo || !user?.id) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const labels: Record<string, string> = {};
+          for (const src of json.sources || []) {
+            labels[`custom_${src.id}`] = src.name;
+          }
+          setCustomSourceLabels(labels);
+        }
+      } catch { /* ignore */ }
     })();
   }, [user?.id, isDemo]);
 
@@ -668,6 +720,7 @@ export default function DashboardPage() {
                 showUtmBanner={summary.totalRevenue > 0 && pData.totalSpend > 0 && !(pData.totalRevenue || 0)}
                 countryCampaigns={countryCampaigns}
                 countries={countries}
+                label={customSourceLabels[platform]}
               />
             ))}
           </div>

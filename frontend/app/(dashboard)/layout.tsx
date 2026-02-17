@@ -18,6 +18,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/events/data': 'Event Tracker',
   '/integrations': 'Integrations',
   '/custom-costs': 'Custom Costs',
+  '/custom-sources': 'Custom Sources',
   '/pricing': 'Pricing',
   '/settings': 'Settings',
 };

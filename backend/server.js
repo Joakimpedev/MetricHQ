@@ -474,6 +474,17 @@ app.post('/api/custom-costs', customCosts.createCustomCost);
 app.put('/api/custom-costs/:id', customCosts.updateCustomCost);
 app.delete('/api/custom-costs/:id', customCosts.deleteCustomCost);
 
+// Custom sources routes
+const customSources = require('./routes/custom-sources');
+app.get('/api/custom-sources', customSources.listSources);
+app.post('/api/custom-sources', customSources.createSource);
+app.put('/api/custom-sources/:id', customSources.updateSource);
+app.delete('/api/custom-sources/:id', customSources.deleteSource);
+app.get('/api/custom-sources/:id/entries', customSources.listEntries);
+app.post('/api/custom-sources/:id/entries', customSources.createEntry);
+app.put('/api/custom-sources/:id/entries/:entryId', customSources.updateEntry);
+app.delete('/api/custom-sources/:id/entries/:entryId', customSources.deleteEntry);
+
 // Custom events routes
 const customEvents = require('./routes/custom-events');
 app.get('/api/custom-events/properties', customEvents.getEventProperties);
