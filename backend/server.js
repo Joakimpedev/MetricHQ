@@ -477,12 +477,22 @@ app.delete('/api/custom-costs/:id', customCosts.deleteCustomCost);
 // Custom events routes
 const customEvents = require('./routes/custom-events');
 app.get('/api/custom-events/properties', customEvents.getEventProperties);
+app.get('/api/custom-events/raw-data', customEvents.getRawData);
+app.get('/api/custom-events/values', customEvents.getPropertyValues);
 app.get('/api/custom-events/sections', customEvents.listSections);
 app.post('/api/custom-events/sections', customEvents.createSection);
 app.put('/api/custom-events/sections/:id', customEvents.updateSection);
 app.delete('/api/custom-events/sections/:id', customEvents.deleteSection);
 app.get('/api/custom-events/sections/:id/data', customEvents.getSectionData);
 app.post('/api/custom-events/sync', customEvents.syncAllSections);
+
+// Event display sections routes
+const eventDisplay = require('./routes/event-display');
+app.get('/api/event-display/sections', eventDisplay.listSections);
+app.post('/api/event-display/sections', eventDisplay.createSection);
+app.put('/api/event-display/sections/:id', eventDisplay.updateSection);
+app.delete('/api/event-display/sections/:id', eventDisplay.deleteSection);
+app.get('/api/event-display/sections/:id/data', eventDisplay.getSectionData);
 
 // API key management routes (Clerk-authed)
 const apiKeys = require('./routes/api-keys');

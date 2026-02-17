@@ -291,4 +291,92 @@ async function syncAllSections(req, res) {
   }
 }
 
-module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties, syncAllSections };
+// GET /api/custom-events/raw-data?userId=X
+async function getRawData(req, res) {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+
+    // Get all sections for this user with their cache data
+    const sections = await pool.query(
+      'SELECT * FROM custom_event_sections WHERE user_id = $1 ORDER BY event_name ASC',
+      [dataOwnerId]
+    );
+
+    const events = {};
+    for (const section of sections.rows) {
+      const cache = await pool.query(
+        `SELECT property_value, SUM(count) AS total
+         FROM custom_event_cache WHERE section_id = $1
+         GROUP BY property_value ORDER BY total DESC`,
+        [section.id]
+      );
+
+      const eventKey = section.event_name;
+      if (!events[eventKey]) {
+        events[eventKey] = { event_name: eventKey, properties: {} };
+      }
+
+      const propKey = section.group_by_property || '_none';
+      if (!events[eventKey].properties[propKey]) {
+        events[eventKey].properties[propKey] = [];
+      }
+
+      for (const row of cache.rows) {
+        events[eventKey].properties[propKey].push({
+          value: row.property_value,
+          count: parseInt(row.total),
+        });
+      }
+    }
+
+    res.json({ events: Object.values(events) });
+  } catch (error) {
+    console.error('Get raw data error:', error);
+    res.status(500).json({ error: 'Failed to get raw data' });
+  }
+}
+
+// GET /api/custom-events/values?userId=X&eventName=Y&propertyName=Z
+async function getPropertyValues(req, res) {
+  const { userId, eventName, propertyName } = req.query;
+  if (!userId || !eventName || !propertyName) {
+    return res.status(400).json({ error: 'userId, eventName, and propertyName are required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+
+    // Find the matching section
+    const section = await pool.query(
+      `SELECT id FROM custom_event_sections
+       WHERE user_id = $1 AND event_name = $2 AND group_by_property = $3 LIMIT 1`,
+      [dataOwnerId, eventName, propertyName]
+    );
+
+    if (section.rows.length === 0) {
+      return res.json({ values: [] });
+    }
+
+    // Get distinct property values from cache (excluding _total)
+    const result = await pool.query(
+      `SELECT DISTINCT property_value FROM custom_event_cache
+       WHERE section_id = $1 AND property_value != '_total'
+       ORDER BY property_value ASC`,
+      [section.rows[0].id]
+    );
+
+    res.json({ values: result.rows.map(r => r.property_value) });
+  } catch (error) {
+    console.error('Get property values error:', error);
+    res.status(500).json({ error: 'Failed to get property values' });
+  }
+}
+
+module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties, syncAllSections, getRawData, getPropertyValues };

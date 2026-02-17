@@ -3,12 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { Plus, BarChart3, Plug, RefreshCw } from 'lucide-react';
+import { Plus, Plug, RefreshCw, BarChart3 } from 'lucide-react';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import AddEventSectionModal from '../../../components/AddEventSectionModal';
-
-const EventSectionCard = dynamic(() => import('../../../components/EventSectionCard'), { ssr: false });
+import AddDisplaySectionModal from '../../../components/AddDisplaySectionModal';
+import TableSection from '../../../components/TableSection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -18,6 +17,13 @@ interface EventSection {
   title: string | null;
   group_by_property: string | null;
   display_order: number;
+}
+
+interface DisplaySection {
+  id: number;
+  title: string;
+  section_type: string;
+  items: { event_name: string; property_name: string | null; property_value: string | null }[];
 }
 
 function defaultDateRange(): DateRange {
@@ -31,11 +37,14 @@ function defaultDateRange(): DateRange {
 export default function EventsPage() {
   const { user } = useUser();
   const [sections, setSections] = useState<EventSection[]>([]);
+  const [displaySections, setDisplaySections] = useState<DisplaySection[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPostHog, setHasPostHog] = useState<boolean | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingSection, setEditingSection] = useState<EventSection | null>(null);
+  const [trackerModalOpen, setTrackerModalOpen] = useState(false);
+  const [editingTracker, setEditingTracker] = useState<EventSection | null>(null);
+  const [displayModalOpen, setDisplayModalOpen] = useState(false);
+  const [editingDisplay, setEditingDisplay] = useState<DisplaySection | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -49,6 +58,7 @@ export default function EventsPage() {
         body: JSON.stringify({ userId: user.id }),
       });
       await fetchSections();
+      await fetchDisplaySections();
       setRefreshKey(k => k + 1);
     } catch {
       // silently ignore
@@ -59,18 +69,25 @@ export default function EventsPage() {
 
   const fetchSections = useCallback(async () => {
     if (!user?.id) return;
-    setLoading(true);
     try {
       const params = new URLSearchParams({ userId: user.id });
       const res = await fetch(`${API_URL}/api/custom-events/sections?${params}`);
       const json = await res.json();
-      if (res.ok) {
-        setSections(json.sections || []);
-      }
+      if (res.ok) setSections(json.sections || []);
     } catch {
       // silently ignore
-    } finally {
-      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const fetchDisplaySections = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const params = new URLSearchParams({ userId: user.id });
+      const res = await fetch(`${API_URL}/api/event-display/sections?${params}`);
+      const json = await res.json();
+      if (res.ok) setDisplaySections(json.sections || []);
+    } catch {
+      // silently ignore
     }
   }, [user?.id]);
 
@@ -86,9 +103,16 @@ export default function EventsPage() {
       .catch(() => setHasPostHog(false));
   }, [user?.id]);
 
-  useEffect(() => { fetchSections(); }, [fetchSections]);
+  useEffect(() => {
+    const loadAll = async () => {
+      setLoading(true);
+      await Promise.all([fetchSections(), fetchDisplaySections()]);
+      setLoading(false);
+    };
+    loadAll();
+  }, [fetchSections, fetchDisplaySections]);
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteTracker = async (id: number) => {
     if (!user?.id) return;
     try {
       await fetch(`${API_URL}/api/custom-events/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
@@ -98,9 +122,14 @@ export default function EventsPage() {
     }
   };
 
-  const handleEdit = (section: EventSection) => {
-    setEditingSection(section);
-    setModalOpen(true);
+  const handleDeleteDisplay = async (id: number) => {
+    if (!user?.id) return;
+    try {
+      await fetch(`${API_URL}/api/event-display/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      fetchDisplaySections();
+    } catch {
+      // silently ignore
+    }
   };
 
   // PostHog not connected state
@@ -123,83 +152,127 @@ export default function EventsPage() {
     );
   }
 
+  const tabClass = (active: boolean) =>
+    `px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
+      active
+        ? 'border-accent text-accent'
+        : 'border-transparent text-text-dim hover:text-text-body'
+    }`;
+
   return (
     <div className="max-w-[900px] mx-auto">
-      {/* Date range selector + sync */}
-      <div className="flex items-center justify-end gap-2 mb-5">
-        <button
-          onClick={handleSync}
-          disabled={syncing || sections.length === 0}
-          className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Syncing...' : 'Sync'}
-        </button>
-        <DateRangeSelector value={dateRange} onChange={setDateRange} />
+      {/* Tab navigation */}
+      <div className="flex items-center border-b border-border-dim mb-5">
+        <Link href="/events" className={tabClass(true)}>Events</Link>
+        <Link href="/events/data" className={tabClass(false)}>Raw Data</Link>
       </div>
 
-      {/* Sections */}
+      {/* Top bar: Add Event Tracker + Sync + DateRange */}
+      <div className="flex items-center justify-between gap-2 mb-5">
+        <button
+          onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
+          className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors"
+        >
+          <Plus size={13} />
+          Add Event Tracker
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing || sections.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing...' : 'Sync'}
+          </button>
+          <DateRangeSelector value={dateRange} onChange={setDateRange} />
+        </div>
+      </div>
+
+      {/* Display sections */}
       {loading ? (
         <div className="space-y-6">
           {[...Array(2)].map((_, i) => (
             <div key={i} className="bg-bg-surface rounded-xl border border-border-dim p-5">
               <div className="h-4 bg-bg-elevated animate-pulse rounded-lg w-48 mb-4" />
-              <div className="h-[280px] flex items-end gap-1 px-8">
-                {Array.from({ length: 14 }).map((_, j) => (
-                  <div
-                    key={j}
-                    className="flex-1 bg-bg-elevated animate-pulse rounded-t"
-                    style={{ height: `${20 + Math.random() * 60}%` }}
-                  />
+              <div className="space-y-2">
+                {[...Array(3)].map((_, j) => (
+                  <div key={j} className="flex justify-between py-2">
+                    <div className="h-3.5 bg-bg-elevated animate-pulse rounded w-32" />
+                    <div className="h-3.5 bg-bg-elevated animate-pulse rounded w-12" />
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
-      ) : sections.length === 0 ? (
+      ) : displaySections.length === 0 && sections.length === 0 ? (
         <div className="bg-bg-surface rounded-xl border border-border-dim p-12 flex flex-col items-center justify-center gap-3">
           <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center">
             <BarChart3 size={22} className="text-text-dim" />
           </div>
           <p className="text-text-dim text-[13px]">No event trackers yet</p>
+          <p className="text-text-dim/60 text-[11px] max-w-xs text-center">
+            Add an event tracker to start fetching data from PostHog, then create display sections to visualize it.
+          </p>
           <button
-            onClick={() => { setEditingSection(null); setModalOpen(true); }}
+            onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
             className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-accent-text px-4 py-2 rounded-lg text-[13px] font-medium transition-colors"
           >
             <Plus size={15} />
-            Add event tracker
+            Add Event Tracker
           </button>
         </div>
       ) : (
         <div className="space-y-6">
-          {sections.map(section => (
-            <EventSectionCard
-              key={`${section.id}-${refreshKey}`}
-              section={section}
+          {/* Existing tracker info (compact) */}
+          {sections.length > 0 && displaySections.length === 0 && (
+            <div className="bg-bg-surface rounded-xl border border-border-dim p-6 flex flex-col items-center justify-center gap-2">
+              <p className="text-text-dim text-[13px]">
+                {sections.length} event tracker{sections.length !== 1 ? 's' : ''} active. Create a section to visualize the data.
+              </p>
+            </div>
+          )}
+
+          {displaySections.map(ds => (
+            <TableSection
+              key={`${ds.id}-${refreshKey}`}
+              section={ds}
               startDate={dateRange.startDate}
               endDate={dateRange.endDate}
-              onEdit={() => handleEdit(section)}
-              onDelete={() => handleDelete(section.id)}
+              onEdit={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
+              onDelete={() => handleDeleteDisplay(ds.id)}
             />
           ))}
 
-          {/* Add button at bottom */}
-          <button
-            onClick={() => { setEditingSection(null); setModalOpen(true); }}
-            className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border-dim rounded-xl py-4 text-[13px] font-medium text-text-dim hover:border-accent/50 hover:text-accent transition-colors"
-          >
-            <Plus size={15} />
-            Add event tracker
-          </button>
+          {/* Add Section button */}
+          {sections.length > 0 && (
+            <button
+              onClick={() => { setEditingDisplay(null); setDisplayModalOpen(true); }}
+              className="w-full flex items-center justify-center gap-1.5 border border-dashed border-border-dim rounded-xl py-4 text-[13px] font-medium text-text-dim hover:border-accent/50 hover:text-accent transition-colors"
+            >
+              <Plus size={15} />
+              Add Section
+            </button>
+          )}
         </div>
       )}
 
-      {/* Modal */}
-      {modalOpen && (
+      {/* Event Tracker Modal */}
+      {trackerModalOpen && (
         <AddEventSectionModal
-          section={editingSection}
-          onClose={() => { setModalOpen(false); setEditingSection(null); }}
-          onSaved={() => { setModalOpen(false); setEditingSection(null); fetchSections(); }}
+          section={editingTracker}
+          onClose={() => { setTrackerModalOpen(false); setEditingTracker(null); }}
+          onSaved={() => { setTrackerModalOpen(false); setEditingTracker(null); fetchSections(); }}
+        />
+      )}
+
+      {/* Display Section Modal */}
+      {displayModalOpen && (
+        <AddDisplaySectionModal
+          section={editingDisplay}
+          onClose={() => { setDisplayModalOpen(false); setEditingDisplay(null); }}
+          onSaved={() => { setDisplayModalOpen(false); setEditingDisplay(null); fetchDisplaySections(); }}
         />
       )}
     </div>
