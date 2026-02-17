@@ -84,8 +84,8 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
     count: item.count,
   }));
 
-  // Stay horizontal — only use vertical bars for extreme cases (500+ items)
-  const useVerticalBars = chartData.length >= 500;
+  // Default: upright bars side by side. Only use sideways horizontal bars for 500+ items
+  const useSidewaysBars = chartData.length >= 500;
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim">
@@ -143,30 +143,8 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
           </div>
         ) : data.length === 0 ? (
           <p className="text-text-dim text-[12px] py-4 text-center">No data yet</p>
-        ) : useVerticalBars ? (
-          /* Vertical bars (horizontal layout) for 40+ items */
-          <div style={{ width: '100%', height: 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 4, right: 12, bottom: 40, left: 4 }}>
-                <XAxis
-                  type="category"
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: 'var(--text-dim)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  angle={-45}
-                  textAnchor="end"
-                  interval={0}
-                  height={60}
-                />
-                <YAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
-                <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          /* Horizontal bars (default) */
+        ) : useSidewaysBars ? (
+          /* Sideways horizontal bars — only for extreme item counts */
           <div style={{ width: '100%', height: Math.max(200, chartData.length * 40 + 40) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
@@ -181,6 +159,28 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
                 <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          /* Upright bars side by side (default) */
+          <div style={{ width: '100%', height: 320 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 4, right: 12, bottom: chartData.length > 8 ? 60 : 20, left: 4 }}>
+                <XAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fontSize: chartData.length > 15 ? 9 : 11, fill: 'var(--text-dim)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  angle={chartData.length > 8 ? -45 : 0}
+                  textAnchor={chartData.length > 8 ? 'end' : 'middle'}
+                  interval={0}
+                  height={chartData.length > 8 ? 60 : 20}
+                />
+                <YAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
+                <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
