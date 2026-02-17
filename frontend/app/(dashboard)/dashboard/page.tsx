@@ -399,7 +399,22 @@ export default function DashboardPage() {
   const [data, setData] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(isDemo ? last30DaysRange : (isEmbed ? last7DaysRange : todayRange));
+  const [dateRange, setDateRangeRaw] = useState<DateRange>(() => {
+    if (isDemo) return last30DaysRange;
+    if (isEmbed) return last7DaysRange;
+    try {
+      const saved = sessionStorage.getItem('metrichq-date-range');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startDate && parsed.endDate) return parsed;
+      }
+    } catch { /* ignore */ }
+    return todayRange;
+  });
+  const setDateRange = (range: DateRange) => {
+    setDateRangeRaw(range);
+    try { sessionStorage.setItem('metrichq-date-range', JSON.stringify(range)); } catch { /* ignore */ }
+  };
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [customSourceLabels, setCustomSourceLabels] = useState<Record<string, string>>(isDemo ? { custom_99: 'Reddit Ads' } : {});
