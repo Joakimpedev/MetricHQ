@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, Loader2, Minus, Plus, Table, BarChart3, LineChart, PieChart, Activity, Trash2 } from 'lucide-react';
+import { X, Loader2, Minus, Plus, Table, BarChart3, LineChart, PieChart, Activity, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -103,6 +103,9 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   // Cache of property values per event+property combo
   const [valuesCache, setValuesCache] = useState<Record<string, string[]>>({});
   const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({});
+  // Ref mirrors valuesCache for synchronous checks (avoids stale closures)
+  const valuesCacheRef = React.useRef<Record<string, string[]>>({});
+  const fetchingRef = React.useRef<Set<string>>(new Set());
 
   // Fetch event tracker sections
   useEffect(() => {
@@ -127,22 +130,12 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     )];
   };
 
-  // Track in-flight fetches to avoid duplicates (ref to avoid stale closures)
-  const fetchingRef = React.useRef<Set<string>>(new Set());
-
-  // Fetch property values - no stale closure deps
+  // Fetch property values
   const fetchValues = useCallback(async (eventName: string, propertyName: string) => {
     const cacheKey = `${eventName}::${propertyName}`;
-    if (fetchingRef.current.has(cacheKey)) return;
     if (!user?.id || !eventName || !propertyName) return;
-
-    // Check cache via functional update to avoid stale closure
-    let alreadyCached = false;
-    setValuesCache(prev => {
-      if (prev[cacheKey] && prev[cacheKey].length > 0) alreadyCached = true;
-      return prev;
-    });
-    if (alreadyCached) return;
+    if (fetchingRef.current.has(cacheKey)) return;
+    if (valuesCacheRef.current[cacheKey]?.length > 0) return;
 
     fetchingRef.current.add(cacheKey);
     setLoadingValues(prev => ({ ...prev, [cacheKey]: true }));
@@ -150,7 +143,9 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
       const params = new URLSearchParams({ userId: user.id, eventName, propertyName });
       const res = await fetch(`${API_URL}/api/custom-events/values?${params}`);
       const json = await res.json();
-      setValuesCache(prev => ({ ...prev, [cacheKey]: json.values || [] }));
+      const values = json.values || [];
+      valuesCacheRef.current[cacheKey] = values;
+      setValuesCache(prev => ({ ...prev, [cacheKey]: values }));
     } catch {
       // don't cache failures so user can retry
     } finally {
@@ -159,18 +154,26 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     }
   }, [user?.id]);
 
-  // Pre-fetch values for existing items when editing
+  // Eagerly fetch values for all current markers/items that have event+property selected
   useEffect(() => {
-    if (!user?.id || !isEdit || !section?.items?.length) return;
-    for (const item of section.items) {
-      if (item.event_name && item.property_name) {
-        fetchValues(item.event_name, item.property_name);
+    if (!user?.id) return;
+    if (sectionType === 'kpi_bar') {
+      for (const marker of kpiMarkers) {
+        if (marker.event_name && marker.property_name) {
+          fetchValues(marker.event_name, marker.property_name);
+        }
+        if (marker.rate_event_name && marker.rate_property_name) {
+          fetchValues(marker.rate_event_name, marker.rate_property_name);
+        }
       }
-      if (item.rate_event_name && item.rate_property_name) {
-        fetchValues(item.rate_event_name, item.rate_property_name);
+    } else {
+      for (const item of items) {
+        if (item.event_name && item.property_name) {
+          fetchValues(item.event_name, item.property_name);
+        }
       }
     }
-  }, [user?.id, isEdit, fetchValues]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, sectionType, kpiMarkers, items, fetchValues]);
 
   const addRow = () => {
     const lastItem = items[items.length - 1];
@@ -182,7 +185,6 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   };
 
   const updateItem = (index: number, field: keyof DisplayItem, value: string) => {
-    let eventNameForFetch = '';
     setItems(prev => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
@@ -192,16 +194,9 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
       }
       if (field === 'property_name') {
         next[index].property_value = '';
-        eventNameForFetch = next[index].event_name;
       }
       return next;
     });
-    if (field === 'property_name' && value) {
-      // Fetch outside state updater to avoid stale closure
-      setTimeout(() => {
-        if (eventNameForFetch) fetchValues(eventNameForFetch, value);
-      }, 0);
-    }
   };
 
   const removeItem = (index: number) => {
@@ -216,8 +211,6 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   };
 
   const updateKpiMarker = (index: number, updates: Partial<KPIMarker>) => {
-    let fetchEv = '';
-    let fetchProp = '';
     setKpiMarkers(prev => {
       const next = [...prev];
       next[index] = { ...next[index], ...updates };
@@ -225,30 +218,33 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
         next[index].property_name = '';
         next[index].property_value = '';
       }
-      if ('property_name' in updates && updates.property_name && next[index].event_name) {
+      if ('property_name' in updates) {
         next[index].property_value = '';
-        fetchEv = next[index].event_name;
-        fetchProp = updates.property_name;
       }
       if ('rate_event_name' in updates) {
         next[index].rate_property_name = '';
         next[index].rate_property_value = '';
       }
-      if ('rate_property_name' in updates && updates.rate_property_name && next[index].rate_event_name) {
+      if ('rate_property_name' in updates) {
         next[index].rate_property_value = '';
-        fetchEv = next[index].rate_event_name;
-        fetchProp = updates.rate_property_name;
       }
       return next;
     });
-    if (fetchEv && fetchProp) {
-      setTimeout(() => fetchValues(fetchEv, fetchProp), 0);
-    }
   };
 
   const removeKpiMarker = (index: number) => {
     if (kpiMarkers.length <= 1) return;
     setKpiMarkers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const moveKpiMarker = (index: number, direction: 'up' | 'down') => {
+    setKpiMarkers(prev => {
+      const next = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= next.length) return prev;
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -462,14 +458,34 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                       <div key={index} className="border border-border-dim rounded-lg p-3 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[12px] font-medium text-text-dim">Marker {index + 1}</span>
-                          {kpiMarkers.length > 1 && (
-                            <button
-                              onClick={() => removeKpiMarker(index)}
-                              className="p-1 rounded hover:bg-bg-hover text-text-dim hover:text-error transition-colors"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
+                          <div className="flex items-center gap-0.5">
+                            {kpiMarkers.length > 1 && (
+                              <>
+                                <button
+                                  onClick={() => moveKpiMarker(index, 'up')}
+                                  disabled={index === 0}
+                                  className="p-1 rounded hover:bg-bg-hover text-text-dim hover:text-text-body transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move up"
+                                >
+                                  <ChevronUp size={12} />
+                                </button>
+                                <button
+                                  onClick={() => moveKpiMarker(index, 'down')}
+                                  disabled={index === kpiMarkers.length - 1}
+                                  className="p-1 rounded hover:bg-bg-hover text-text-dim hover:text-text-body transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Move down"
+                                >
+                                  <ChevronDown size={12} />
+                                </button>
+                                <button
+                                  onClick={() => removeKpiMarker(index)}
+                                  className="p-1 rounded hover:bg-bg-hover text-text-dim hover:text-error transition-colors"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
 
                         {/* Title input */}

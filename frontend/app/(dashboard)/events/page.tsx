@@ -26,7 +26,16 @@ interface DisplaySection {
   id: number;
   title: string;
   section_type: string;
-  items: { event_name: string; property_name: string | null; property_value: string | null }[];
+  items: {
+    event_name: string;
+    property_name: string | null;
+    property_value: string | null;
+    item_type?: string;
+    label?: string | null;
+    rate_event_name?: string | null;
+    rate_property_name?: string | null;
+    rate_property_value?: string | null;
+  }[];
 }
 
 function defaultDateRange(): DateRange {
@@ -346,7 +355,7 @@ export default function EventsPage() {
         <AddDisplaySectionModal
           section={editingDisplay}
           onClose={() => { setDisplayModalOpen(false); setEditingDisplay(null); }}
-          onSaved={() => { setDisplayModalOpen(false); setEditingDisplay(null); fetchDisplaySections(); }}
+          onSaved={() => { setDisplayModalOpen(false); setEditingDisplay(null); fetchDisplaySections(); setRefreshKey(k => k + 1); }}
         />
       )}
     </div>
