@@ -59,6 +59,7 @@ interface TimeSeriesPoint {
   revenue: number;
   profit: number;
   purchases: number;
+  customCosts?: { amount: number; currency: string }[];
 }
 
 interface CountryCampaign {

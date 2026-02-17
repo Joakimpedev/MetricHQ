@@ -244,6 +244,7 @@ async function aggregateMetrics(userId, startDate, endDate) {
   // ---- Custom Costs ----
   let customCostsTotal = 0;
   const customCostsBreakdown = [];
+  const customCostsPerDay = {}; // dateStr -> [ { amount, currency } ]
   try {
     const costsResult = await pool.query(
       `SELECT * FROM custom_costs
@@ -272,13 +273,57 @@ async function aggregateMetrics(userId, startDate, endDate) {
       linkedin_spend: platformSpendLookup.linkedin_spend || 0,
     };
 
+    // Helper: compute the daily rate for a fixed cost on a specific date
+    function getFixedDailyRate(cost, dateObj) {
+      const amt = parseFloat(cost.amount) || 0;
+      const costStart = new Date(cost.start_date instanceof Date ? cost.start_date.toISOString().split('T')[0] + 'T00:00:00' : cost.start_date + 'T00:00:00');
+      const costEnd = cost.end_date
+        ? new Date(cost.end_date instanceof Date ? cost.end_date.toISOString().split('T')[0] + 'T00:00:00' : cost.end_date + 'T00:00:00')
+        : null;
+      const effectiveCostEnd = costEnd || (cost.repeat ? null : costStart);
+
+      if (dateObj < costStart) return 0;
+      if (effectiveCostEnd && dateObj > effectiveCostEnd) return 0;
+
+      if (!cost.repeat) {
+        const totalCostDays = effectiveCostEnd
+          ? Math.round((effectiveCostEnd - costStart) / 86400000) + 1
+          : 1;
+        return amt / totalCostDays;
+      }
+      const interval = cost.repeat_interval;
+      if (interval === 'daily') return amt;
+      if (interval === 'weekly') return amt / 7;
+      if (interval === 'monthly') {
+        const daysInMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0).getDate();
+        return amt / daysInMonth;
+      }
+      return 0;
+    }
+
+    // Helper: add a per-day entry
+    function addDailyCost(dateStr, amount, currency) {
+      if (!customCostsPerDay[dateStr]) customCostsPerDay[dateStr] = [];
+      customCostsPerDay[dateStr].push({ amount: Math.round(amount * 100) / 100, currency });
+    }
+
     for (const cost of costsResult.rows) {
       let costAmount = 0;
+      const costCurrency = cost.currency || 'USD';
 
       if (cost.cost_type === 'variable') {
         const pct = parseFloat(cost.percentage) || 0;
         const baseVal = baseMetrics[cost.base_metric] || 0;
         costAmount = (pct / 100) * baseVal;
+        // Variable costs: spread evenly across range for per-day chart
+        if (costAmount > 0 && rangeDays > 0) {
+          const dailyVar = costAmount / rangeDays;
+          const dc = new Date(rangeStart);
+          while (dc <= rangeEnd) {
+            addDailyCost(dc.getFullYear() + '-' + String(dc.getMonth() + 1).padStart(2, '0') + '-' + String(dc.getDate()).padStart(2, '0'), dailyVar, costCurrency);
+            dc.setDate(dc.getDate() + 1);
+          }
+        }
       } else {
         // Fixed cost
         const amt = parseFloat(cost.amount) || 0;
@@ -330,6 +375,16 @@ async function aggregateMetrics(userId, startDate, endDate) {
             }
           }
         }
+
+        // Build per-day entries for this fixed cost
+        const dc = new Date(overlapStart);
+        while (dc <= overlapEnd) {
+          const dailyRate = getFixedDailyRate(cost, dc);
+          if (dailyRate > 0) {
+            addDailyCost(dc.getFullYear() + '-' + String(dc.getMonth() + 1).padStart(2, '0') + '-' + String(dc.getDate()).padStart(2, '0'), dailyRate, costCurrency);
+          }
+          dc.setDate(dc.getDate() + 1);
+        }
       }
 
       costAmount = Math.round(costAmount * 100) / 100;
@@ -365,6 +420,11 @@ async function aggregateMetrics(userId, startDate, endDate) {
     if (err.code !== '42P01') {
       console.error('[aggregator] Custom costs error:', err.message);
     }
+  }
+
+  // Attach per-day custom costs to time series entries
+  for (const point of timeSeries) {
+    point.customCosts = customCostsPerDay[point.date] || [];
   }
 
   return { summary, platforms, countries, countryCampaigns, timeSeries, dataRetentionLimit, unattributedSpend, unattributedRevenue, customCostsTotal, customCostsBreakdown };

@@ -79,6 +79,7 @@ interface DataPoint {
   revenue: number;
   profit: number;
   purchases: number;
+  customCosts?: { amount: number; currency: string }[];
 }
 
 interface MergedPoint {
@@ -247,20 +248,24 @@ function InlineBadge({ current, previous, invert }: { current: number; previous:
 }
 
 export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal, platforms, platformLabels = {}, platformIcons = {} }: ProfitTrendProps) {
-  const { formatCurrency: fmtCur, formatCurrencyCompact: fmtCompact } = useCurrency();
+  const { formatCurrency: fmtCur, formatCurrencyCompact: fmtCompact, convertFromCurrency } = useCurrency();
   const [showProfit, setShowProfit] = useState(true);
 
-  const dailyCustomCosts = data.length > 0 ? (customCostsTotal || 0) / data.length : 0;
-
   const merged = useMemo<MergedPoint[]>(() => {
-    return data.map((point) => ({
-      date: point.date,
-      profit: point.profit - dailyCustomCosts,
-      revenue: point.revenue,
-      spend: point.spend,
-      customCosts: dailyCustomCosts,
-    }));
-  }, [data, dailyCustomCosts]);
+    return data.map((point) => {
+      // Sum per-day custom costs, converting each to USD (same base as profit/spend/revenue)
+      const dayCosts = (point.customCosts || []).reduce(
+        (sum, c) => sum + convertFromCurrency(c.amount, c.currency, 'USD'), 0
+      );
+      return {
+        date: point.date,
+        profit: point.profit - dayCosts,
+        revenue: point.revenue,
+        spend: point.spend,
+        customCosts: dayCosts,
+      };
+    });
+  }, [data, convertFromCurrency]);
 
   const hasCustomCosts = (customCostsTotal || 0) > 0;
 
