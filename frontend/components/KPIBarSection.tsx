@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { MoreVertical, Pencil, Trash2, Copy, Plus } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Plus } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -43,13 +43,14 @@ interface Props {
   onDelete: () => void;
   onDuplicate: (sectionType?: string) => void;
   onAddMarker?: () => void;
+  onSectionUpdated?: () => void;
 }
 
-export default function KPIBarSection({ section, startDate, endDate, onEdit, onDelete, onDuplicate, onAddMarker }: Props) {
+export default function KPIBarSection({ section, startDate, endDate, onEdit, onDelete, onAddMarker, onSectionUpdated }: Props) {
   const { user } = useUser();
   const [data, setData] = useState<KPIItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
@@ -69,17 +70,19 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const handler = () => setMenuOpen(false);
+    if (openMenuIndex === null) return;
+    const handler = () => setOpenMenuIndex(null);
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
-  }, [menuOpen]);
+  }, [openMenuIndex]);
 
   const formatValue = (item: KPIItem) => {
     if (item.item_type === 'rate') {
-      const denominator = item.rate_count ?? 0;
+      // First event (count) = denominator (total), second event (rate_count) = numerator (converted)
+      const denominator = item.count;
+      const numerator = item.rate_count ?? 0;
       if (denominator === 0) return '0%';
-      const rate = (item.count / denominator) * 100;
+      const rate = (numerator / denominator) * 100;
       return `${rate.toFixed(1)}%`;
     }
     return item.count.toLocaleString();
@@ -87,51 +90,43 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
 
   const getSubtitle = (item: KPIItem) => {
     if (item.item_type === 'rate') {
-      return `${item.count.toLocaleString()} / ${(item.rate_count ?? 0).toLocaleString()}`;
+      // Show converted / total
+      return `${(item.rate_count ?? 0).toLocaleString()} / ${item.count.toLocaleString()}`;
     }
     return null;
   };
 
+  const handleDeleteMarker = async (markerIndex: number) => {
+    if (!user?.id) return;
+    const updatedItems = section.items.filter((_, i) => i !== markerIndex);
+
+    // If no markers left, delete the whole section
+    if (updatedItems.length === 0) {
+      onDelete();
+      return;
+    }
+
+    try {
+      await fetch(`${API_URL}/api/event-display/sections/${section.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          title: section.title,
+          items: updatedItems,
+        }),
+      });
+      onSectionUpdated?.();
+    } catch {
+      // silently ignore
+    }
+  };
+
   const filledSlots = data.length;
-  const emptySlots = Math.max(0, 4 - filledSlots);
-  const showAddSlots = emptySlots > 0 && section.items.length < 4;
+  const showAddSlot = filledSlots < 4 && section.items.length < 4;
 
   return (
-    <div className="bg-bg-surface rounded-xl border border-border-dim relative group">
-      {/* Menu (top-right, visible on hover) */}
-      <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="relative">
-          <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="p-1 rounded hover:bg-bg-elevated transition-colors text-text-dim hover:text-text-heading"
-          >
-            <MoreVertical size={14} />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
-              <button
-                onClick={() => { setMenuOpen(false); onEdit(); }}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
-              >
-                <Pencil size={12} /> Edit
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onDuplicate(); }}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
-              >
-                <Copy size={12} /> Duplicate
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onDelete(); }}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-error hover:bg-bg-hover transition-colors"
-              >
-                <Trash2 size={12} /> Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="bg-bg-surface rounded-xl border border-border-dim">
       {/* KPI Bar */}
       <div className="grid grid-cols-4 divide-x divide-border-dim/50">
         {loading ? (
@@ -144,7 +139,35 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
         ) : (
           <>
             {data.map((item, i) => (
-              <div key={i} className="px-5 py-5">
+              <div key={i} className="px-5 py-5 relative group/marker">
+                {/* Per-marker menu */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover/marker:opacity-100 transition-opacity">
+                  <div className="relative">
+                    <button
+                      onClick={e => { e.stopPropagation(); setOpenMenuIndex(openMenuIndex === i ? null : i); }}
+                      className="p-1 rounded hover:bg-bg-elevated transition-colors text-text-dim hover:text-text-heading"
+                    >
+                      <MoreVertical size={13} />
+                    </button>
+                    {openMenuIndex === i && (
+                      <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
+                        <button
+                          onClick={() => { setOpenMenuIndex(null); onEdit(); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
+                        >
+                          <Pencil size={12} /> Edit
+                        </button>
+                        <button
+                          onClick={() => { setOpenMenuIndex(null); handleDeleteMarker(i); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-error hover:bg-bg-hover transition-colors"
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5">
                   {item.label || item.event_name}
                 </p>
@@ -156,7 +179,7 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
                 )}
               </div>
             ))}
-            {showAddSlots && (
+            {showAddSlot && (
               <button
                 onClick={onAddMarker || onEdit}
                 className="px-5 py-5 flex items-center justify-center gap-1.5 text-text-dim/40 hover:text-text-dim hover:bg-bg-hover/50 transition-colors cursor-pointer"

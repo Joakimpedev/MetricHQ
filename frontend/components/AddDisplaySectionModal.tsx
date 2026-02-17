@@ -483,7 +483,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                         ) : (
                           <div className="space-y-2">
                             <div>
-                              <p className="text-[11px] text-text-dim mb-1">Numerator</p>
+                              <p className="text-[11px] text-text-dim mb-1">Total (e.g. all visitors)</p>
                               {renderEventSelector(
                                 marker.event_name,
                                 marker.property_name,
@@ -492,7 +492,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                               )}
                             </div>
                             <div>
-                              <p className="text-[11px] text-text-dim mb-1">Denominator</p>
+                              <p className="text-[11px] text-text-dim mb-1">Converted (e.g. purchases)</p>
                               {renderEventSelector(
                                 marker.rate_event_name,
                                 marker.rate_property_name,

@@ -288,6 +288,7 @@ export default function EventsPage() {
                   onDelete={() => handleDeleteDisplay(ds.id)}
                   onDuplicate={(type?: string) => handleDuplicate(ds.id, type)}
                   onAddMarker={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
+                  onSectionUpdated={() => { fetchDisplaySections(); setRefreshKey(k => k + 1); }}
                 />
               );
             }
