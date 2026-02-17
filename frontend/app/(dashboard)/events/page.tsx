@@ -9,6 +9,7 @@ import AddEventSectionModal from '../../../components/AddEventSectionModal';
 import AddDisplaySectionModal from '../../../components/AddDisplaySectionModal';
 import TableSection from '../../../components/TableSection';
 import BarChartSection from '../../../components/BarChartSection';
+import KPIBarSection from '../../../components/KPIBarSection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -276,6 +277,20 @@ export default function EventsPage() {
           )}
 
           {displaySections.map(ds => {
+            if (ds.section_type === 'kpi_bar') {
+              return (
+                <KPIBarSection
+                  key={`${ds.id}-${refreshKey}`}
+                  section={ds}
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  onEdit={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
+                  onDelete={() => handleDeleteDisplay(ds.id)}
+                  onDuplicate={(type?: string) => handleDuplicate(ds.id, type)}
+                  onAddMarker={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
+                />
+              );
+            }
             const SectionComponent = ds.section_type === 'bar' ? BarChartSection : TableSection;
             return (
               <SectionComponent

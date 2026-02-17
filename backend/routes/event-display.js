@@ -61,9 +61,10 @@ async function createSection(req, res) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         await pool.query(
-          `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [section.id, item.event_name, item.property_name || null, item.property_value || null, i]
+          `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order, item_type, label, rate_event_name, rate_property_name, rate_property_value)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [section.id, item.event_name, item.property_name || null, item.property_value || null, i,
+           item.item_type || 'standard', item.label || null, item.rate_event_name || null, item.rate_property_name || null, item.rate_property_value || null]
         );
       }
     }
@@ -111,9 +112,10 @@ async function updateSection(req, res) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         await pool.query(
-          `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [sectionId, item.event_name, item.property_name || null, item.property_value || null, i]
+          `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order, item_type, label, rate_event_name, rate_property_name, rate_property_value)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [sectionId, item.event_name, item.property_name || null, item.property_value || null, i,
+           item.item_type || 'standard', item.label || null, item.rate_event_name || null, item.rate_property_name || null, item.rate_property_value || null]
         );
       }
     }
@@ -180,34 +182,28 @@ async function getSectionData(req, res) {
       [sectionId]
     );
 
-    const results = [];
-    for (const item of items.rows) {
-      // Find matching custom_event_sections row
+    // Helper to get count for an event/property/value combo
+    async function getCount(eventName, propertyName, propertyValue) {
       let matchQuery = `SELECT id FROM custom_event_sections WHERE user_id = $1 AND event_name = $2`;
-      const matchParams = [dataOwnerId, item.event_name];
+      const matchParams = [dataOwnerId, eventName];
 
-      if (item.property_name) {
+      if (propertyName) {
         matchQuery += ` AND group_by_property = $3`;
-        matchParams.push(item.property_name);
+        matchParams.push(propertyName);
       } else {
         matchQuery += ` AND (group_by_property IS NULL OR group_by_property = '')`;
       }
       matchQuery += ' LIMIT 1';
 
       const matchResult = await pool.query(matchQuery, matchParams);
-      if (matchResult.rows.length === 0) {
-        results.push({ ...item, count: 0 });
-        continue;
-      }
+      if (matchResult.rows.length === 0) return 0;
 
       const cacheSection = matchResult.rows[0];
-
-      // Sum counts from custom_event_cache
       let countQuery = 'SELECT COALESCE(SUM(count), 0) AS total FROM custom_event_cache WHERE section_id = $1';
       const countParams = [cacheSection.id];
 
-      if (item.property_value) {
-        countParams.push(item.property_value);
+      if (propertyValue) {
+        countParams.push(propertyValue);
         countQuery += ` AND property_value = $${countParams.length}`;
       } else {
         countQuery += ` AND property_value = '_total'`;
@@ -223,7 +219,20 @@ async function getSectionData(req, res) {
       }
 
       const countResult = await pool.query(countQuery, countParams);
-      results.push({ ...item, count: parseInt(countResult.rows[0].total) });
+      return parseInt(countResult.rows[0].total);
+    }
+
+    const results = [];
+    for (const item of items.rows) {
+      const count = await getCount(item.event_name, item.property_name, item.property_value);
+      const result = { ...item, count };
+
+      // For rate-type items, also compute the denominator count
+      if (item.item_type === 'rate' && item.rate_event_name) {
+        result.rate_count = await getCount(item.rate_event_name, item.rate_property_name, item.rate_property_value);
+      }
+
+      results.push(result);
     }
 
     res.json({ data: results });
@@ -275,9 +284,10 @@ async function duplicateSection(req, res) {
     );
     for (const item of sourceItems.rows) {
       await pool.query(
-        `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [newSection.id, item.event_name, item.property_name, item.property_value, item.display_order]
+        `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order, item_type, label, rate_event_name, rate_property_name, rate_property_value)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [newSection.id, item.event_name, item.property_name, item.property_value, item.display_order,
+         item.item_type || 'standard', item.label, item.rate_event_name, item.rate_property_name, item.rate_property_value]
       );
     }
 
