@@ -156,13 +156,13 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
         {cpc > 0 && (
           <div>
             <div className="text-[10px] text-text-dim">CPC</div>
-            <div className="text-[12px] font-semibold text-text-heading">{fmt(Number(cpc.toFixed(2)))}</div>
+            <div className="text-[12px] font-semibold text-text-heading">${cpc.toFixed(2)}</div>
           </div>
         )}
         {cpm > 0 && (
           <div>
             <div className="text-[10px] text-text-dim">CPM</div>
-            <div className="text-[12px] font-semibold text-text-heading">{fmt(Number(cpm.toFixed(2)))}</div>
+            <div className="text-[12px] font-semibold text-text-heading">${cpm.toFixed(2)}</div>
           </div>
         )}
         {isAttributed && roas > 0 && (
