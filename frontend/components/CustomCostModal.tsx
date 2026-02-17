@@ -471,9 +471,17 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
                   inputMode="decimal"
                   value={amount}
                   onChange={e => {
-                    // Allow digits, dots, and commas; treat comma as decimal separator
-                    const raw = e.target.value.replace(/,/g, '.');
-                    // Only allow valid decimal patterns (digits with at most one dot)
+                    let raw = e.target.value;
+                    // If there's exactly one comma and no dots, treat comma as decimal separator
+                    // Otherwise strip commas (thousand separators like 1,234.56 or 1,000)
+                    const commaCount = (raw.match(/,/g) || []).length;
+                    const hasDot = raw.includes('.');
+                    if (commaCount === 1 && !hasDot) {
+                      raw = raw.replace(',', '.');
+                    } else {
+                      raw = raw.replace(/,/g, '');
+                    }
+                    // Only allow valid decimal patterns
                     if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
                       setAmount(raw);
                     }
