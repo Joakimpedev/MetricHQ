@@ -232,6 +232,22 @@ async function getSectionData(req, res) {
         result.rate_count = await getCount(item.rate_event_name, item.rate_property_name, item.rate_property_value);
       }
 
+      // For cost_per items, fetch total ad spend for the date range
+      if (item.item_type === 'cost_per') {
+        let spendQuery = 'SELECT COALESCE(SUM(spend), 0) AS total FROM metrics_cache WHERE user_id = $1';
+        const spendParams = [dataOwnerId];
+        if (startDate) {
+          spendParams.push(startDate);
+          spendQuery += ` AND date >= $${spendParams.length}`;
+        }
+        if (endDate) {
+          spendParams.push(endDate);
+          spendQuery += ` AND date <= $${spendParams.length}`;
+        }
+        const spendResult = await pool.query(spendQuery, spendParams);
+        result.total_spend = parseFloat(spendResult.rows[0].total);
+      }
+
       results.push(result);
     }
 

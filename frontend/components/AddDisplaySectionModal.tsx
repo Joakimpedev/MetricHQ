@@ -14,7 +14,7 @@ interface DisplayItem {
 
 interface KPIMarker {
   label: string;
-  item_type: 'count' | 'rate';
+  item_type: 'count' | 'rate' | 'cost_per';
   event_name: string;
   property_name: string;
   property_value: string;
@@ -503,10 +503,30 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                           >
                             Rate
                           </button>
+                          <button
+                            onClick={() => updateKpiMarker(index, { item_type: 'cost_per' })}
+                            className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                              marker.item_type === 'cost_per'
+                                ? 'bg-bg-surface text-text-heading shadow-sm'
+                                : 'text-text-dim hover:text-text-body'
+                            }`}
+                          >
+                            Cost Per
+                          </button>
                         </div>
 
                         {/* Event selector */}
-                        {marker.item_type === 'count' ? (
+                        {marker.item_type === 'cost_per' ? (
+                          <div>
+                            <p className="text-[11px] text-text-dim mb-1">Ad spend divided by this event</p>
+                            {renderEventSelector(
+                              marker.event_name,
+                              marker.property_name,
+                              marker.property_value,
+                              (field, value) => updateKpiMarker(index, { [field]: value } as Partial<KPIMarker>),
+                            )}
+                          </div>
+                        ) : marker.item_type === 'count' ? (
                           <div>
                             <p className="text-[11px] text-text-dim mb-1">Event</p>
                             {renderEventSelector(

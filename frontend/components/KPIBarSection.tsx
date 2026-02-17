@@ -10,13 +10,14 @@ interface KPIItem {
   event_name: string;
   property_name: string | null;
   property_value: string | null;
-  item_type: 'count' | 'rate';
+  item_type: 'count' | 'rate' | 'cost_per';
   label: string | null;
   rate_event_name: string | null;
   rate_property_name: string | null;
   rate_property_value: string | null;
   count: number;
   rate_count?: number;
+  total_spend?: number;
 }
 
 interface DisplaySection {
@@ -78,20 +79,28 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
 
   const formatValue = (item: KPIItem) => {
     if (item.item_type === 'rate') {
-      // First event (count) = denominator (total), second event (rate_count) = numerator (converted)
       const denominator = item.count;
       const numerator = item.rate_count ?? 0;
       if (denominator === 0) return '0%';
       const rate = (numerator / denominator) * 100;
       return `${rate.toFixed(1)}%`;
     }
+    if (item.item_type === 'cost_per') {
+      const spend = item.total_spend ?? 0;
+      if (item.count === 0) return '$0';
+      const costPer = spend / item.count;
+      return `$${costPer.toFixed(2)}`;
+    }
     return item.count.toLocaleString();
   };
 
   const getSubtitle = (item: KPIItem) => {
     if (item.item_type === 'rate') {
-      // Show converted / total
       return `${(item.rate_count ?? 0).toLocaleString()} / ${item.count.toLocaleString()}`;
+    }
+    if (item.item_type === 'cost_per') {
+      const spend = item.total_spend ?? 0;
+      return `$${spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spend / ${item.count.toLocaleString()} events`;
     }
     return null;
   };
