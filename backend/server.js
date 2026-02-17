@@ -485,6 +485,43 @@ app.post('/api/custom-sources/:id/entries', customSources.createEntry);
 app.put('/api/custom-sources/:id/entries/:entryId', customSources.updateEntry);
 app.delete('/api/custom-sources/:id/entries/:entryId', customSources.deleteEntry);
 
+// User settings routes
+app.get('/api/user-settings', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+  try {
+    const { getOrCreateUserByClerkId } = require('./routes/auth');
+    const { resolveDataOwner } = require('./services/team');
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+    const result = await pool.query('SELECT settings FROM users WHERE id = $1', [dataOwnerId]);
+    res.json({ settings: result.rows[0]?.settings || {} });
+  } catch (err) {
+    console.error('Get user settings error:', err);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+app.put('/api/user-settings', async (req, res) => {
+  const { userId, settings } = req.body || {};
+  if (!userId || !settings) return res.status(400).json({ error: 'userId and settings are required' });
+  try {
+    const { getOrCreateUserByClerkId } = require('./routes/auth');
+    const { resolveDataOwner } = require('./services/team');
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+    await pool.query(
+      `UPDATE users SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
+      [JSON.stringify(settings), dataOwnerId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Update user settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
 // Custom events routes
 const customEvents = require('./routes/custom-events');
 app.get('/api/custom-events/properties', customEvents.getEventProperties);

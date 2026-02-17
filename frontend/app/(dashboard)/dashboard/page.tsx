@@ -403,6 +403,7 @@ export default function DashboardPage() {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [customSourceLabels, setCustomSourceLabels] = useState<Record<string, string>>(isDemo ? { custom_99: 'Reddit Ads' } : {});
+  const [customSourceIcons, setCustomSourceIcons] = useState<Record<string, string>>(isDemo ? { custom_99: 'reddit' } : {});
 
   // Demo-only: secret 5-click-in-5s to toggle UTM off per campaign
   const [demoUtmOff, setDemoUtmOff] = useState<Set<string>>(new Set());
@@ -497,10 +498,13 @@ export default function DashboardPage() {
         if (res.ok) {
           const json = await res.json();
           const labels: Record<string, string> = {};
+          const icons: Record<string, string> = {};
           for (const src of json.sources || []) {
             labels[`custom_${src.id}`] = src.name;
+            if (src.icon) icons[`custom_${src.id}`] = src.icon;
           }
           setCustomSourceLabels(labels);
+          setCustomSourceIcons(icons);
         }
       } catch { /* ignore */ }
     })();
@@ -697,6 +701,8 @@ export default function DashboardPage() {
         compSummary={compSummary ? { totalProfit: compSummary.totalProfit, totalRevenue: compSummary.totalRevenue, totalSpend: compSummary.totalSpend } : undefined}
         customCostsTotal={customCostsTotal}
         platforms={platforms}
+        platformLabels={customSourceLabels}
+        platformIcons={customSourceIcons}
       />
 
       {/* Countries + Campaigns side by side */}

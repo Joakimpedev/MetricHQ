@@ -201,7 +201,8 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
 export default function CampaignTable({ platform, totalSpend, campaigns, gated, onCampaignClick, showUtmBanner, countryCampaigns = {}, countries = [], label: labelProp }: CampaignTableProps) {
   const { formatCurrency: fmtCur } = useCurrency();
   const label = labelProp || PLATFORM_LABELS[platform] || platform;
-  const hasAttribution = campaigns.some(c => c.attributed !== undefined);
+  const isCustomSource = platform.startsWith('custom_');
+  const hasAttribution = isCustomSource || campaigns.some(c => c.attributed !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [hoveredCampaign, setHoveredCampaign] = useState<number | null>(null);

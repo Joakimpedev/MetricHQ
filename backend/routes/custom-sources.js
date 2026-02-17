@@ -4,7 +4,7 @@ const { resolveDataOwner } = require('../services/team');
 
 // POST /api/custom-sources
 async function createSource(req, res) {
-  const { userId, name, track_impressions, track_clicks, track_conversions, track_revenue } = req.body || {};
+  const { userId, name, track_impressions, track_clicks, track_conversions, track_revenue, icon } = req.body || {};
 
   if (!userId || !name?.trim()) {
     return res.status(400).json({ error: 'userId and name are required' });
@@ -18,10 +18,10 @@ async function createSource(req, res) {
     }
 
     const result = await pool.query(
-      `INSERT INTO custom_sources (user_id, name, track_impressions, track_clicks, track_conversions, track_revenue)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO custom_sources (user_id, name, track_impressions, track_clicks, track_conversions, track_revenue, icon)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [dataOwnerId, name.trim(), !!track_impressions, !!track_clicks, !!track_conversions, !!track_revenue]
+      [dataOwnerId, name.trim(), !!track_impressions, !!track_clicks, !!track_conversions, !!track_revenue, icon || null]
     );
 
     res.json({ ok: true, source: result.rows[0] });
@@ -80,7 +80,7 @@ async function updateSource(req, res) {
       return res.status(404).json({ error: 'Custom source not found' });
     }
 
-    const allowed = ['name', 'track_impressions', 'track_clicks', 'track_conversions', 'track_revenue'];
+    const allowed = ['name', 'track_impressions', 'track_clicks', 'track_conversions', 'track_revenue', 'icon'];
     const sets = [];
     const values = [];
     let paramIdx = 1;
@@ -88,7 +88,7 @@ async function updateSource(req, res) {
     for (const key of allowed) {
       if (key in fields) {
         sets.push(`${key} = $${paramIdx}`);
-        values.push(key === 'name' ? (fields[key] || '').trim() : !!fields[key]);
+        values.push(key === 'name' ? (fields[key] || '').trim() : key === 'icon' ? (fields[key] || null) : !!fields[key]);
         paramIdx++;
       }
     }

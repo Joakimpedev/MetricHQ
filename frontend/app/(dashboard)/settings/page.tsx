@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Check } from 'lucide-react';
@@ -9,6 +10,8 @@ import { useCurrency } from '../../../lib/currency';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import TeamSection from '../../../components/TeamSection';
 import ApiKeysSection from '../../../components/ApiKeysSection';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '-';
@@ -99,6 +102,96 @@ function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number;
   );
 }
 
+const BUILTIN_PLATFORMS = [
+  { key: 'google_ads', label: 'Google Ads' },
+  { key: 'meta', label: 'Meta Ads' },
+  { key: 'tiktok', label: 'TikTok Ads' },
+  { key: 'linkedin', label: 'LinkedIn Ads' },
+];
+
+interface CustomSourceOption {
+  key: string;
+  label: string;
+}
+
+function RevenueAllocationSetting() {
+  const { user } = useUser();
+  const [allocation, setAllocation] = useState<string>('none');
+  const [customSources, setCustomSources] = useState<CustomSourceOption[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const fetchSettings = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const [settingsRes, sourcesRes] = await Promise.all([
+        fetch(`${API_URL}/api/user-settings?userId=${encodeURIComponent(user.id)}`),
+        fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
+      ]);
+      if (settingsRes.ok) {
+        const json = await settingsRes.json();
+        setAllocation(json.settings?.revenueAllocation || 'none');
+      }
+      if (sourcesRes.ok) {
+        const json = await sourcesRes.json();
+        setCustomSources((json.sources || []).map((s: { id: number; name: string }) => ({
+          key: `custom_${s.id}`,
+          label: s.name,
+        })));
+      }
+      setLoaded(true);
+    } catch { setLoaded(true); }
+  }, [user?.id]);
+
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  const handleChange = async (value: string) => {
+    if (!user?.id) return;
+    setAllocation(value);
+    setSaving(true);
+    try {
+      await fetch(`${API_URL}/api/user-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, settings: { revenueAllocation: value } }),
+      });
+    } catch { /* ignore */ } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  const allOptions = [
+    { key: 'none', label: 'Don\'t allocate (default)' },
+    { key: 'even', label: 'Split evenly across all platforms' },
+    ...BUILTIN_PLATFORMS,
+    ...customSources,
+  ];
+
+  return (
+    <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+      <h2 className="text-[14px] font-medium text-text-heading mb-4">Revenue Attribution</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[12px] text-text-body">Allocate unattributed revenue to</p>
+          <p className="text-[11px] text-text-dim mt-0.5">Revenue without UTM attribution can be assigned to a platform</p>
+        </div>
+        <select
+          value={allocation}
+          onChange={e => handleChange(e.target.value)}
+          disabled={saving}
+          className="text-[12px] bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-text-body focus:outline-none focus:border-accent min-w-[180px]"
+        >
+          {allOptions.map(opt => (
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useUser();
   const { currency, setCurrency } = useCurrency();
@@ -184,6 +277,9 @@ export default function SettingsPage() {
 
       <TeamSection />
       <ApiKeysSection />
+
+      {/* Revenue Attribution */}
+      <RevenueAllocationSetting />
 
       <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
         <h2 className="text-[14px] font-medium text-text-heading mb-4">Account</h2>

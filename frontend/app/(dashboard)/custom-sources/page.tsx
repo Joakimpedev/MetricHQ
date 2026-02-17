@@ -13,8 +13,24 @@ interface CustomSource {
   track_clicks: boolean;
   track_conversions: boolean;
   track_revenue: boolean;
+  icon: string | null;
   created_at: string;
 }
+
+const SOURCE_ICONS: { key: string; label: string; bg: string; svg: React.ReactNode }[] = [
+  { key: 'reddit', label: 'Reddit', bg: '#ff4500', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.6.11.793-.26.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg> },
+  { key: 'twitter', label: 'X / Twitter', bg: '#000', svg: <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+  { key: 'snapchat', label: 'Snapchat', bg: '#fffc00', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#000"><path d="M12.065 2c.882 0 3.617.145 4.898 3.225.45 1.083.334 2.912.24 4.371l-.02.28c-.013.17-.024.33-.033.478.3.16.63.244.967.244.19 0 .395-.03.597-.115a.86.86 0 01.334-.063c.2 0 .463.07.665.245.262.228.33.54.33.73 0 .583-.677.912-1.334 1.14-.107.038-.463.147-.54.176-.37.128-.578.254-.67.463-.05.116-.038.254.032.42.015.025.75 1.386 2.56 1.865a.423.423 0 01.31.393c0 .02-.036.386-.612.762-.717.465-1.77.766-3.13.897a3.8 3.8 0 00-.195.386c-.12.267-.258.572-.667.572h-.013c-.148 0-.41-.043-.772-.107a8.37 8.37 0 00-1.558-.168 4.75 4.75 0 00-.766.06c-.638.11-1.2.558-1.835 1.055-.85.665-1.813 1.418-3.216 1.418-.064 0-.127-.003-.19-.007-.07.004-.15.007-.23.007-1.402 0-2.366-.753-3.216-1.418-.636-.497-1.197-.945-1.835-1.055a4.7 4.7 0 00-.765-.06c-.543 0-1.07.07-1.558.168-.364.064-.625.107-.773.107h-.013c-.408 0-.547-.305-.667-.572a3.53 3.53 0 00-.195-.386C.843 18.7.77 18.66.577 18.587c-.076-.028-.268-.085-.44-.133C.483 18.35 0 18.1 0 17.57a.423.423 0 01.31-.393c1.81-.478 2.545-1.84 2.56-1.866.07-.166.082-.303.032-.42-.092-.208-.3-.334-.67-.462-.077-.03-.433-.138-.54-.177-.273-.093-1.334-.48-1.334-1.14 0-.226.096-.5.33-.73a.91.91 0 01.665-.244.87.87 0 01.334.063c.203.085.407.115.597.115.337 0 .667-.084.966-.244-.01-.147-.02-.308-.032-.478l-.02-.28c-.093-1.46-.21-3.29.24-4.372C4.732 2.145 7.466 2 8.35 2h.086z"/></svg> },
+  { key: 'pinterest', label: 'Pinterest', bg: '#e60023', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 01.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12.017 24c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641 0 12.017 0z"/></svg> },
+  { key: 'bing', label: 'Microsoft Ads', bg: '#008373', svg: <svg width="10" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M5.063 0v18.281l6.156 3.563 7.719-4.5V10.5l-7.719 3.375L8.25 12.47V3.375z"/></svg> },
+  { key: 'amazon', label: 'Amazon Ads', bg: '#ff9900', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M.045 18.02c.07-.116.196-.128.348-.037 3.708 2.258 7.878 3.41 12.146 3.41 3.005 0 6.258-.66 9.37-1.97.474-.2.86.154.68.6-.185.445-.01.624.373.4C19.7 22.06 16.066 23 12.29 23 8.196 23 4.212 21.64.66 19.175c-.225-.156-.28-.345-.145-.535l.02-.02.51-.6zM23.538 17.77c-.266-.32-1.746-.15-2.413-.076-.2.024-.23-.15-.05-.276 1.18-.828 3.116-.59 3.34-.312.224.28-.06 2.22-1.166 3.15-.17.142-.332.066-.256-.122.25-.62.81-2.044.545-2.364z"/><path d="M14.43 9.133V7.65c0-.225.017-.483-.1-.675-.1-.158-.3-.258-.497-.258-.7 0-.83.542-.83 1.067v3.35c0 .567-.003 1.133.33 1.6.22.308.56.5.93.5.414 0 .803-.2 1-.55.245-.434.2-.95.2-1.434v-1.117zm2.45 4.475c-.158.142-.39.15-.567.058-.8-.667-1.045-1.625-1.045-1.625-.988 1-1.69 1.3-2.97 1.3-1.516 0-2.693-.934-2.693-2.8 0-1.46.79-2.45 1.916-2.934.975-.425 2.338-.5 3.38-.617v-.233c0-.425.033-.925-.217-1.292-.217-.325-.633-.458-1-.458-.68 0-1.284.35-1.434.908-.108.333-.15.383-.467.392l-1.684-.183c-.216-.05-.458-.225-.396-.558C10.12 3.4 12.18 2.75 14.04 2.75c.95 0 2.188.253 2.938.975.95.883.858 2.067.858 3.35v3.033c0 .913.38 1.313.737 1.808.124.175.152.388-.007.52-.4.334-1.113.955-1.505 1.303l-.08-.13z"/></svg> },
+  { key: 'apple', label: 'Apple Search', bg: '#000', svg: <svg width="10" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg> },
+  { key: 'taboola', label: 'Taboola', bg: '#003c7f', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="10"/></svg> },
+  { key: 'outbrain', label: 'Outbrain', bg: '#f36', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="10"/></svg> },
+  { key: 'programmatic', label: 'Programmatic', bg: '#6366f1', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg> },
+  { key: 'email', label: 'Email', bg: '#059669', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M2 6l10 7 10-7v12H2z"/><path d="M22 6H2l10 7z"/></svg> },
+  { key: 'affiliate', label: 'Affiliate', bg: '#8b5cf6', svg: <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff"><path d="M17 7a5 5 0 00-10 0c0 2.76 5 10 5 10s5-7.24 5-10zm-5 2a2 2 0 110-4 2 2 0 010 4z"/></svg> },
+];
 
 interface Entry {
   id: number;
@@ -46,6 +62,7 @@ function SourceModal({ source, onClose, onSaved }: {
 }) {
   const { user } = useUser();
   const [name, setName] = useState(source?.name || '');
+  const [icon, setIcon] = useState(source?.icon || '');
   const [trackImpressions, setTrackImpressions] = useState(source?.track_impressions || false);
   const [trackClicks, setTrackClicks] = useState(source?.track_clicks || false);
   const [trackConversions, setTrackConversions] = useState(source?.track_conversions || false);
@@ -59,6 +76,7 @@ function SourceModal({ source, onClose, onSaved }: {
       const body: Record<string, unknown> = {
         userId: user.id,
         name: name.trim(),
+        icon: icon || null,
         track_impressions: trackImpressions,
         track_clicks: trackClicks,
         track_conversions: trackConversions,
@@ -97,6 +115,35 @@ function SourceModal({ source, onClose, onSaved }: {
               className="w-full px-3 py-2 text-[13px] bg-bg-body border border-border-dim rounded-lg text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent"
               autoFocus
             />
+          </div>
+
+          <div>
+            <label className="block text-[12px] text-text-dim mb-2">Icon</label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIcon('')}
+                className={`w-7 h-7 rounded-md border flex items-center justify-center text-[10px] font-bold transition-colors ${
+                  !icon ? 'border-accent bg-accent/10 text-accent' : 'border-border-dim text-text-dim hover:border-text-dim'
+                }`}
+              >
+                {name.trim() ? name.trim()[0].toUpperCase() : '?'}
+              </button>
+              {SOURCE_ICONS.map(si => (
+                <button
+                  key={si.key}
+                  type="button"
+                  onClick={() => setIcon(si.key)}
+                  title={si.label}
+                  className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${
+                    icon === si.key ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg-surface' : 'hover:opacity-80'
+                  }`}
+                  style={{ background: si.bg }}
+                >
+                  {si.svg}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -373,14 +420,17 @@ function ImportModal({ source, onClose, onImported }: {
         const campaignVal = vals[cols.campaign];
         if (isSummaryRow(campaignVal)) continue;
 
-        parsed.push({
+        const row2: ParsedRow = {
           campaignName: String(campaignVal).trim(),
           spend: parseFloat(String(vals[cols.spend])) || 0,
           impressions: cols.impressions >= 0 ? (parseInt(String(vals[cols.impressions])) || 0) : 0,
           clicks: cols.clicks >= 0 ? (parseInt(String(vals[cols.clicks])) || 0) : 0,
           conversions: cols.conversions >= 0 ? (parseInt(String(vals[cols.conversions])) || 0) : 0,
           revenue: cols.revenue >= 0 ? (parseFloat(String(vals[cols.revenue])) || 0) : 0,
-        });
+        };
+        // Skip campaigns with no data at all
+        if (row2.spend === 0 && row2.impressions === 0 && row2.clicks === 0 && row2.conversions === 0 && row2.revenue === 0) continue;
+        parsed.push(row2);
       }
 
       if (parsed.length === 0) {
@@ -878,6 +928,16 @@ export default function CustomSourcesPage() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {isSelected ? <ChevronDown size={14} className="text-text-dim shrink-0" /> : <ChevronRight size={14} className="text-text-dim shrink-0" />}
+                    {(() => {
+                      const si = SOURCE_ICONS.find(s => s.key === source.icon);
+                      return si ? (
+                        <div className="w-5 h-5 rounded-[5px] flex items-center justify-center shrink-0" style={{ background: si.bg }}>{si.svg}</div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-[5px] flex items-center justify-center shrink-0 bg-accent/15 text-accent text-[10px] font-bold">
+                          {source.name[0]?.toUpperCase()}
+                        </div>
+                      );
+                    })()}
                     <span className="text-[13px] font-medium text-text-heading truncate">{source.name}</span>
                     <div className="flex gap-1.5">
                       {metricTags(source).map(tag => (
