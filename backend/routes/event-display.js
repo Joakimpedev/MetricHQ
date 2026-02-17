@@ -232,20 +232,24 @@ async function getSectionData(req, res) {
         result.rate_count = await getCount(item.rate_event_name, item.rate_property_name, item.rate_property_value);
       }
 
-      // For cost_per items, fetch total ad spend for the date range
+      // For cost_per items, fetch total ad spend or revenue for the date range
+      // rate_event_name stores the source: 'revenue' uses revenue, anything else uses ad spend
       if (item.item_type === 'cost_per') {
-        let spendQuery = 'SELECT COALESCE(SUM(spend), 0) AS total FROM metrics_cache WHERE user_id = $1';
-        const spendParams = [dataOwnerId];
+        const useRevenue = item.rate_event_name === 'revenue';
+        const column = useRevenue ? 'revenue' : 'spend';
+        let sumQuery = `SELECT COALESCE(SUM(${column}), 0) AS total FROM metrics_cache WHERE user_id = $1`;
+        const sumParams = [dataOwnerId];
         if (startDate) {
-          spendParams.push(startDate);
-          spendQuery += ` AND date >= $${spendParams.length}`;
+          sumParams.push(startDate);
+          sumQuery += ` AND date >= $${sumParams.length}`;
         }
         if (endDate) {
-          spendParams.push(endDate);
-          spendQuery += ` AND date <= $${spendParams.length}`;
+          sumParams.push(endDate);
+          sumQuery += ` AND date <= $${sumParams.length}`;
         }
-        const spendResult = await pool.query(spendQuery, spendParams);
-        result.total_spend = parseFloat(spendResult.rows[0].total);
+        const sumResult = await pool.query(sumQuery, sumParams);
+        result.total_spend = parseFloat(sumResult.rows[0].total);
+        result.cost_per_source = useRevenue ? 'revenue' : 'ad_spend';
       }
 
       results.push(result);

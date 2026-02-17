@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { MoreVertical, Pencil, Trash2, Plus } from 'lucide-react';
+import SingleKPIModal from './SingleKPIModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -18,6 +19,7 @@ interface KPIItem {
   count: number;
   rate_count?: number;
   total_spend?: number;
+  cost_per_source?: 'revenue' | 'ad_spend';
 }
 
 interface DisplaySection {
@@ -43,15 +45,16 @@ interface Props {
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: (sectionType?: string) => void;
-  onAddMarker?: () => void;
   onSectionUpdated?: () => void;
 }
 
-export default function KPIBarSection({ section, startDate, endDate, onEdit, onDelete, onAddMarker, onSectionUpdated }: Props) {
+export default function KPIBarSection({ section, startDate, endDate, onEdit, onDelete, onSectionUpdated }: Props) {
   const { user } = useUser();
   const [data, setData] = useState<KPIItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
+  const [singleKpiModalOpen, setSingleKpiModalOpen] = useState(false);
+  const [editingMarkerIndex, setEditingMarkerIndex] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
@@ -101,8 +104,9 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
       return `${converted} / ${total}`;
     }
     if (item.item_type === 'cost_per') {
-      const spend = item.total_spend ?? 0;
-      return `$${spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spend / ${item.count.toLocaleString()} events`;
+      const amount = item.total_spend ?? 0;
+      const sourceLabel = item.cost_per_source === 'revenue' ? 'revenue' : 'spend';
+      return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${sourceLabel} / ${item.count.toLocaleString()} events`;
     }
     return null;
   };
@@ -163,7 +167,7 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
                     {openMenuIndex === i && (
                       <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
                         <button
-                          onClick={() => { setOpenMenuIndex(null); onEdit(); }}
+                          onClick={() => { setOpenMenuIndex(null); setEditingMarkerIndex(i); setSingleKpiModalOpen(true); }}
                           className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
                         >
                           <Pencil size={12} /> Edit
@@ -192,7 +196,7 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
             ))}
             {showAddSlot && (
               <button
-                onClick={onAddMarker || onEdit}
+                onClick={() => { setEditingMarkerIndex(null); setSingleKpiModalOpen(true); }}
                 className="px-5 py-5 flex items-center justify-center gap-1.5 text-text-dim/40 hover:text-text-dim hover:bg-bg-hover/50 transition-colors cursor-pointer"
               >
                 <Plus size={14} />
@@ -202,6 +206,17 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
           </>
         )}
       </div>
+      {singleKpiModalOpen && (
+        <SingleKPIModal
+          section={section}
+          markerIndex={editingMarkerIndex}
+          onClose={() => setSingleKpiModalOpen(false)}
+          onSaved={() => {
+            setSingleKpiModalOpen(false);
+            onSectionUpdated?.();
+          }}
+        />
+      )}
     </div>
   );
 }

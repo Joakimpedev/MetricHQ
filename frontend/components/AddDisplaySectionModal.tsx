@@ -21,6 +21,7 @@ interface KPIMarker {
   rate_event_name: string;
   rate_property_name: string;
   rate_property_value: string;
+  cost_per_source: 'ad_spend' | 'revenue';
 }
 
 interface DisplaySection {
@@ -60,6 +61,7 @@ const emptyMarker = (): KPIMarker => ({
   rate_event_name: '',
   rate_property_name: '',
   rate_property_value: '',
+  cost_per_source: 'ad_spend',
 });
 
 export default function AddDisplaySectionModal({ section, onClose, onSaved }: Props) {
@@ -82,13 +84,14 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     if (section?.section_type === 'kpi_bar' && section.items?.length) {
       return section.items.map(i => ({
         label: i.label || '',
-        item_type: (i.item_type as 'count' | 'rate') || 'count',
+        item_type: (i.item_type as 'count' | 'rate' | 'cost_per') || 'count',
         event_name: i.event_name || '',
         property_name: i.property_name || '',
         property_value: i.property_value || '',
-        rate_event_name: i.rate_event_name || '',
+        rate_event_name: (i.item_type === 'cost_per' ? '' : i.rate_event_name) || '',
         rate_property_name: i.rate_property_name || '',
         rate_property_value: i.rate_property_value || '',
+        cost_per_source: (i.item_type === 'cost_per' && i.rate_event_name === 'revenue') ? 'revenue' as const : 'ad_spend' as const,
       }));
     }
     return [emptyMarker()];
@@ -268,7 +271,8 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
         property_value: m.property_value || null,
         item_type: m.item_type,
         label: m.label || null,
-        rate_event_name: m.item_type === 'rate' ? (m.rate_event_name || null) : null,
+        rate_event_name: m.item_type === 'rate' ? (m.rate_event_name || null)
+          : m.item_type === 'cost_per' ? (m.cost_per_source === 'revenue' ? 'revenue' : null) : null,
         rate_property_name: m.item_type === 'rate' ? (m.rate_property_name || null) : null,
         rate_property_value: m.item_type === 'rate' ? (m.rate_property_value || null) : null,
       }));
@@ -527,14 +531,38 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                                 : 'text-text-dim hover:text-text-body'
                             }`}
                           >
-                            Cost Per
+                            Per Event
                           </button>
                         </div>
 
                         {/* Event selector */}
                         {marker.item_type === 'cost_per' ? (
-                          <div>
-                            <p className="text-[11px] text-text-dim mb-1">Ad spend divided by this event</p>
+                          <div className="space-y-2">
+                            <div className="flex gap-1 p-0.5 bg-bg-body rounded-lg border border-border-dim">
+                              <button
+                                onClick={() => updateKpiMarker(index, { cost_per_source: 'ad_spend' })}
+                                className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                                  marker.cost_per_source === 'ad_spend'
+                                    ? 'bg-bg-surface text-text-heading shadow-sm'
+                                    : 'text-text-dim hover:text-text-body'
+                                }`}
+                              >
+                                Ad Spend
+                              </button>
+                              <button
+                                onClick={() => updateKpiMarker(index, { cost_per_source: 'revenue' })}
+                                className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                                  marker.cost_per_source === 'revenue'
+                                    ? 'bg-bg-surface text-text-heading shadow-sm'
+                                    : 'text-text-dim hover:text-text-body'
+                                }`}
+                              >
+                                Revenue
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-text-dim mb-1">
+                              {marker.cost_per_source === 'revenue' ? 'Revenue divided by this event' : 'Ad spend divided by this event'}
+                            </p>
                             {renderEventSelector(
                               marker.event_name,
                               marker.property_name,
