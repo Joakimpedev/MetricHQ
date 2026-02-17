@@ -559,7 +559,6 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
       const topValues = new Set(
         Object.entries(valueTotals)
           .sort((a, b) => b[1] - a[1])
-          .slice(0, 20)
           .map(([k]) => k)
       );
 
