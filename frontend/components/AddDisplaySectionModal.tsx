@@ -413,18 +413,6 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
           /* KPI Bar config */
           <>
             <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
-              {/* Title */}
-              <div>
-                <label className={labelClass}>Section Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="e.g. Key Metrics"
-                  className={inputClass}
-                />
-              </div>
-
               {/* KPI Markers */}
               <div>
                 <label className={labelClass}>KPI Markers</label>

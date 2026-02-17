@@ -97,10 +97,9 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
   const showAddSlots = emptySlots > 0 && section.items.length < 4;
 
   return (
-    <div className="bg-bg-surface rounded-xl border border-border-dim">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border-dim/50">
-        <h3 className="text-[14px] font-semibold text-text-heading">{section.title}</h3>
+    <div className="bg-bg-surface rounded-xl border border-border-dim relative group">
+      {/* Menu (top-right, visible on hover) */}
+      <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="relative">
           <button
             onClick={e => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
