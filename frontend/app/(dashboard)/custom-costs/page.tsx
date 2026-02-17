@@ -34,7 +34,8 @@ function formatAmount(cost: CustomCost): string {
 
 function formatDate(d: string | null): string {
   if (!d) return '—';
-  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const dateStr = String(d).slice(0, 10);
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 const BASE_METRIC_LABELS: Record<string, string> = {
