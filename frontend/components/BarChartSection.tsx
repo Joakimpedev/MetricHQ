@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { MoreVertical, Pencil, Trash2, Copy, Table } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList, Cell } from 'recharts';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -43,6 +43,23 @@ function CustomTooltip({ active, payload }: any) {
   );
 }
 
+function PctLabel({ x, y, width, value }: any) {
+  if (!value) return null;
+  const isPositive = value.startsWith('+');
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      textAnchor="middle"
+      fontSize={10}
+      fontWeight={500}
+      fill={isPositive ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)'}
+    >
+      {value}
+    </text>
+  );
+}
+
 export default function BarChartSection({ section, startDate, endDate, onEdit, onDelete, onDuplicate }: Props) {
   const { user } = useUser();
   const [data, setData] = useState<DisplayItem[]>([]);
@@ -79,10 +96,17 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
     return item.event_name;
   };
 
-  const chartData = data.map(item => ({
-    label: getLabel(item),
-    count: item.count,
-  }));
+  const chartData = data.map((item, i) => {
+    const prev = i > 0 ? data[i - 1].count : null;
+    let pctLabel = '';
+    if (prev !== null && prev > 0) {
+      const pct = ((item.count - prev) / prev) * 100;
+      pctLabel = `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
+    } else if (prev !== null && prev === 0 && item.count > 0) {
+      pctLabel = '+100%';
+    }
+    return { label: getLabel(item), count: item.count, pctLabel };
+  });
 
   // Default: upright bars side by side. Only use sideways horizontal bars for 500+ items
   const useSidewaysBars = chartData.length >= 500;
@@ -164,23 +188,25 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
           </div>
         ) : (
           /* Upright bars side by side (default) */
-          <div style={{ width: '100%', height: 320 }}>
+          <div style={{ width: '100%', height: 360 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 4, right: 12, bottom: chartData.length > 8 ? 60 : 20, left: 4 }}>
+              <BarChart data={chartData} margin={{ top: 24, right: 12, bottom: chartData.length > 8 ? 80 : 30, left: 4 }}>
                 <XAxis
                   type="category"
                   dataKey="label"
-                  tick={{ fontSize: chartData.length > 15 ? 9 : 11, fill: 'var(--text-dim)' }}
+                  tick={{ fontSize: chartData.length > 15 ? 9 : 11, fill: 'var(--text-dim)', dy: 4 }}
                   axisLine={false}
                   tickLine={false}
-                  angle={chartData.length > 8 ? -45 : 0}
-                  textAnchor={chartData.length > 8 ? 'end' : 'middle'}
+                  angle={-45}
+                  textAnchor="end"
                   interval={0}
-                  height={chartData.length > 8 ? 60 : 20}
+                  height={chartData.length > 8 ? 80 : 40}
                 />
                 <YAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
-                <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]}>
+                  <LabelList dataKey="pctLabel" content={<PctLabel />} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
