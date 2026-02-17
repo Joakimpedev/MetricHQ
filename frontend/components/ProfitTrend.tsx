@@ -142,7 +142,7 @@ function formatDollarCompact(value: number): string {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function makeCustomTooltip(fmt: (n: number) => string) {
+function makeCustomTooltip(fmt: (n: number) => string, isCumulative: boolean) {
   return function CustomTooltip(props: any) {
     const { active, payload, label } = props || {};
     if (!active || !payload?.length) return null;
@@ -151,10 +151,11 @@ function makeCustomTooltip(fmt: (n: number) => string) {
     if (!point) return null;
 
     const dateLabel = typeof label === 'string' ? label : '';
+    const profitLabel = isCumulative ? 'Net P&L' : 'Profit';
 
     return (
       <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg min-w-[140px]">
-        <p className="text-[11px] text-text-dim mb-1.5">{dateLabel ? formatDate(dateLabel) : ''}</p>
+        <p className="text-[11px] text-text-dim mb-1.5">{dateLabel ? formatDate(dateLabel) : ''}{isCumulative ? ' (cumulative)' : ''}</p>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
             <span className="text-[11px] text-text-dim">Revenue</span>
@@ -171,7 +172,7 @@ function makeCustomTooltip(fmt: (n: number) => string) {
             </div>
           )}
           <div className="flex justify-between gap-4 pt-1 border-t border-border-dim/50">
-            <span className="text-[11px] font-medium text-text-dim">Profit</span>
+            <span className="text-[11px] font-medium text-text-dim">{profitLabel}</span>
             <span className={`text-[13px] font-semibold tabular-nums ${point.profit >= 0 ? 'text-success' : 'text-error'}`}>
               {point.profit >= 0 ? '+' : ''}{fmt(Math.round(point.profit))}
             </span>
@@ -250,6 +251,7 @@ function InlineBadge({ current, previous, invert }: { current: number; previous:
 export default function ProfitTrend({ data, prevData, isSingleDay, summary, compSummary, customCostsTotal, compCustomCostsTotal, platforms, platformLabels = {}, platformIcons = {} }: ProfitTrendProps) {
   const { formatCurrency: fmtCur, formatCurrencyCompact: fmtCompact, convertFromCurrency } = useCurrency();
   const [showProfit, setShowProfit] = useState(true);
+  const [cumulative, setCumulative] = useState(false);
 
   const merged = useMemo<MergedPoint[]>(() => {
     return data.map((point) => {
@@ -267,9 +269,25 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
     });
   }, [data, convertFromCurrency]);
 
+  const cumulativeData = useMemo<MergedPoint[]>(() => {
+    let runningProfit = 0;
+    let runningRevenue = 0;
+    let runningSpend = 0;
+    let runningCosts = 0;
+    return merged.map((point) => {
+      runningProfit += point.profit;
+      runningRevenue += point.revenue;
+      runningSpend += point.spend;
+      runningCosts += point.customCosts;
+      return { ...point, profit: runningProfit, revenue: runningRevenue, spend: runningSpend, customCosts: runningCosts };
+    });
+  }, [merged]);
+
+  const chartData = cumulative ? cumulativeData : merged;
+
   const hasCustomCosts = (customCostsTotal || 0) > 0;
 
-  const TooltipComponent = useMemo(() => makeCustomTooltip(fmtCur), [fmtCur]);
+  const TooltipComponent = useMemo(() => makeCustomTooltip(fmtCur, cumulative), [fmtCur, cumulative]);
   const yAxisFormatter = useMemo(() => (value: number) => fmtCompact(value), [fmtCompact]);
 
   // Build platform list for sidebar
@@ -378,29 +396,53 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
             </div>
           )}
 
-          {/* Chart */}
+          {/* Chart mode toggle + Chart */}
           {isSingleDay || data.length < 2 ? (
             <GhostChart />
           ) : (
-            <div className="h-[360px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={merged} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
-                  <YAxis tickFormatter={yAxisFormatter} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
-                  <Tooltip content={<TooltipComponent />} />
-                  {showProfit && (
-                    <Area type="monotone" dataKey="profit" stroke="var(--accent)" strokeWidth={2} fill="url(#profitGradient)" />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div className="flex items-center justify-end mb-2">
+                <div className="inline-flex rounded-lg border border-border-dim bg-bg-elevated/50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setCumulative(false)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                      !cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
+                    }`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCumulative(true)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                      cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
+                    }`}
+                  >
+                    Cumulative
+                  </button>
+                </div>
+              </div>
+              <div className="h-[360px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                    <defs>
+                      <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-dim)" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={8} />
+                    <YAxis tickFormatter={yAxisFormatter} tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} tickMargin={4} width={48} />
+                    <Tooltip content={<TooltipComponent />} />
+                    {showProfit && (
+                      <Area type="monotone" dataKey="profit" stroke="var(--accent)" strokeWidth={2} fill="url(#profitGradient)" />
+                    )}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
           )}
         </div>
 
