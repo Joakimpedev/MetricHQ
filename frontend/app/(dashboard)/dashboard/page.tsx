@@ -534,10 +534,11 @@ export default function DashboardPage() {
     return patched;
   }, [isDemo, demoUtmOff, data?.platforms]);
 
-  // Compute customCostsTotal from breakdown items using live exchange rates (matches donut chart)
+  // Compute customCostsTotal in USD (same base as backend summary values) so subtraction is correct.
+  // Display-time conversion to dashboard currency happens via fmtCur() in child components.
   const customCostsBreakdown = data?.customCostsBreakdown || [];
   const customCostsTotal = useMemo(() => {
-    return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency), 0);
+    return customCostsBreakdown.reduce((sum, item) => sum + convertFromCurrency(item.amount, item.currency, 'USD'), 0);
   }, [customCostsBreakdown, convertFromCurrency]);
 
   // Build combined cost breakdown: ad spend platforms + custom costs
