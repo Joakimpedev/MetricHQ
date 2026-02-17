@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, Loader2, Minus, Plus, Table, LineChart, PieChart } from 'lucide-react';
+import { X, Loader2, Minus, Plus, Table, BarChart3, LineChart, PieChart } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -36,6 +36,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   const isEdit = !!section;
 
   const [step, setStep] = useState<'type' | 'config'>(isEdit ? 'config' : 'type');
+  const [sectionType, setSectionType] = useState(section?.section_type || 'table');
   const [title, setTitle] = useState(section?.title || '');
   const [items, setItems] = useState<DisplayItem[]>(
     section?.items?.length ? section.items.map(i => ({
@@ -145,7 +146,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     const body = {
       userId: user.id,
       title: title.trim() || 'Untitled',
-      section_type: 'table',
+      section_type: sectionType,
       items: validItems,
     };
 
@@ -182,7 +183,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim shrink-0">
           <h2 className="text-[15px] font-semibold text-text-heading">
-            {isEdit ? 'Edit Section' : step === 'type' ? 'Add Section' : 'Configure Table'}
+            {isEdit ? 'Edit Section' : step === 'type' ? 'Add Section' : `Configure ${sectionType === 'bar' ? 'Bar Chart' : 'Table'}`}
           </h2>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-bg-hover text-text-dim">
             <X size={16} />
@@ -193,13 +194,23 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
           /* Step 1: Type picker */
           <div className="px-5 py-5 space-y-3">
             <button
-              onClick={() => setStep('config')}
+              onClick={() => { setSectionType('table'); setStep('config'); }}
               className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim hover:border-accent/50 hover:bg-bg-hover transition-colors text-left"
             >
               <Table size={20} className="text-accent shrink-0" />
               <div>
                 <p className="text-[13px] font-medium text-text-heading">Table</p>
                 <p className="text-[11px] text-text-dim">Show counts for specific event/property combinations</p>
+              </div>
+            </button>
+            <button
+              onClick={() => { setSectionType('bar'); setStep('config'); }}
+              className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim hover:border-accent/50 hover:bg-bg-hover transition-colors text-left"
+            >
+              <BarChart3 size={20} className="text-accent shrink-0" />
+              <div>
+                <p className="text-[13px] font-medium text-text-heading">Bar Chart</p>
+                <p className="text-[11px] text-text-dim">Horizontal bar chart comparing event counts</p>
               </div>
             </button>
             <div className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim opacity-40 cursor-not-allowed">

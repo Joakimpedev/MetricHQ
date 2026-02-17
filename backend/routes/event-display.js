@@ -233,4 +233,65 @@ async function getSectionData(req, res) {
   }
 }
 
-module.exports = { listSections, createSection, updateSection, deleteSection, getSectionData };
+// POST /api/event-display/sections/:id/duplicate
+async function duplicateSection(req, res) {
+  const { userId, section_type } = req.body || {};
+  const sectionId = req.params.id;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+
+    // Ownership check + fetch source section
+    const existing = await pool.query(
+      'SELECT * FROM event_display_sections WHERE id = $1 AND user_id = $2',
+      [sectionId, dataOwnerId]
+    );
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Section not found' });
+
+    const source = existing.rows[0];
+
+    // Next display_order
+    const orderResult = await pool.query(
+      'SELECT COALESCE(MAX(display_order), -1) + 1 AS next_order FROM event_display_sections WHERE user_id = $1',
+      [dataOwnerId]
+    );
+
+    // Create duplicate section
+    const newType = section_type || source.section_type;
+    const result = await pool.query(
+      `INSERT INTO event_display_sections (user_id, title, section_type, display_order)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [dataOwnerId, `Copy of ${source.title}`, newType, orderResult.rows[0].next_order]
+    );
+    const newSection = result.rows[0];
+
+    // Copy items from source
+    const sourceItems = await pool.query(
+      'SELECT * FROM event_display_items WHERE section_id = $1 ORDER BY display_order ASC',
+      [sectionId]
+    );
+    for (const item of sourceItems.rows) {
+      await pool.query(
+        `INSERT INTO event_display_items (section_id, event_name, property_name, property_value, display_order)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [newSection.id, item.event_name, item.property_name, item.property_value, item.display_order]
+      );
+    }
+
+    // Fetch back with items
+    const itemsResult = await pool.query(
+      'SELECT * FROM event_display_items WHERE section_id = $1 ORDER BY display_order ASC',
+      [newSection.id]
+    );
+
+    res.json({ ok: true, section: { ...newSection, items: itemsResult.rows } });
+  } catch (error) {
+    console.error('Duplicate display section error:', error);
+    res.status(500).json({ error: 'Failed to duplicate section' });
+  }
+}
+
+module.exports = { listSections, createSection, updateSection, deleteSection, getSectionData, duplicateSection };

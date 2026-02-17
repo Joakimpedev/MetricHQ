@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { MoreVertical, Pencil, Trash2, Copy, BarChart3 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Copy, Table } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -30,7 +31,19 @@ interface Props {
   onDuplicate: (sectionType?: string) => void;
 }
 
-export default function TableSection({ section, startDate, endDate, onEdit, onDelete, onDuplicate }: Props) {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function CustomTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const item = payload[0];
+  return (
+    <div className="bg-bg-elevated border border-border-dim rounded-lg px-3 py-2 shadow-lg">
+      <p className="text-[11px] text-text-dim mb-0.5">{item.payload.label}</p>
+      <p className="text-[13px] font-medium text-text-heading">{item.value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+export default function BarChartSection({ section, startDate, endDate, onEdit, onDelete, onDuplicate }: Props) {
   const { user } = useUser();
   const [data, setData] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +66,6 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
     const handler = () => setMenuOpen(false);
@@ -66,6 +78,11 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
     if (item.property_name) return `${item.event_name} (${item.property_name})`;
     return item.event_name;
   };
+
+  const chartData = data.map(item => ({
+    label: getLabel(item),
+    count: item.count,
+  }));
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim">
@@ -80,7 +97,7 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
             <MoreVertical size={14} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
+            <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[160px]">
               <button
                 onClick={() => { setMenuOpen(false); onEdit(); }}
                 className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
@@ -94,10 +111,10 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
                 <Copy size={12} /> Duplicate
               </button>
               <button
-                onClick={() => { setMenuOpen(false); onDuplicate('bar'); }}
+                onClick={() => { setMenuOpen(false); onDuplicate('table'); }}
                 className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
               >
-                <BarChart3 size={12} /> Duplicate as Bar Chart
+                <Table size={12} /> Duplicate as Table
               </button>
               <button
                 onClick={() => { setMenuOpen(false); onDelete(); }}
@@ -110,7 +127,7 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
         </div>
       </div>
 
-      {/* Table body */}
+      {/* Chart body */}
       <div className="px-5 py-3">
         {loading ? (
           <div className="space-y-2">
@@ -124,18 +141,23 @@ export default function TableSection({ section, startDate, endDate, onEdit, onDe
         ) : data.length === 0 ? (
           <p className="text-text-dim text-[12px] py-4 text-center">No data yet</p>
         ) : (
-          <table className="w-full">
-            <tbody>
-              {data.map((item, i) => (
-                <tr key={i} className="border-b border-border-dim/30 last:border-0">
-                  <td className="py-2 text-[13px] text-text-body">{getLabel(item)}</td>
-                  <td className="py-2 text-[13px] text-text-heading font-medium text-right tabular-nums">
-                    {item.count.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ width: '100%', height: Math.max(200, chartData.length * 40 + 40) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fontSize: 12, fill: 'var(--text-body)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={120}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />
+                <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
     </div>

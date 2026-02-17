@@ -491,6 +491,7 @@ app.post('/api/custom-events/sync', customEvents.syncAllSections);
 const eventDisplay = require('./routes/event-display');
 app.get('/api/event-display/sections', eventDisplay.listSections);
 app.post('/api/event-display/sections', eventDisplay.createSection);
+app.post('/api/event-display/sections/:id/duplicate', eventDisplay.duplicateSection);
 app.put('/api/event-display/sections/:id', eventDisplay.updateSection);
 app.delete('/api/event-display/sections/:id', eventDisplay.deleteSection);
 app.get('/api/event-display/sections/:id/data', eventDisplay.getSectionData);

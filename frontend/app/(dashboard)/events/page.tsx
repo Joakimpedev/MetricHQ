@@ -8,6 +8,7 @@ import DateRangeSelector, { type DateRange } from '../../../components/DateRange
 import AddEventSectionModal from '../../../components/AddEventSectionModal';
 import AddDisplaySectionModal from '../../../components/AddDisplaySectionModal';
 import TableSection from '../../../components/TableSection';
+import BarChartSection from '../../../components/BarChartSection';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -127,6 +128,22 @@ export default function EventsPage() {
     if (!user?.id) return;
     try {
       await fetch(`${API_URL}/api/event-display/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      fetchDisplaySections();
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handleDuplicate = async (id: number, sectionType?: string) => {
+    if (!user?.id) return;
+    try {
+      const body: Record<string, string> = { userId: user.id };
+      if (sectionType) body.section_type = sectionType;
+      await fetch(`${API_URL}/api/event-display/sections/${id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       fetchDisplaySections();
     } catch {
       // silently ignore
@@ -258,16 +275,20 @@ export default function EventsPage() {
             </div>
           )}
 
-          {displaySections.map(ds => (
-            <TableSection
-              key={`${ds.id}-${refreshKey}`}
-              section={ds}
-              startDate={dateRange.startDate}
-              endDate={dateRange.endDate}
-              onEdit={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
-              onDelete={() => handleDeleteDisplay(ds.id)}
-            />
-          ))}
+          {displaySections.map(ds => {
+            const SectionComponent = ds.section_type === 'bar' ? BarChartSection : TableSection;
+            return (
+              <SectionComponent
+                key={`${ds.id}-${refreshKey}`}
+                section={ds}
+                startDate={dateRange.startDate}
+                endDate={dateRange.endDate}
+                onEdit={() => { setEditingDisplay(ds); setDisplayModalOpen(true); }}
+                onDelete={() => handleDeleteDisplay(ds.id)}
+                onDuplicate={(type?: string) => handleDuplicate(ds.id, type)}
+              />
+            );
+          })}
 
           {/* Add Section button */}
           {sections.length > 0 && (
