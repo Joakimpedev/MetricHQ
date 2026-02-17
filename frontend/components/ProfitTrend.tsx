@@ -393,37 +393,40 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   </div>
                 </div>
               )}
+
+              {/* Daily / Cumulative toggle — inline with KPIs */}
+              {!isSingleDay && data.length >= 2 && (
+                <div className="ml-auto self-center">
+                  <div className="inline-flex rounded-lg border border-border-dim bg-bg-elevated/50 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setCumulative(false)}
+                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                        !cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
+                      }`}
+                    >
+                      Daily
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCumulative(true)}
+                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                        cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
+                      }`}
+                    >
+                      Cumulative
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Chart mode toggle + Chart */}
+          {/* Chart */}
           {isSingleDay || data.length < 2 ? (
             <GhostChart />
           ) : (
-            <>
-              <div className="flex items-center justify-end mb-2">
-                <div className="inline-flex rounded-lg border border-border-dim bg-bg-elevated/50 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setCumulative(false)}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
-                      !cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
-                    }`}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCumulative(true)}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
-                      cumulative ? 'bg-accent text-white' : 'text-text-dim hover:text-text-body'
-                    }`}
-                  >
-                    Cumulative
-                  </button>
-                </div>
-              </div>
-              <div className="h-[360px]">
+            <div className="h-[360px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                     <defs>
@@ -442,7 +445,6 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            </>
           )}
         </div>
 
