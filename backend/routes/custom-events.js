@@ -382,4 +382,25 @@ async function getPropertyValues(req, res) {
   }
 }
 
-module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties, syncAllSections, getRawData, getPropertyValues };
+// DELETE /api/custom-events/all?userId=X — nuke all event trackers + display sections + cache
+async function deleteAll(req, res) {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+
+    // Cascade deletes handle custom_event_cache and event_display_items
+    await pool.query('DELETE FROM event_display_sections WHERE user_id = $1', [dataOwnerId]);
+    await pool.query('DELETE FROM custom_event_sections WHERE user_id = $1', [dataOwnerId]);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete all custom events error:', error);
+    res.status(500).json({ error: 'Failed to delete all' });
+  }
+}
+
+module.exports = { createSection, listSections, updateSection, deleteSection, getSectionData, getEventProperties, syncAllSections, getRawData, getPropertyValues, deleteAll };

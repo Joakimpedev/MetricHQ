@@ -479,6 +479,7 @@ const customEvents = require('./routes/custom-events');
 app.get('/api/custom-events/properties', customEvents.getEventProperties);
 app.get('/api/custom-events/raw-data', customEvents.getRawData);
 app.get('/api/custom-events/values', customEvents.getPropertyValues);
+app.delete('/api/custom-events/all', customEvents.deleteAll);
 app.get('/api/custom-events/sections', customEvents.listSections);
 app.post('/api/custom-events/sections', customEvents.createSection);
 app.put('/api/custom-events/sections/:id', customEvents.updateSection);

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Plus, Plug, RefreshCw, BarChart3 } from 'lucide-react';
+import { Plus, Plug, RefreshCw, BarChart3, Trash2 } from 'lucide-react';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import AddEventSectionModal from '../../../components/AddEventSectionModal';
 import AddDisplaySectionModal from '../../../components/AddDisplaySectionModal';
@@ -132,6 +132,18 @@ export default function EventsPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!user?.id) return;
+    if (!confirm('Delete all event trackers, display sections, and cached data? This cannot be undone.')) return;
+    try {
+      await fetch(`${API_URL}/api/custom-events/all?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      setSections([]);
+      setDisplaySections([]);
+    } catch {
+      // silently ignore
+    }
+  };
+
   // PostHog not connected state
   if (hasPostHog === false) {
     return (
@@ -169,13 +181,24 @@ export default function EventsPage() {
 
       {/* Top bar: Add Event Tracker + Sync + DateRange */}
       <div className="flex items-center justify-between gap-2 mb-5">
-        <button
-          onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
-          className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors"
-        >
-          <Plus size={13} />
-          Add Event Tracker
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-text-dim hover:text-text-body border border-border-dim rounded-lg hover:border-accent/50 transition-colors"
+          >
+            <Plus size={13} />
+            Add Event Tracker
+          </button>
+          {(sections.length > 0 || displaySections.length > 0) && (
+            <button
+              onClick={handleDeleteAll}
+              className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-error/70 hover:text-error border border-border-dim rounded-lg hover:border-error/50 transition-colors"
+            >
+              <Trash2 size={13} />
+              Delete All
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleSync}
