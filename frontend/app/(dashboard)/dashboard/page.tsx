@@ -400,8 +400,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRangeRaw] = useState<DateRange>(() => {
-    if (isDemo) return last30DaysRange;
-    if (isEmbed) return last7DaysRange;
+    if (isDemo) return last30DaysRange();
+    if (isEmbed) return last7DaysRange();
     try {
       const saved = sessionStorage.getItem('metrichq-date-range');
       if (saved) {
@@ -409,7 +409,7 @@ export default function DashboardPage() {
         if (parsed.startDate && parsed.endDate) return parsed;
       }
     } catch { /* ignore */ }
-    return todayRange;
+    return todayRange();
   });
   const setDateRange = (range: DateRange) => {
     setDateRangeRaw(range);
@@ -419,6 +419,7 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [customSourceLabels, setCustomSourceLabels] = useState<Record<string, string>>(isDemo ? { custom_99: 'Reddit Ads' } : {});
   const [customSourceIcons, setCustomSourceIcons] = useState<Record<string, string>>(isDemo ? { custom_99: 'reddit' } : {});
+  const [revenueAllocation, setRevenueAllocation] = useState<string>('none');
 
   // Demo-only: secret 5-click-in-5s to toggle UTM off per campaign
   const [demoUtmOff, setDemoUtmOff] = useState<Set<string>>(new Set());
@@ -504,14 +505,17 @@ export default function DashboardPage() {
     })();
   }, [user?.id, isDemo]);
 
-  // Fetch custom source names for label mapping
+  // Fetch custom source names, icons, and user settings
   useEffect(() => {
     if (isDemo || !user?.id) return;
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`);
-        if (res.ok) {
-          const json = await res.json();
+        const [sourcesRes, settingsRes] = await Promise.all([
+          fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
+          fetch(`${API_URL}/api/user-settings?userId=${encodeURIComponent(user.id)}`),
+        ]);
+        if (sourcesRes.ok) {
+          const json = await sourcesRes.json();
           const labels: Record<string, string> = {};
           const icons: Record<string, string> = {};
           for (const src of json.sources || []) {
@@ -520,6 +524,10 @@ export default function DashboardPage() {
           }
           setCustomSourceLabels(labels);
           setCustomSourceIcons(icons);
+        }
+        if (settingsRes.ok) {
+          const json = await settingsRes.json();
+          setRevenueAllocation(json.settings?.revenueAllocation || 'none');
         }
       } catch { /* ignore */ }
     })();
@@ -677,7 +685,32 @@ export default function DashboardPage() {
   const unattributedRevenue = data?.unattributedRevenue || 0;
   const unattributedSpend = data?.unattributedSpend || 0;
   const countryCampaigns = data?.countryCampaigns || {};
-  const platforms = demoPatched;
+
+  // Apply revenue allocation: distribute unattributed revenue to the chosen platform(s)
+  const platforms = useMemo(() => {
+    if (revenueAllocation === 'none' || unattributedRevenue <= 0) return demoPatched;
+    const patched: Record<string, Platform> = {};
+    const adKeys = Object.keys(demoPatched).filter(k => k !== 'stripe');
+
+    if (revenueAllocation === 'even' && adKeys.length > 0) {
+      const share = unattributedRevenue / adKeys.length;
+      for (const [key, pData] of Object.entries(demoPatched)) {
+        if (key === 'stripe') { patched[key] = pData; continue; }
+        patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + share };
+      }
+    } else if (demoPatched[revenueAllocation]) {
+      for (const [key, pData] of Object.entries(demoPatched)) {
+        if (key === revenueAllocation) {
+          patched[key] = { ...pData, totalRevenue: (pData.totalRevenue || 0) + unattributedRevenue };
+        } else {
+          patched[key] = pData;
+        }
+      }
+    } else {
+      return demoPatched;
+    }
+    return patched;
+  }, [demoPatched, revenueAllocation, unattributedRevenue]);
 
   const retentionLimit = data?.dataRetentionLimit;
   // Show retention banner if the selected start date was before the retention limit
