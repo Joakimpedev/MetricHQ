@@ -57,6 +57,24 @@ export default function CostBreakdownChart({ breakdown }: CostBreakdownProps) {
       map[cat].items.push({ name: item.name, amount: converted, rateLabel });
     }
 
+    // Merge items with the same name within each category
+    for (const cat of Object.values(map)) {
+      const merged: Record<string, { name: string; amount: number; rateLabel?: string; count: number }> = {};
+      for (const item of cat.items) {
+        if (merged[item.name]) {
+          merged[item.name].amount += item.amount;
+          merged[item.name].count += 1;
+          // Drop rateLabel when merging mixed entries
+          if (merged[item.name].rateLabel !== item.rateLabel) {
+            merged[item.name].rateLabel = undefined;
+          }
+        } else {
+          merged[item.name] = { ...item, count: 1 };
+        }
+      }
+      cat.items = Object.values(merged);
+    }
+
     const cats = Object.values(map).sort((a, b) => b.amount - a.amount);
     return { categories: cats };
   }, [breakdown, convertFromCurrency]);

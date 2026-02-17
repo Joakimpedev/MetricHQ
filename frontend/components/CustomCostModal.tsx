@@ -267,7 +267,7 @@ function RequiredLabel({ children }: { children: React.ReactNode }) {
 
 export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   const { user } = useUser();
-  const isEdit = !!cost;
+  const isEdit = !!cost?.id;
 
   const [name, setName] = useState(cost?.name || '');
   const [costType, setCostType] = useState<'fixed' | 'variable'>((cost?.cost_type as 'fixed' | 'variable') || 'fixed');
