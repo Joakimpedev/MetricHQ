@@ -767,7 +767,10 @@ async function getSyncStatus(userId) {
       error: row.error_message,
       recordsSynced: row.records_synced
     };
-    if (row.status === 'syncing') isSyncing = true;
+    // Treat syncing locks older than 10 minutes as stale (crashed/timed out)
+    const isStale = row.status === 'syncing' && row.started_at &&
+      (Date.now() - new Date(row.started_at).getTime() > 10 * 60 * 1000);
+    if (row.status === 'syncing' && !isStale) isSyncing = true;
     if (row.last_synced_at && (!lastSynced || row.last_synced_at > lastSynced)) {
       lastSynced = row.last_synced_at;
     }

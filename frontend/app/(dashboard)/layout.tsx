@@ -74,13 +74,31 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
         const label = next ? `Next sync available ${timeAgo(next.toISOString()).replace(' ago', '')} from now` : 'Try again later';
         setCooldownError(label);
         setSyncing(false);
-        // Don't auto-dismiss — keep visible until user navigates away
         return;
       }
-      setTimeout(() => {
-        fetchSyncStatus();
+      if (!res.ok) {
         setSyncing(false);
-      }, 5000);
+        return;
+      }
+      // Poll until sync finishes (check every 3s, give up after 2 min)
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const statusRes = await fetch(`${API_URL}/api/sync/status?${new URLSearchParams({ userId })}`);
+          if (statusRes.ok) {
+            const json = await statusRes.json();
+            setLastSynced(json.lastSynced);
+            if (!json.isSyncing || attempts >= 40) {
+              clearInterval(poll);
+              setSyncing(false);
+            }
+          }
+        } catch {
+          clearInterval(poll);
+          setSyncing(false);
+        }
+      }, 3000);
     } catch {
       setSyncing(false);
     }
