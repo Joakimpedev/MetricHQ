@@ -543,6 +543,8 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
         groupByProperty: section.group_by_property
       });
 
+      console.log(`[sync] Section ${sectionId} grouped by "${section.group_by_property}": PostHog returned ${(groupedRows || []).length} rows (${startDate} to ${endDate})`);
+
       // Limit to top 20 property values by total count
       const valueTotals = {};
       for (const row of (groupedRows || [])) {
@@ -551,6 +553,9 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
         const key = String(propValue || 'unknown');
         valueTotals[key] = (valueTotals[key] || 0) + count;
       }
+
+      console.log(`[sync] Section ${sectionId} distinct values from PostHog:`, JSON.stringify(valueTotals));
+
       const topValues = new Set(
         Object.entries(valueTotals)
           .sort((a, b) => b[1] - a[1])
@@ -558,6 +563,7 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
           .map(([k]) => k)
       );
 
+      let insertedCount = 0;
       for (const row of (groupedRows || [])) {
         const date = Array.isArray(row) ? row[0] : row.date;
         const propValue = String(Array.isArray(row) ? row[1] : row.prop_value || 'unknown');
@@ -573,7 +579,10 @@ async function syncCustomEventSection(userId, sectionId, options = {}) {
              SET count = $4, cached_at = NOW()`,
           [sectionId, dateStr, propValue, count]
         );
+        insertedCount++;
       }
+
+      console.log(`[sync] Section ${sectionId} inserted/updated ${insertedCount} grouped cache rows`);
     }
 
     await client.query('COMMIT');
