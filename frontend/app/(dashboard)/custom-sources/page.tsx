@@ -6,6 +6,21 @@ import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRig
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
+/** Parse a numeric string that may use comma as decimal separator (e.g. "197,22" → 197.22) */
+function parseNum(val: unknown): number {
+  let s = String(val ?? '').trim().replace(/[^\d.,-]/g, '');
+  // Single comma with no dots → treat comma as decimal (EU style: 197,22)
+  const commas = (s.match(/,/g) || []).length;
+  const dots = (s.match(/\./g) || []).length;
+  if (commas === 1 && dots === 0) {
+    s = s.replace(',', '.');
+  } else {
+    // Strip commas as thousand separators
+    s = s.replace(/,/g, '');
+  }
+  return parseFloat(s) || 0;
+}
+
 interface CustomSource {
   id: number;
   name: string;
@@ -213,10 +228,10 @@ function EntryModal({ source, entry, onClose, onSaved }: {
         date,
         campaign: campaign || undefined,
         country: country || undefined,
-        spend: parseFloat(spend) || 0,
+        spend: parseNum(spend),
         impressions: parseInt(impressions) || 0,
         clicks: parseInt(clicks) || 0,
-        revenue: parseFloat(revenue) || 0,
+        revenue: parseNum(revenue),
         purchases: parseInt(purchases) || 0,
       };
       const url = entry
@@ -263,7 +278,7 @@ function EntryModal({ source, entry, onClose, onSaved }: {
           </div>
           <div>
             <label className="block text-[12px] text-text-dim mb-1">Spend ($) *</label>
-            <input type="number" step="0.01" value={spend} onChange={e => setSpend(e.target.value)}
+            <input type="text" inputMode="decimal" value={spend} onChange={e => setSpend(e.target.value)}
               placeholder="0.00"
               className="w-full px-3 py-2 text-[13px] bg-bg-body border border-border-dim rounded-lg text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent" />
           </div>
@@ -286,7 +301,7 @@ function EntryModal({ source, entry, onClose, onSaved }: {
           {source.track_revenue && (
             <div>
               <label className="block text-[12px] text-text-dim mb-1">Revenue ($)</label>
-              <input type="number" step="0.01" value={revenue} onChange={e => setRevenue(e.target.value)}
+              <input type="text" inputMode="decimal" value={revenue} onChange={e => setRevenue(e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 text-[13px] bg-bg-body border border-border-dim rounded-lg text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent" />
             </div>
@@ -422,11 +437,11 @@ function ImportModal({ source, onClose, onImported }: {
 
         const row2: ParsedRow = {
           campaignName: String(campaignVal).trim(),
-          spend: parseFloat(String(vals[cols.spend])) || 0,
+          spend: parseNum(vals[cols.spend]),
           impressions: cols.impressions >= 0 ? (parseInt(String(vals[cols.impressions])) || 0) : 0,
           clicks: cols.clicks >= 0 ? (parseInt(String(vals[cols.clicks])) || 0) : 0,
           conversions: cols.conversions >= 0 ? (parseInt(String(vals[cols.conversions])) || 0) : 0,
-          revenue: cols.revenue >= 0 ? (parseFloat(String(vals[cols.revenue])) || 0) : 0,
+          revenue: cols.revenue >= 0 ? parseNum(vals[cols.revenue]) : 0,
         };
         // Skip campaigns with no data at all
         if (row2.spend === 0 && row2.impressions === 0 && row2.clicks === 0 && row2.conversions === 0 && row2.revenue === 0) continue;
