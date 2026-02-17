@@ -84,8 +84,8 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
     count: item.count,
   }));
 
-  // Use horizontal layout (vertical bars) only when there are 40+ items
-  const useVerticalBars = chartData.length >= 40;
+  // Use vertical bars only when there are 100+ items
+  const useVerticalBars = chartData.length >= 100;
 
   return (
     <div className="bg-bg-surface rounded-xl border border-border-dim">

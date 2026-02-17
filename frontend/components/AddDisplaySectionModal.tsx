@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { X, Loader2, Minus, Plus, Table, BarChart3, LineChart, PieChart, Activity, Trash2 } from 'lucide-react';
 
@@ -127,12 +127,24 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     )];
   };
 
-  // Fetch property values
+  // Track in-flight fetches to avoid duplicates (ref to avoid stale closures)
+  const fetchingRef = React.useRef<Set<string>>(new Set());
+
+  // Fetch property values - no stale closure deps
   const fetchValues = useCallback(async (eventName: string, propertyName: string) => {
     const cacheKey = `${eventName}::${propertyName}`;
-    if (valuesCache[cacheKey] || loadingValues[cacheKey]) return;
+    if (fetchingRef.current.has(cacheKey)) return;
     if (!user?.id || !eventName || !propertyName) return;
 
+    // Check cache via functional update to avoid stale closure
+    let alreadyCached = false;
+    setValuesCache(prev => {
+      if (prev[cacheKey] && prev[cacheKey].length > 0) alreadyCached = true;
+      return prev;
+    });
+    if (alreadyCached) return;
+
+    fetchingRef.current.add(cacheKey);
     setLoadingValues(prev => ({ ...prev, [cacheKey]: true }));
     try {
       const params = new URLSearchParams({ userId: user.id, eventName, propertyName });
@@ -140,11 +152,25 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
       const json = await res.json();
       setValuesCache(prev => ({ ...prev, [cacheKey]: json.values || [] }));
     } catch {
-      setValuesCache(prev => ({ ...prev, [cacheKey]: [] }));
+      // don't cache failures so user can retry
     } finally {
+      fetchingRef.current.delete(cacheKey);
       setLoadingValues(prev => ({ ...prev, [cacheKey]: false }));
     }
-  }, [user?.id, valuesCache, loadingValues]);
+  }, [user?.id]);
+
+  // Pre-fetch values for existing items when editing
+  useEffect(() => {
+    if (!user?.id || !isEdit || !section?.items?.length) return;
+    for (const item of section.items) {
+      if (item.event_name && item.property_name) {
+        fetchValues(item.event_name, item.property_name);
+      }
+      if (item.rate_event_name && item.rate_property_name) {
+        fetchValues(item.rate_event_name, item.rate_property_name);
+      }
+    }
+  }, [user?.id, isEdit, fetchValues]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addRow = () => {
     const lastItem = items[items.length - 1];
@@ -156,22 +182,26 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   };
 
   const updateItem = (index: number, field: keyof DisplayItem, value: string) => {
+    let eventNameForFetch = '';
     setItems(prev => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
-      // Reset dependent fields
       if (field === 'event_name') {
         next[index].property_name = '';
         next[index].property_value = '';
       }
       if (field === 'property_name') {
         next[index].property_value = '';
-        if (value && next[index].event_name) {
-          fetchValues(next[index].event_name, value);
-        }
+        eventNameForFetch = next[index].event_name;
       }
       return next;
     });
+    if (field === 'property_name' && value) {
+      // Fetch outside state updater to avoid stale closure
+      setTimeout(() => {
+        if (eventNameForFetch) fetchValues(eventNameForFetch, value);
+      }, 0);
+    }
   };
 
   const removeItem = (index: number) => {
@@ -186,17 +216,19 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   };
 
   const updateKpiMarker = (index: number, updates: Partial<KPIMarker>) => {
+    let fetchEv = '';
+    let fetchProp = '';
     setKpiMarkers(prev => {
       const next = [...prev];
       next[index] = { ...next[index], ...updates };
-      // Reset dependent fields when event changes
       if ('event_name' in updates) {
         next[index].property_name = '';
         next[index].property_value = '';
       }
       if ('property_name' in updates && updates.property_name && next[index].event_name) {
         next[index].property_value = '';
-        fetchValues(next[index].event_name, updates.property_name);
+        fetchEv = next[index].event_name;
+        fetchProp = updates.property_name;
       }
       if ('rate_event_name' in updates) {
         next[index].rate_property_name = '';
@@ -204,10 +236,14 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
       }
       if ('rate_property_name' in updates && updates.rate_property_name && next[index].rate_event_name) {
         next[index].rate_property_value = '';
-        fetchValues(next[index].rate_event_name, updates.rate_property_name);
+        fetchEv = next[index].rate_event_name;
+        fetchProp = updates.rate_property_name;
       }
       return next;
     });
+    if (fetchEv && fetchProp) {
+      setTimeout(() => fetchValues(fetchEv, fetchProp), 0);
+    }
   };
 
   const removeKpiMarker = (index: number) => {

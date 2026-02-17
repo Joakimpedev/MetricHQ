@@ -43,7 +43,20 @@ export default function EventsPage() {
   const [displaySections, setDisplaySections] = useState<DisplaySection[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPostHog, setHasPostHog] = useState<boolean | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
+  const [dateRange, setDateRangeRaw] = useState<DateRange>(() => {
+    try {
+      const saved = sessionStorage.getItem('metrichq-date-range');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.startDate && parsed.endDate) return parsed;
+      }
+    } catch { /* ignore */ }
+    return defaultDateRange();
+  });
+  const setDateRange = (range: DateRange) => {
+    setDateRangeRaw(range);
+    try { sessionStorage.setItem('metrichq-date-range', JSON.stringify(range)); } catch { /* ignore */ }
+  };
   const [trackerModalOpen, setTrackerModalOpen] = useState(false);
   const [editingTracker, setEditingTracker] = useState<EventSection | null>(null);
   const [displayModalOpen, setDisplayModalOpen] = useState(false);
