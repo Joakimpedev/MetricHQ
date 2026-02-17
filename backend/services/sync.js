@@ -475,7 +475,7 @@ async function syncStripe(userId, apiKey) {
 /**
  * Sync a single custom event section.
  */
-async function syncCustomEventSection(userId, sectionId) {
+async function syncCustomEventSection(userId, sectionId, options = {}) {
   // Get the section
   const secResult = await pool.query(
     'SELECT * FROM custom_event_sections WHERE id = $1 AND user_id = $2',
@@ -494,13 +494,14 @@ async function syncCustomEventSection(userId, sectionId) {
   const { access_token, account_id, settings } = accResult.rows[0];
 
   // Determine date range
+  // Manual syncs always go back 30 days; background cron uses 3-day window if cache exists
   const endDate = new Date().toISOString().slice(0, 10);
   const existingCache = await pool.query(
     'SELECT COUNT(*) as cnt FROM custom_event_cache WHERE section_id = $1',
     [sectionId]
   );
   const hasData = parseInt(existingCache.rows[0].cnt, 10) > 0;
-  const daysBack = hasData ? 3 : 30;
+  const daysBack = (options.fullSync || !hasData) ? 30 : 3;
   const start = new Date();
   start.setDate(start.getDate() - daysBack);
   const startDate = start.toISOString().slice(0, 10);
@@ -587,7 +588,7 @@ async function syncCustomEventSection(userId, sectionId) {
 /**
  * Sync all custom event sections for a user.
  */
-async function syncCustomEvents(userId) {
+async function syncCustomEvents(userId, options = {}) {
   const sections = await pool.query(
     'SELECT id FROM custom_event_sections WHERE user_id = $1',
     [userId]
@@ -595,7 +596,7 @@ async function syncCustomEvents(userId) {
 
   for (const section of sections.rows) {
     try {
-      await syncCustomEventSection(userId, section.id);
+      await syncCustomEventSection(userId, section.id, options);
     } catch (err) {
       console.error(`[sync] Custom event section ${section.id} sync failed for user ${userId}:`, err.message);
     }

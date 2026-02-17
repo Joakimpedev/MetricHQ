@@ -282,7 +282,7 @@ async function syncAllSections(req, res) {
     }
 
     const { syncCustomEvents } = require('../services/sync');
-    await syncCustomEvents(dataOwnerId);
+    await syncCustomEvents(dataOwnerId, { fullSync: true });
 
     res.json({ ok: true });
   } catch (error) {
