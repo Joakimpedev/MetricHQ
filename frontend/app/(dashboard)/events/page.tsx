@@ -166,7 +166,7 @@ export default function EventsPage() {
   // PostHog not connected state
   if (hasPostHog === false) {
     return (
-      <div className="max-w-[900px] mx-auto">
+      <div className="max-w-[1200px] mx-auto">
         <div className="bg-bg-surface rounded-xl border border-border-dim p-12 flex flex-col items-center justify-center gap-3">
           <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center">
             <Plug size={22} className="text-text-dim" />
@@ -191,7 +191,7 @@ export default function EventsPage() {
     }`;
 
   return (
-    <div className="max-w-[900px] mx-auto">
+    <div className="max-w-[1200px] mx-auto">
       {/* Tab navigation */}
       <div className="flex items-center border-b border-border-dim mb-5">
         <Link href="/events" className={tabClass(true)}>Events</Link>

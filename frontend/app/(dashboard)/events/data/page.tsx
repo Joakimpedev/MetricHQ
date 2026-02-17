@@ -52,7 +52,7 @@ export default function RawDataPage() {
     }`;
 
   return (
-    <div className="max-w-[900px] mx-auto">
+    <div className="max-w-[1200px] mx-auto">
       {/* Tab navigation */}
       <div className="flex items-center border-b border-border-dim mb-5">
         <Link href="/events" className={tabClass(false)}>Events</Link>
