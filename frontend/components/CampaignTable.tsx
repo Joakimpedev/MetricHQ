@@ -101,10 +101,13 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
   const profit = campaign.profit || 0;
   const impressions = campaign.impressions || 0;
   const clicks = campaign.clicks || 0;
+  const spend = campaign.spend || 0;
   const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+  const cpm = impressions > 0 ? (spend / impressions * 1000) : 0;
+  const cpc = clicks > 0 ? (spend / clicks) : 0;
   const isAttributed = campaign.attributed !== false;
-  const roas = isAttributed && (campaign.revenue || 0) > 0 && campaign.spend > 0
-    ? (campaign.revenue || 0) / campaign.spend : 0;
+  const roas = isAttributed && (campaign.revenue || 0) > 0 && spend > 0
+    ? (campaign.revenue || 0) / spend : 0;
 
   // Find countries where this campaign runs
   const campaignCountries: { code: string; name: string; spend: number; revenue: number }[] = [];
@@ -150,6 +153,18 @@ function CampaignTooltip({ campaign, platform, countryCampaigns, countries, onCl
           <div className="text-[10px] text-text-dim">CTR</div>
           <div className="text-[12px] font-semibold text-text-heading">{ctr.toFixed(1)}%</div>
         </div>
+        {cpc > 0 && (
+          <div>
+            <div className="text-[10px] text-text-dim">CPC</div>
+            <div className="text-[12px] font-semibold text-text-heading">{fmt(Number(cpc.toFixed(2)))}</div>
+          </div>
+        )}
+        {cpm > 0 && (
+          <div>
+            <div className="text-[10px] text-text-dim">CPM</div>
+            <div className="text-[12px] font-semibold text-text-heading">{fmt(Number(cpm.toFixed(2)))}</div>
+          </div>
+        )}
         {isAttributed && roas > 0 && (
           <div>
             <div className="text-[10px] text-text-dim">ROAS</div>
