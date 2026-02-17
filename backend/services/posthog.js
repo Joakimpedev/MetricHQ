@@ -29,7 +29,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
 
   const query = `
     SELECT
-      properties.$geoip_country_code AS country,
+      properties.currency AS currency,
       toDate(timestamp) AS date,
       sum(properties.revenue) AS total_revenue,
       count(*) AS purchases
@@ -38,7 +38,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate, options =
       event = '${safeEvent}'
       AND timestamp >= '${startDate}'
       AND timestamp < '${endNext}'
-    GROUP BY country, date
+    GROUP BY currency, date
     ORDER BY date DESC
   `;
 

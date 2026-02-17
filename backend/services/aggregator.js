@@ -187,13 +187,28 @@ async function aggregateMetrics(userId, startDate, endDate) {
     [userId, startDate, endDate]
   );
 
-  const timeSeries = timeSeriesResult.rows.map(row => ({
-    date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0],
-    spend: Math.round(parseFloat(row.spend) * 100) / 100,
-    revenue: Math.round(parseFloat(row.revenue) * 100) / 100,
-    profit: Math.round((parseFloat(row.revenue) - parseFloat(row.spend)) * 100) / 100,
-    purchases: parseInt(row.purchases, 10)
-  }));
+  // Build a lookup from query results
+  const timeSeriesMap = new Map();
+  for (const row of timeSeriesResult.rows) {
+    const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+    timeSeriesMap.set(dateStr, {
+      date: dateStr,
+      spend: Math.round(parseFloat(row.spend) * 100) / 100,
+      revenue: Math.round(parseFloat(row.revenue) * 100) / 100,
+      profit: Math.round((parseFloat(row.revenue) - parseFloat(row.spend)) * 100) / 100,
+      purchases: parseInt(row.purchases, 10)
+    });
+  }
+
+  // Fill in every day in the range so the chart has no gaps
+  const timeSeries = [];
+  const cursor = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  while (cursor <= end) {
+    const dateStr = cursor.toISOString().split('T')[0];
+    timeSeries.push(timeSeriesMap.get(dateStr) || { date: dateStr, spend: 0, revenue: 0, profit: 0, purchases: 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
 
   // ---- Summary ----
   // Campaign-level totals include platforms without country breakdown (e.g. LinkedIn)

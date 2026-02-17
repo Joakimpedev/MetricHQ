@@ -10,6 +10,24 @@ const { refreshGoogleToken, refreshLinkedInToken } = require('./token-refresh');
 const { getUserSubscription } = require('./subscription');
 const { convertToUSD } = require('./exchange-rates');
 
+// ---- Currency → Country mapping ----
+// Maps ISO 4217 currency codes to ISO 3166-1 alpha-2 country codes.
+// For currencies shared by multiple countries (e.g. EUR), picks the largest economy.
+const CURRENCY_TO_COUNTRY = {
+  USD: 'US', EUR: 'DE', GBP: 'GB', JPY: 'JP', CAD: 'CA', AUD: 'AU', CHF: 'CH',
+  CNY: 'CN', SEK: 'SE', NOK: 'NO', DKK: 'DK', NZD: 'NZ', SGD: 'SG', HKD: 'HK',
+  KRW: 'KR', INR: 'IN', BRL: 'BR', MXN: 'MX', ZAR: 'ZA', TRY: 'TR', PLN: 'PL',
+  THB: 'TH', IDR: 'ID', MYR: 'MY', PHP: 'PH', VND: 'VN', CZK: 'CZ', ILS: 'IL',
+  HUF: 'HU', RON: 'RO', BGN: 'BG', HRK: 'HR', RUB: 'RU', UAH: 'UA', AED: 'AE',
+  SAR: 'SA', TWD: 'TW', PKR: 'PK', EGP: 'EG', NGN: 'NG', KES: 'KE', BDT: 'BD',
+  COP: 'CO', ARS: 'AR', CLP: 'CL', PEN: 'PE', QAR: 'QA', KWD: 'KW', BHD: 'BH',
+  OMR: 'OM', JOD: 'JO', ISK: 'IS', GEL: 'GE', AMD: 'AM', UZS: 'UZ', KZT: 'KZ',
+};
+
+function currencyToCountry(currencyCode) {
+  return CURRENCY_TO_COUNTRY[currencyCode] || 'US';
+}
+
 // ---- Lock helpers ----
 
 /**
@@ -235,21 +253,26 @@ async function syncPostHog(userId, apiKey, projectId, settings = {}) {
       );
 
       for (const row of data) {
-        const country = Array.isArray(row) ? row[0] : (row.country ?? row.country_code);
+        const currency = Array.isArray(row) ? row[0] : (row.currency ?? row.country ?? row.country_code);
         const date = Array.isArray(row) ? row[1] : row.date;
-        const revenue = Array.isArray(row) ? parseFloat(row[2]) : parseFloat(row.total_revenue ?? row.revenue ?? 0);
+        const rawRevenue = Array.isArray(row) ? parseFloat(row[2]) : parseFloat(row.total_revenue ?? row.revenue ?? 0);
         const purchases = Array.isArray(row) ? parseInt(row[3], 10) : parseInt(row.purchases ?? 0, 10);
-        if (!country) continue;
-        const code = String(country).toUpperCase().slice(0, 2);
+        if (!currency) continue;
+        const currencyCode = String(currency).toUpperCase().trim();
         const dateStr = String(date).slice(0, 10);
 
-        // PostHog revenue is assumed to be in USD (set by the app's event tracking)
+        // Derive country from currency code
+        const code = currencyToCountry(currencyCode);
+
+        // Convert revenue from local currency to USD
+        const revenue = await convertToUSD(rawRevenue, currencyCode);
+
         await client.query(
           `INSERT INTO metrics_cache (user_id, country_code, date, platform, revenue, purchases)
            VALUES ($1, $2, $3, 'posthog', $4, $5)
            ON CONFLICT (user_id, country_code, date, platform) DO UPDATE
-             SET revenue = $4, purchases = $5, cached_at = NOW()`,
-          [userId, code, dateStr, revenue, purchases]
+             SET revenue = metrics_cache.revenue + $4, purchases = metrics_cache.purchases + $5, cached_at = NOW()`,
+          [userId, code, dateStr, Math.round(revenue * 100) / 100, purchases]
         );
       }
 
