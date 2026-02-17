@@ -41,8 +41,8 @@ async function createCustomCost(req, res) {
     return res.status(400).json({ error: 'Invalid repeat_interval' });
   }
 
-  if (!repeat && !end_date) {
-    return res.status(400).json({ error: 'end_date is required for non-repeating costs' });
+  if (type === 'fixed' && !repeat && !end_date) {
+    return res.status(400).json({ error: 'end_date is required for non-repeating fixed costs' });
   }
 
   try {
