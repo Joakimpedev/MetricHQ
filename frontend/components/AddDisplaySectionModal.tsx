@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { X, Loader2, Minus, Table, LineChart, PieChart } from 'lucide-react';
+import { X, Loader2, Minus, Plus, Table, LineChart, PieChart } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -96,20 +96,14 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     }
   }, [user?.id, valuesCache, loadingValues]);
 
-  // Auto-add empty row when last row is fully filled
-  useEffect(() => {
+  const addRow = () => {
     const lastItem = items[items.length - 1];
-    if (lastItem && lastItem.event_name) {
-      const props = getPropertiesForEvent(lastItem.event_name);
-      const isFilled = props.length === 0
-        ? !!lastItem.event_name
-        : (lastItem.property_name && lastItem.property_value);
-      if (isFilled) {
-        setItems(prev => [...prev, { event_name: '', property_name: '', property_value: '' }]);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, trackerSections]);
+    setItems(prev => [...prev, {
+      event_name: lastItem?.event_name || '',
+      property_name: lastItem?.property_name || '',
+      property_value: lastItem?.property_value || '',
+    }]);
+  };
 
   const updateItem = (index: number, field: keyof DisplayItem, value: string) => {
     setItems(prev => {
@@ -312,6 +306,16 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
                         </div>
                       );
                     })}
+
+                    {/* Add row button */}
+                    <button
+                      type="button"
+                      onClick={addRow}
+                      className="flex items-center gap-1 text-[12px] text-text-dim hover:text-accent transition-colors mt-1 ml-6"
+                    >
+                      <Plus size={12} />
+                      Add row
+                    </button>
                   </div>
                 )}
               </div>
