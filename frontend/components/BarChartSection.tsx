@@ -45,7 +45,6 @@ function CustomTooltip({ active, payload }: any) {
 
 function PctLabel({ x, y, width, value }: any) {
   if (!value) return null;
-  const isPositive = value.startsWith('+');
   return (
     <text
       x={x + width / 2}
@@ -53,7 +52,7 @@ function PctLabel({ x, y, width, value }: any) {
       textAnchor="middle"
       fontSize={10}
       fontWeight={500}
-      fill={isPositive ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)'}
+      fill="var(--text-dim)"
     >
       {value}
     </text>
@@ -100,10 +99,8 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
     const prev = i > 0 ? data[i - 1].count : null;
     let pctLabel = '';
     if (prev !== null && prev > 0) {
-      const pct = ((item.count - prev) / prev) * 100;
-      pctLabel = `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`;
-    } else if (prev !== null && prev === 0 && item.count > 0) {
-      pctLabel = '+100%';
+      const pct = (item.count / prev) * 100;
+      pctLabel = `${pct.toFixed(0)}%`;
     }
     return { label: getLabel(item), count: item.count, pctLabel };
   });
@@ -188,19 +185,19 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
           </div>
         ) : (
           /* Upright bars side by side (default) */
-          <div style={{ width: '100%', height: 360 }}>
+          <div style={{ width: '100%', height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 24, right: 12, bottom: chartData.length > 8 ? 80 : 30, left: 4 }}>
+              <BarChart data={chartData} margin={{ top: 24, right: 12, bottom: 8, left: 4 }}>
                 <XAxis
                   type="category"
                   dataKey="label"
-                  tick={{ fontSize: chartData.length > 15 ? 9 : 11, fill: 'var(--text-dim)', dy: 4 }}
+                  tick={{ fontSize: chartData.length > 15 ? 9 : 11, fill: 'var(--text-dim)', dy: 8 }}
                   axisLine={false}
                   tickLine={false}
                   angle={-45}
                   textAnchor="end"
                   interval={0}
-                  height={chartData.length > 8 ? 80 : 40}
+                  height={100}
                 />
                 <YAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)', opacity: 0.5 }} />

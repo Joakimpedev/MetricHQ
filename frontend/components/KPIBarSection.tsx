@@ -96,7 +96,9 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
 
   const getSubtitle = (item: KPIItem) => {
     if (item.item_type === 'rate') {
-      return `${(item.rate_count ?? 0).toLocaleString()} / ${item.count.toLocaleString()}`;
+      const converted = (item.rate_count ?? 0).toLocaleString();
+      const total = item.count.toLocaleString();
+      return `${converted} / ${total}`;
     }
     if (item.item_type === 'cost_per') {
       const spend = item.total_spend ?? 0;
