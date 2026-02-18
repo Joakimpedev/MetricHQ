@@ -116,6 +116,7 @@ const COUNTRIES: { code: string; name: string }[] = [
 ];
 
 const COUNTRY_MAP = Object.fromEntries(COUNTRIES.map(c => [c.code, c.name]));
+const COUNTRY_NAME_TO_CODE = Object.fromEntries(COUNTRIES.map(c => [c.name.toLowerCase(), c.code]));
 
 // --- Country Dropdown ---
 function CountrySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
@@ -1051,6 +1052,356 @@ function ImportModal({ source, onClose, onImported }: {
   );
 }
 
+// --- Country Detail Import Modal ---
+interface CountryDetailRow {
+  country: string;
+  countryCode: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  checked: boolean;
+}
+
+function resolveCountryCode(value: string): string {
+  const trimmed = value.trim();
+  // Already a 2-letter code?
+  if (trimmed.length === 2 && COUNTRY_MAP[trimmed.toUpperCase()]) return trimmed.toUpperCase();
+  // Full name lookup
+  const code = COUNTRY_NAME_TO_CODE[trimmed.toLowerCase()];
+  if (code) return code;
+  // Partial match
+  const match = COUNTRIES.find(c => c.name.toLowerCase().startsWith(trimmed.toLowerCase()));
+  return match ? match.code : trimmed.toUpperCase().slice(0, 2);
+}
+
+function fuzzyMatchCountryColumns(headers: string[]): {
+  country: number; spend: number; impressions: number; clicks: number;
+} {
+  const lower = headers.map(h => (h || '').toString().toLowerCase().trim());
+  const result = { country: -1, spend: -1, impressions: -1, clicks: -1 };
+
+  for (let i = 0; i < lower.length; i++) {
+    const h = lower[i];
+    if (result.country === -1 && (h === 'audience' || h === 'country' || h === 'region' || h === 'geo' || h === 'location' || h === 'country/region')) {
+      result.country = i;
+    }
+    if (result.spend === -1 && (h === 'cost' || h === 'spend' || h === 'amount spent') && !h.includes('cost per')) {
+      result.spend = i;
+    }
+    if (result.impressions === -1 && h.includes('impressions')) {
+      result.impressions = i;
+    }
+    if (result.clicks === -1 && h.includes('clicks')) {
+      result.clicks = i;
+    }
+  }
+
+  return result;
+}
+
+function CountryDetailImportModal({ source, entry, campaignId, onClose, onImported }: {
+  source: CustomSource;
+  entry: Entry;
+  campaignId: string;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const { user } = useUser();
+  const [step, setStep] = useState<'upload' | 'review' | 'importing'>('upload');
+  const [dragOver, setDragOver] = useState(false);
+  const [parseError, setParseError] = useState('');
+  const [rows, setRows] = useState<CountryDetailRow[]>([]);
+  const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
+  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+
+  const dateStr = String(entry.date).slice(0, 10);
+
+  const parseFile = async (file: File) => {
+    setParseError('');
+    try {
+      const XLSX = (await import('xlsx'));
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+      if (jsonData.length === 0) {
+        setParseError('File is empty or has no data rows.');
+        return;
+      }
+
+      const headers = Object.keys(jsonData[0]);
+      const cols = fuzzyMatchCountryColumns(headers);
+
+      if (cols.country === -1) {
+        setParseError(`Could not find a country/audience column. Found: ${headers.join(', ')}`);
+        return;
+      }
+      if (cols.spend === -1) {
+        setParseError(`Could not find a "Cost" or "Spend" column. Found: ${headers.join(', ')}`);
+        return;
+      }
+
+      const parsed: CountryDetailRow[] = [];
+      for (const row of jsonData) {
+        const vals = headers.map(h => row[h]);
+        const countryVal = String(vals[cols.country] ?? '').trim();
+        if (!countryVal || countryVal.toLowerCase() === 'total' || countryVal.toLowerCase().startsWith('total')) continue;
+
+        const spend = parseNum(vals[cols.spend]);
+        const impressions = cols.impressions >= 0 ? (parseInt(String(vals[cols.impressions])) || 0) : 0;
+        const clicks = cols.clicks >= 0 ? (parseInt(String(vals[cols.clicks])) || 0) : 0;
+
+        if (spend === 0 && impressions === 0 && clicks === 0) continue;
+
+        parsed.push({
+          country: countryVal,
+          countryCode: resolveCountryCode(countryVal),
+          spend,
+          impressions,
+          clicks,
+          checked: true,
+        });
+      }
+
+      if (parsed.length === 0) {
+        setParseError('No valid country rows found in the file.');
+        return;
+      }
+
+      setRows(parsed);
+      setStep('review');
+    } catch (err) {
+      setParseError(`Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleFileSelect = (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
+      setParseError('Please upload an .xlsx, .xls, or .csv file.');
+      return;
+    }
+    parseFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+  };
+
+  const handleImport = async () => {
+    if (!user?.id) return;
+    const toImport = rows.filter(r => r.checked);
+    if (toImport.length === 0) return;
+
+    setStep('importing');
+    setImportProgress({ done: 0, total: toImport.length });
+    let success = 0;
+    let failed = 0;
+
+    // First, delete the original undetailed entry
+    try {
+      await fetch(
+        `${API_URL}/api/custom-sources/${source.id}/entries/${entry.id}?userId=${encodeURIComponent(user.id)}`,
+        { method: 'DELETE' }
+      );
+    } catch { /* continue anyway */ }
+
+    // Create one entry per country row
+    for (const row of toImport) {
+      try {
+        const res = await fetch(`${API_URL}/api/custom-sources/${source.id}/entries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            date: dateStr,
+            campaign: campaignId,
+            country: row.countryCode,
+            spend: row.spend,
+            impressions: row.impressions,
+            clicks: row.clicks,
+            revenue: 0,
+            purchases: 0,
+          }),
+        });
+        if (res.ok) success++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+      setImportProgress(prev => ({ ...prev, done: prev.done + 1 }));
+    }
+
+    setImportResult({ success, failed });
+  };
+
+  const checkedCount = rows.filter(r => r.checked).length;
+  const totalSpend = rows.filter(r => r.checked).reduce((s, r) => s + r.spend, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-bg-overlay" onClick={onClose} />
+      <div className="relative bg-bg-surface border border-border-dim rounded-xl shadow-2xl w-full max-w-xl mx-4 p-6 max-h-[85vh] flex flex-col">
+        <h2 className="text-[15px] font-semibold text-text-heading mb-1 flex items-center gap-2">
+          <Globe size={16} />
+          Import country breakdown
+        </h2>
+        <p className="text-[12px] text-text-dim mb-4">
+          <span className="font-medium text-text-body">{campaignId}</span> &middot; {formatDate(dateStr)} &middot; ${parseFloat(entry.spend).toFixed(2)} total spend
+        </p>
+
+        {/* Step 1: Upload */}
+        {step === 'upload' && (
+          <div className="space-y-4">
+            <p className="text-[12px] text-text-dim">
+              Upload the detailed audience/country report (e.g. TikTok &quot;View Report &gt; Audience &gt; Table&quot; export). We&apos;ll match columns like Audience/Country, Cost, Impressions, Clicks.
+            </p>
+
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 transition-colors cursor-pointer ${
+                dragOver ? 'border-accent bg-accent/5' : 'border-border-dim hover:border-text-dim'
+              }`}
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.xlsx,.xls,.csv';
+                input.onchange = (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) handleFileSelect(file);
+                };
+                input.click();
+              }}
+            >
+              <Upload size={24} className="text-text-dim" />
+              <p className="text-[13px] text-text-body font-medium">Drop a file here, or click to browse</p>
+              <p className="text-[11px] text-text-dim">Supports .xlsx, .xls, and .csv files</p>
+            </div>
+
+            {parseError && (
+              <div className="flex items-start gap-2 bg-error/10 text-error rounded-lg px-3 py-2 text-[12px]">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                {parseError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 2: Review */}
+        {step === 'review' && (
+          <div className="flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[12px] text-text-dim">
+                {rows.length} countr{rows.length !== 1 ? 'ies' : 'y'} found &middot; {checkedCount} selected &middot; ${totalSpend.toFixed(2)} spend
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setRows(rows.map(r => ({ ...r, checked: true })))} className="text-[11px] text-accent hover:text-accent-hover transition-colors">Select all</button>
+                <span className="text-text-dim text-[11px]">|</span>
+                <button onClick={() => setRows(rows.map(r => ({ ...r, checked: false })))} className="text-[11px] text-accent hover:text-accent-hover transition-colors">Deselect all</button>
+              </div>
+            </div>
+
+            <div className="overflow-auto min-h-0 flex-1 border border-border-dim rounded-lg">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-border-dim bg-bg-elevated sticky top-0">
+                    <th className="px-3 py-2 text-left w-8"></th>
+                    <th className="px-3 py-2 text-left text-text-dim font-medium">Country</th>
+                    <th className="px-3 py-2 text-left text-text-dim font-medium w-14">Code</th>
+                    <th className="px-3 py-2 text-right text-text-dim font-medium">Spend</th>
+                    {source.track_impressions && <th className="px-3 py-2 text-right text-text-dim font-medium">Impr.</th>}
+                    {source.track_clicks && <th className="px-3 py-2 text-right text-text-dim font-medium">Clicks</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, idx) => (
+                    <tr key={idx} className={`border-b border-border-dim/30 last:border-0 ${row.checked ? 'bg-bg-body' : 'opacity-50'}`}>
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={row.checked}
+                          onChange={e => { const u = [...rows]; u[idx] = { ...u[idx], checked: e.target.checked }; setRows(u); }}
+                          className="rounded border-border-dim text-accent focus:ring-accent"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-text-heading font-medium flex items-center gap-2">
+                        {COUNTRY_MAP[row.countryCode] && (
+                          <img src={`https://flagcdn.com/w20/${row.countryCode.toLowerCase()}.png`} alt="" className="w-4 h-3 object-cover rounded-sm" />
+                        )}
+                        {row.country}
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={row.countryCode}
+                          onChange={e => { const u = [...rows]; u[idx] = { ...u[idx], countryCode: e.target.value.toUpperCase().slice(0, 2) }; setRows(u); }}
+                          className="w-12 px-1 py-0.5 text-[11px] bg-bg-body border border-border-dim rounded text-text-body text-center focus:outline-none focus:border-accent"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-right text-text-body">${row.spend.toFixed(2)}</td>
+                      {source.track_impressions && <td className="px-3 py-2 text-right text-text-body">{row.impressions.toLocaleString()}</td>}
+                      {source.track_clicks && <td className="px-3 py-2 text-right text-text-body">{row.clicks.toLocaleString()}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-between items-center mt-4">
+              <button onClick={() => { setStep('upload'); setRows([]); setParseError(''); }} className="px-4 py-2 text-[13px] text-text-dim hover:text-text-body transition-colors">
+                Back
+              </button>
+              <div className="flex gap-2">
+                <button onClick={onClose} className="px-4 py-2 text-[13px] text-text-dim hover:text-text-body transition-colors">Cancel</button>
+                <button
+                  onClick={handleImport}
+                  disabled={checkedCount === 0}
+                  className="bg-accent hover:bg-accent-hover text-accent-text px-4 py-2 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50"
+                >
+                  Import {checkedCount} countr{checkedCount === 1 ? 'y' : 'ies'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Importing / Done */}
+        {step === 'importing' && (
+          <div className="flex flex-col items-center py-8 gap-4">
+            {!importResult ? (
+              <>
+                <div className="w-48 h-1.5 bg-bg-elevated rounded-full overflow-hidden">
+                  <div className="h-full bg-accent rounded-full transition-all duration-300" style={{ width: `${importProgress.total ? (importProgress.done / importProgress.total) * 100 : 0}%` }} />
+                </div>
+                <p className="text-[13px] text-text-dim">Importing {importProgress.done} of {importProgress.total}...</p>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={32} className="text-green-500" />
+                <p className="text-[14px] text-text-heading font-medium">
+                  {importResult.success} countr{importResult.success === 1 ? 'y' : 'ies'} imported
+                </p>
+                {importResult.failed > 0 && <p className="text-[12px] text-error">{importResult.failed} failed</p>}
+                <button
+                  onClick={() => { onImported(); onClose(); }}
+                  className="bg-accent hover:bg-accent-hover text-accent-text px-6 py-2 rounded-lg text-[13px] font-medium transition-colors mt-2"
+                >
+                  Done
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page ---
 export default function CustomSourcesPage() {
   const { user } = useUser();
@@ -1074,6 +1425,7 @@ export default function CustomSourcesPage() {
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [entryMenu, setEntryMenu] = useState<number | null>(null);
   const [importModalSource, setImportModalSource] = useState<CustomSource | null>(null);
+  const [countryDetailImport, setCountryDetailImport] = useState<{ source: CustomSource; entry: Entry; campaignId: string } | null>(null);
   const entriesLimit = 20;
 
   const fetchSources = useCallback(async () => {
@@ -1394,9 +1746,12 @@ export default function CustomSourcesPage() {
                                             {source.track_conversions && <span className="text-[11px] text-text-body text-right">{entry.purchases}</span>}
                                             <span>
                                               {needsDetail && (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium">
-                                                  <AlertTriangle size={8} /> Needs detail
-                                                </span>
+                                                <button
+                                                  onClick={e => { e.stopPropagation(); setCountryDetailImport({ source, entry, campaignId: camp.campaign_id }); }}
+                                                  className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium hover:bg-orange-500/25 transition-colors cursor-pointer"
+                                                >
+                                                  <Upload size={8} /> Add detail
+                                                </button>
                                               )}
                                             </span>
                                             <div className="relative">
@@ -1495,6 +1850,26 @@ export default function CustomSourcesPage() {
           onClose={() => setImportModalSource(null)}
           onImported={() => {
             if (selectedSourceId) fetchCampaigns(selectedSourceId);
+          }}
+        />
+      )}
+
+      {/* Country Detail Import Modal */}
+      {countryDetailImport && (
+        <CountryDetailImportModal
+          source={countryDetailImport.source}
+          entry={countryDetailImport.entry}
+          campaignId={countryDetailImport.campaignId}
+          onClose={() => setCountryDetailImport(null)}
+          onImported={() => {
+            if (selectedSourceId) {
+              fetchCampaigns(selectedSourceId);
+              // Refresh the expanded campaign's entries
+              const key = `${selectedSourceId}_${countryDetailImport.campaignId}`;
+              if (expandedCampaigns.has(key)) {
+                fetchCampaignEntries(selectedSourceId, countryDetailImport.campaignId, campaignEntriesPage[key] || 1);
+              }
+            }
           }}
         />
       )}
