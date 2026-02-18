@@ -35,6 +35,7 @@ const { getUserSubscription } = require('./services/subscription');
 const { resolveDataOwner } = require('./services/team');
 const { pool } = require('./db/database');
 const billing = require('./routes/billing');
+const { fetchCohortData } = require('./services/posthog');
 
 // Health check
 app.get('/health', (req, res) => {
@@ -80,6 +81,135 @@ app.get('/api/metrics', async (req, res) => {
   } catch (error) {
     console.error('Error fetching metrics:', error);
     res.status(500).json({ error: 'Failed to fetch metrics' });
+  }
+});
+
+// Cohort analysis: group subscribers by acquisition date, track cumulative revenue vs ad spend
+app.get('/api/cohorts', async (req, res) => {
+  const { userId, startDate, endDate } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  const end = endDate || new Date().toISOString().slice(0, 10);
+  const start = startDate || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Get PostHog credentials
+    const account = await pool.query(
+      "SELECT access_token, account_id, COALESCE(settings, '{}'::jsonb) as settings FROM connected_accounts WHERE user_id = $1 AND platform = 'posthog'",
+      [dataOwnerId]
+    );
+
+    if (account.rows.length === 0) {
+      return res.status(404).json({ error: 'PostHog not connected' });
+    }
+
+    const { access_token: apiKey, account_id: projectId, settings } = account.rows[0];
+
+    // Fetch cohort data from PostHog
+    const cohortRows = await fetchCohortData(apiKey, projectId, start, end, {
+      purchaseEvent: settings.purchaseEvent,
+      renewalEvent: settings.renewalEvent,
+      posthogHost: settings.posthogHost
+    });
+
+    // Build cohort map: { cohortDate -> { daysSince -> { revenue, users } } }
+    const cohortMap = {};
+    for (const row of cohortRows) {
+      const cohortDate = Array.isArray(row) ? String(row[0]).slice(0, 10) : String(row.first_purchase_date).slice(0, 10);
+      const daysSince = Array.isArray(row) ? parseInt(row[1], 10) : parseInt(row.days_since, 10);
+      const revenue = Array.isArray(row) ? parseFloat(row[2]) : parseFloat(row.total_revenue || 0);
+      const users = Array.isArray(row) ? parseInt(row[3], 10) : parseInt(row.unique_users || 0);
+
+      if (!cohortMap[cohortDate]) cohortMap[cohortDate] = {};
+      cohortMap[cohortDate][daysSince] = { revenue: Math.round(revenue * 100) / 100, users };
+    }
+
+    // Get ad spend per day from metrics_cache (all ad platforms, not posthog)
+    const spendResult = await pool.query(
+      `SELECT date,
+              COALESCE(SUM(spend), 0) as spend
+       FROM metrics_cache
+       WHERE user_id = $1 AND date >= $2 AND date <= $3
+         AND platform != 'posthog' AND platform != 'stripe'
+       GROUP BY date
+       ORDER BY date`,
+      [dataOwnerId, start, end]
+    );
+
+    const spendByDate = {};
+    for (const row of spendResult.rows) {
+      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+      spendByDate[dateStr] = Math.round(parseFloat(row.spend) * 100) / 100;
+    }
+
+    // Also include custom source spend
+    const customSpendResult = await pool.query(
+      `SELECT date,
+              COALESCE(SUM(spend), 0) as spend
+       FROM campaign_metrics
+       WHERE user_id = $1 AND date >= $2 AND date <= $3
+         AND platform LIKE 'custom_%'
+       GROUP BY date
+       ORDER BY date`,
+      [dataOwnerId, start, end]
+    );
+    for (const row of customSpendResult.rows) {
+      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+      spendByDate[dateStr] = (spendByDate[dateStr] || 0) + Math.round(parseFloat(row.spend) * 100) / 100;
+    }
+
+    // Build response: array of cohorts sorted by date
+    const cohorts = [];
+    const allDates = new Set([...Object.keys(cohortMap), ...Object.keys(spendByDate)]);
+    const sortedDates = [...allDates].sort();
+
+    for (const date of sortedDates) {
+      const dayData = cohortMap[date] || {};
+      const spend = spendByDate[date] || 0;
+
+      // Calculate cumulative revenue at each day milestone
+      const cumulativeRevenue = {};
+      let cumTotal = 0;
+      const maxDay = Math.max(0, ...Object.keys(dayData).map(Number));
+      for (let d = 0; d <= maxDay; d++) {
+        if (dayData[d]) {
+          cumTotal += dayData[d].revenue;
+        }
+        cumulativeRevenue[d] = Math.round(cumTotal * 100) / 100;
+      }
+
+      // Only include dates that have either subscribers or spend
+      const day0Users = dayData[0]?.users || 0;
+      if (day0Users === 0 && spend === 0) continue;
+
+      cohorts.push({
+        date,
+        spend,
+        subscribers: day0Users,
+        cac: day0Users > 0 ? Math.round((spend / day0Users) * 100) / 100 : null,
+        dayRevenue: dayData,
+        cumulativeRevenue,
+        currentROAS: spend > 0 && cumTotal > 0 ? Math.round((cumTotal / spend) * 100) / 100 : null,
+      });
+    }
+
+    res.json({ cohorts, startDate: start, endDate: end });
+  } catch (error) {
+    console.error('Cohort analysis error:', error);
+    res.status(500).json({ error: 'Failed to fetch cohort data' });
   }
 });
 
@@ -281,7 +411,7 @@ app.post('/api/settings/stripe', async (req, res) => {
 
 // Save PostHog purchase event selection (separate from credentials)
 app.post('/api/settings/posthog/event', async (req, res) => {
-  const { userId, purchaseEvent } = req.body || {};
+  const { userId, purchaseEvent, renewalEvent } = req.body || {};
 
   if (!userId || !purchaseEvent) {
     return res.status(400).json({ error: 'userId and purchaseEvent are required' });
@@ -296,11 +426,13 @@ app.post('/api/settings/posthog/event', async (req, res) => {
     if (dataOwnerId !== internalUserId) {
       return res.status(403).json({ error: 'Only the team owner can modify integrations' });
     }
+    const settings = { purchaseEvent };
+    if (renewalEvent !== undefined) settings.renewalEvent = renewalEvent || null;
     await pool.query(
       `UPDATE connected_accounts
        SET settings = COALESCE(settings, '{}'::jsonb) || $1, updated_at = NOW()
        WHERE user_id = $2 AND platform = 'posthog'`,
-      [JSON.stringify({ purchaseEvent }), internalUserId]
+      [JSON.stringify(settings), internalUserId]
     );
     res.json({ ok: true });
   } catch (error) {

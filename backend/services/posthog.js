@@ -184,4 +184,79 @@ async function fetchEventProperties(apiKey, projectId, eventName, options = {}) 
   }
 }
 
-module.exports = { fetchRevenueData, fetchEventCounts, fetchEventProperties };
+/**
+ * Fetch cohort-based revenue data from PostHog.
+ * Groups users by their first purchase date, then sums all their revenue
+ * (initial + renewals) bucketed by days since acquisition.
+ * @param {string} apiKey
+ * @param {string} projectId
+ * @param {string} startDate - YYYY-MM-DD (earliest cohort date)
+ * @param {string} endDate - YYYY-MM-DD
+ * @param {object} [options]
+ * @param {string} [options.purchaseEvent] - Initial purchase event name
+ * @param {string} [options.renewalEvent] - Renewal event name
+ * @param {string} [options.posthogHost]
+ * @returns {Promise<Array>} Rows of [cohort_date, days_since, total_revenue, unique_users]
+ */
+async function fetchCohortData(apiKey, projectId, startDate, endDate, options = {}) {
+  const initialEvent = (options.purchaseEvent || DEFAULT_EVENT).replace(/[^a-zA-Z0-9_ .\-]/g, '');
+  const renewalEvent = options.renewalEvent ? options.renewalEvent.replace(/[^a-zA-Z0-9_ .\-]/g, '') : null;
+  const host = options.posthogHost || DEFAULT_HOST;
+
+  const endExclusive = new Date(endDate + 'T00:00:00Z');
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const endNext = endExclusive.toISOString().slice(0, 10);
+
+  // Build event filter — include both initial and renewal events if renewal exists
+  const eventFilter = renewalEvent
+    ? `event IN ('${initialEvent}', '${renewalEvent}')`
+    : `event = '${initialEvent}'`;
+
+  const query = `
+    SELECT
+      first_purchase_date,
+      dateDiff('day', first_purchase_date, toDate(e.timestamp)) AS days_since,
+      sum(e.properties.revenue) AS total_revenue,
+      count(distinct e.person_id) AS unique_users
+    FROM events e
+    INNER JOIN (
+      SELECT person_id, min(toDate(timestamp)) AS first_purchase_date
+      FROM events
+      WHERE event = '${initialEvent}'
+        AND timestamp >= '${startDate}'
+        AND timestamp < '${endNext}'
+      GROUP BY person_id
+    ) cohorts ON cohorts.person_id = e.person_id
+    WHERE ${eventFilter}
+      AND e.timestamp >= '${startDate}'
+      AND e.timestamp < '${endNext}'
+    GROUP BY first_purchase_date, days_since
+    ORDER BY first_purchase_date, days_since
+  `;
+
+  try {
+    const response = await axios.post(
+      `${host}/api/projects/${projectId}/query/`,
+      {
+        query: {
+          kind: 'HogQLQuery',
+          query: query
+        }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+
+    return response.data.results || [];
+  } catch (error) {
+    console.error('PostHog cohort query error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+module.exports = { fetchRevenueData, fetchEventCounts, fetchEventProperties, fetchCohortData };
