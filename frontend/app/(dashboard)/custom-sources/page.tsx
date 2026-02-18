@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useUser } from '@clerk/nextjs';
 import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, AlertTriangle, Globe, X } from 'lucide-react';
 
@@ -206,23 +207,30 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
     setCc(campaign.attributed_country_code);
   }, [campaign.country_attribution, campaign.attributed_country_code]);
 
+  const [error, setError] = useState('');
+
   const handleSave = async () => {
     if (!user?.id) return;
     setSaving(true);
+    setError('');
     try {
-      const res = await fetch(
-        `${API_URL}/api/custom-sources/${sourceId}/campaigns/${encodeURIComponent(campaign.campaign_id)}/settings`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
-        }
-      );
+      const url = `${API_URL}/api/custom-sources/${sourceId}/campaigns/${encodeURIComponent(campaign.campaign_id)}/settings`;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
+      });
       if (res.ok) {
         setOpen(false);
         onUpdated();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || `Save failed (${res.status})`);
       }
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      setError('Network error');
+      console.error('Save campaign settings error:', err);
+    } finally {
       setSaving(false);
     }
   };
@@ -239,58 +247,79 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
       ? (COUNTRY_MAP[campaign.attributed_country_code] || campaign.attributed_country_code || '??')
       : 'Multiple';
 
+  const pillRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+
+  const openPopover = () => {
+    if (pillRef.current) {
+      const rect = pillRef.current.getBoundingClientRect();
+      setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(true);
+    setError('');
+  };
+
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={e => { e.stopPropagation(); setOpen(!open); }}
+        ref={pillRef}
+        onClick={e => { e.stopPropagation(); if (open) { setOpen(false); } else { openPopover(); } }}
         className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium cursor-pointer hover:opacity-80 transition-opacity ${pillColor}`}
       >
         {campaign.country_attribution === 'none' && <AlertTriangle size={9} />}
-        {campaign.country_attribution === 'single' && (
+        {campaign.country_attribution === 'single' && campaign.attributed_country_code && (
           <img src={`https://flagcdn.com/w20/${campaign.attributed_country_code.toLowerCase()}.png`} alt="" className="w-3 h-2 object-cover rounded-sm" />
         )}
         {pillLabel}
       </button>
-      {open && (
-        <div
-          className="absolute left-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-30 p-3 min-w-[240px]"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-text-heading">Country Attribution</span>
-            <button onClick={() => setOpen(false)} className="text-text-dim hover:text-text-body">
-              <X size={12} />
+      {open && popoverPos && createPortal(
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 bg-bg-elevated border border-border-dim rounded-lg shadow-xl p-3 w-[260px]"
+            style={{ top: popoverPos.top, left: popoverPos.left }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-medium text-text-heading">Country Attribution</span>
+              <button onClick={() => setOpen(false)} className="text-text-dim hover:text-text-body">
+                <X size={12} />
+              </button>
+            </div>
+            <div className="space-y-1.5 mb-3">
+              {(['none', 'single', 'multiple'] as const).map(opt => (
+                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="attr"
+                    checked={mode === opt}
+                    onChange={() => setMode(opt)}
+                    className="text-accent focus:ring-accent"
+                  />
+                  <span className="text-[12px] text-text-body">{opt === 'none' ? 'None' : opt === 'single' ? 'Single country' : 'Multiple countries'}</span>
+                </label>
+              ))}
+            </div>
+            {mode === 'single' && (
+              <div className="mb-3">
+                <CountrySelect value={cc} onChange={setCc} />
+              </div>
+            )}
+            {error && (
+              <div className="mb-2 text-[10px] text-error bg-error/10 rounded px-2 py-1">{error}</div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving || (mode === 'single' && !cc)}
+              className="w-full bg-accent hover:bg-accent-hover text-accent-text px-3 py-1.5 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
-          <div className="space-y-1.5 mb-3">
-            {(['none', 'single', 'multiple'] as const).map(opt => (
-              <label key={opt} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="attr"
-                  checked={mode === opt}
-                  onChange={() => setMode(opt)}
-                  className="text-accent focus:ring-accent"
-                />
-                <span className="text-[12px] text-text-body">{opt === 'none' ? 'None' : opt === 'single' ? 'Single country' : 'Multiple countries'}</span>
-              </label>
-            ))}
-          </div>
-          {mode === 'single' && (
-            <div className="mb-3">
-              <CountrySelect value={cc} onChange={setCc} />
-            </div>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={saving || (mode === 'single' && !cc)}
-            className="w-full bg-accent hover:bg-accent-hover text-accent-text px-3 py-1.5 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+        </>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
