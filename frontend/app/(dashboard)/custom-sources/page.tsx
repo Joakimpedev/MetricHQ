@@ -202,13 +202,18 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
   const [mode, setMode] = useState(campaign.country_attribution);
   const [cc, setCc] = useState(campaign.attributed_country_code);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  // Local display state that updates immediately on save (optimistic)
+  const [displayMode, setDisplayMode] = useState(campaign.country_attribution);
+  const [displayCc, setDisplayCc] = useState(campaign.attributed_country_code);
 
+  // Sync from prop when parent re-fetches
   useEffect(() => {
     setMode(campaign.country_attribution);
     setCc(campaign.attributed_country_code);
+    setDisplayMode(campaign.country_attribution);
+    setDisplayCc(campaign.attributed_country_code);
   }, [campaign.country_attribution, campaign.attributed_country_code]);
-
-  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -222,6 +227,9 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
         body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
       });
       if (res.ok) {
+        // Optimistic update — show the new values immediately in the pill
+        setDisplayMode(mode);
+        setDisplayCc(cc);
         setOpen(false);
         onUpdated();
       } else {
@@ -236,16 +244,16 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
     }
   };
 
-  const pillColor = campaign.country_attribution === 'none'
+  const pillColor = displayMode === 'none'
     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-    : campaign.country_attribution === 'single'
+    : displayMode === 'single'
       ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
       : 'bg-purple-500/15 text-purple-600 dark:text-purple-400';
 
-  const pillLabel = campaign.country_attribution === 'none'
+  const pillLabel = displayMode === 'none'
     ? 'No country'
-    : campaign.country_attribution === 'single'
-      ? (COUNTRY_MAP[campaign.attributed_country_code] || campaign.attributed_country_code || '??')
+    : displayMode === 'single'
+      ? (COUNTRY_MAP[displayCc] || displayCc || '??')
       : 'Multiple';
 
   const pillRef = useRef<HTMLButtonElement>(null);
@@ -267,9 +275,9 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
         onClick={e => { e.stopPropagation(); if (open) { setOpen(false); } else { openPopover(); } }}
         className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium cursor-pointer hover:opacity-80 transition-opacity ${pillColor}`}
       >
-        {campaign.country_attribution === 'none' && <AlertTriangle size={9} />}
-        {campaign.country_attribution === 'single' && campaign.attributed_country_code && (
-          <img src={`https://flagcdn.com/w20/${campaign.attributed_country_code.toLowerCase()}.png`} alt="" className="w-3 h-2 object-cover rounded-sm" />
+        {displayMode === 'none' && <AlertTriangle size={9} />}
+        {displayMode === 'single' && displayCc && (
+          <img src={`https://flagcdn.com/w20/${displayCc.toLowerCase()}.png`} alt="" className="w-3 h-2 object-cover rounded-sm" />
         )}
         {pillLabel}
       </button>
