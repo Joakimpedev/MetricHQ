@@ -118,6 +118,39 @@ export default function CohortsPage() {
   const totalSubs = data?.cohorts.reduce((sum, c) => sum + c.subscribers, 0) || 0;
   const avgCac = totalSubs > 0 ? totalSpend / totalSubs : 0;
 
+  // Total cumulative revenue (latest day for each cohort)
+  const totalCumRevenue = data?.cohorts.reduce((sum, c) => {
+    const days = Object.keys(c.cumulativeRevenue).map(Number);
+    if (days.length === 0) return sum;
+    const maxDay = Math.max(...days);
+    return sum + (c.cumulativeRevenue[maxDay] || 0);
+  }, 0) || 0;
+
+  // Overall ROAS
+  const overallRoas = totalSpend > 0 ? totalCumRevenue / totalSpend : 0;
+
+  // LTV:CAC ratio — avg revenue per sub / avg CAC
+  const avgLtv = totalSubs > 0 ? totalCumRevenue / totalSubs : 0;
+  const ltvCacRatio = avgCac > 0 ? avgLtv / avgCac : 0;
+
+  // Avg payback days — for each cohort with spend, find the first day where cumulative revenue >= spend
+  const paybackDays: number[] = [];
+  if (data) {
+    for (const c of data.cohorts) {
+      if (c.spend <= 0 || c.subscribers === 0) continue;
+      const days = Object.keys(c.cumulativeRevenue).map(Number).sort((a, b) => a - b);
+      for (const d of days) {
+        if ((c.cumulativeRevenue[d] || 0) >= c.spend) {
+          paybackDays.push(d);
+          break;
+        }
+      }
+    }
+  }
+  const avgPaybackDays = paybackDays.length > 0
+    ? Math.round(paybackDays.reduce((a, b) => a + b, 0) / paybackDays.length)
+    : null;
+
   const isCountryView = groupBy === 'country';
 
   return (
@@ -175,7 +208,7 @@ export default function CohortsPage() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
           <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Total Ad Spend</div>
           <div className="text-text-heading text-[20px] font-semibold">{formatCurrency(totalSpend)}</div>
@@ -187,6 +220,24 @@ export default function CohortsPage() {
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
           <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Avg CAC</div>
           <div className="text-text-heading text-[20px] font-semibold">{avgCac > 0 ? formatCurrency(avgCac) : '--'}</div>
+        </div>
+        <div className="bg-bg-card border border-border-dim rounded-lg p-4">
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Overall ROAS</div>
+          <div className={`text-[20px] font-semibold ${overallRoas > 0 ? getRoasColor(overallRoas) : 'text-text-heading'}`}>
+            {overallRoas > 0 ? `${overallRoas.toFixed(2)}x` : '--'}
+          </div>
+        </div>
+        <div className="bg-bg-card border border-border-dim rounded-lg p-4">
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">LTV:CAC</div>
+          <div className={`text-[20px] font-semibold ${ltvCacRatio >= 3 ? 'text-green-400' : ltvCacRatio >= 1 ? 'text-yellow-400' : ltvCacRatio > 0 ? 'text-red-400' : 'text-text-heading'}`}>
+            {ltvCacRatio > 0 ? `${ltvCacRatio.toFixed(1)}x` : '--'}
+          </div>
+        </div>
+        <div className="bg-bg-card border border-border-dim rounded-lg p-4">
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Avg Payback</div>
+          <div className="text-text-heading text-[20px] font-semibold">
+            {avgPaybackDays !== null ? `${avgPaybackDays}d` : '--'}
+          </div>
         </div>
       </div>
 
