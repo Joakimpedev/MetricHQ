@@ -2,6 +2,12 @@ const { pool } = require('../db/database');
 const { getOrCreateUserByClerkId } = require('./auth');
 const { resolveDataOwner } = require('../services/team');
 
+/** Safely format a date from pg (could be Date object or string) to YYYY-MM-DD */
+function fmtDate(d) {
+  if (d instanceof Date) return d.toISOString().slice(0, 10);
+  return String(d).slice(0, 10);
+}
+
 // POST /api/custom-sources
 async function createSource(req, res) {
   const { userId, name, track_impressions, track_clicks, track_conversions, track_revenue, icon } = req.body || {};
@@ -298,7 +304,7 @@ async function updateEntry(req, res) {
       return res.status(404).json({ error: 'Entry not found' });
     }
 
-    const oldDate = String(oldEntry.rows[0].date).slice(0, 10);
+    const oldDate = fmtDate(oldEntry.rows[0].date);
     const oldCountry = oldEntry.rows[0].country_code;
 
     // Build update
@@ -382,7 +388,7 @@ async function deleteEntry(req, res) {
       return res.status(404).json({ error: 'Entry not found' });
     }
 
-    const dateStr = String(entry.rows[0].date).slice(0, 10);
+    const dateStr = fmtDate(entry.rows[0].date);
     const countryCode = entry.rows[0].country_code;
 
     await pool.query(
@@ -495,17 +501,17 @@ async function updateCampaignSettings(req, res) {
 
     // Recalc metrics_cache for all dates of this campaign
     const dates = await pool.query(
-      'SELECT DISTINCT date FROM campaign_metrics WHERE user_id = $1 AND platform = $2 AND campaign_id = $3',
+      `SELECT DISTINCT to_char(date, 'YYYY-MM-DD') as date_str FROM campaign_metrics WHERE user_id = $1 AND platform = $2 AND campaign_id = $3`,
       [dataOwnerId, platform, campaignId]
     );
     for (const row of dates.rows) {
-      await recalcMetricsCacheForDate(dataOwnerId, platform, String(row.date).slice(0, 10));
+      await recalcMetricsCacheForDate(dataOwnerId, platform, row.date_str);
     }
 
     res.json({ ok: true });
   } catch (error) {
     console.error('Update campaign settings error:', error);
-    res.status(500).json({ error: 'Failed to update campaign settings' });
+    res.status(500).json({ error: error.message || 'Failed to update campaign settings' });
   }
 }
 
