@@ -30,7 +30,7 @@ interface CountryBreakdownProps {
   countryCampaigns?: Record<string, CountryCampaign[]>;
 }
 
-type SortKey = 'spend' | 'purchases' | 'profit' | 'cpa';
+type SortKey = 'revenue' | 'spend' | 'purchases' | 'profit' | 'cpa';
 type SortDir = 'asc' | 'desc';
 
 const INITIAL_SHOW = 5;
@@ -258,8 +258,11 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
       {countries.length > 0 && (
         <>
           {/* Column headers */}
-          <div className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-2 border-b border-border-dim">
+          <div className="grid grid-cols-[1fr_5rem_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-2 border-b border-border-dim">
             <span className="text-[10px] uppercase tracking-wider text-text-dim">Country</span>
+            <button onClick={() => handleSort('revenue')} className={`${headerClass} text-right ${sortKey === 'revenue' ? 'text-text-body' : 'text-text-dim'}`}>
+              Rev.<SortIcon col="revenue" />
+            </button>
             <button onClick={() => handleSort('spend')} className={`${headerClass} text-right ${sortKey === 'spend' ? 'text-text-body' : 'text-text-dim'}`}>
               Spend<SortIcon col="spend" />
             </button>
@@ -282,7 +285,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
             return (
               <div key={c.code} className="relative">
                 <div
-                  className={`grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 transition-colors items-center cursor-pointer ${isHovered ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
+                  className={`grid grid-cols-[1fr_5rem_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 transition-colors items-center cursor-pointer ${isHovered ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
                   onClick={() => setHoveredCountry(isHovered ? null : c.code)}
                   onMouseEnter={() => setHoveredCountry(c.code)}
                   onMouseLeave={() => setHoveredCountry(null)}
@@ -296,6 +299,7 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
                       </span>
                     )}
                   </div>
+                  <span className="text-[12px] text-text-body text-right">{fmtCur(c.revenue)}</span>
                   <span className="text-[12px] text-text-body text-right">{fmtCur(c.spend)}</span>
                   <span className="text-[12px] text-text-body text-right">{c.purchases.toLocaleString()}</span>
                   <span className={`text-[12px] font-semibold text-right ${c.profit >= 0 ? 'text-success' : 'text-error'}`}>
@@ -319,12 +323,13 @@ export default function CountryBreakdown({ countries, unattributedSpend = 0, cou
 
           {/* Unattributed spend row (e.g. LinkedIn doesn't report by country) */}
           {unattributedSpend > 0 && (
-            <div className="grid grid-cols-[1fr_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 bg-bg-elevated/50 items-center">
+            <div className="grid grid-cols-[1fr_5rem_5rem_4.5rem_5.5rem_4.5rem] gap-2 px-5 py-3 border-b border-border-dim/40 last:border-0 bg-bg-elevated/50 items-center">
               <div className="flex items-center gap-2.5">
                 <span className="w-5 h-3.5 rounded-[2px] bg-text-dim/15 flex items-center justify-center text-[8px] text-text-dim shrink-0">?</span>
                 <span className="text-[13px] font-medium text-text-dim">Unattributed</span>
                 <span className="text-[10px] text-text-dim/80" title="LinkedIn Ads does not report spend by country">LinkedIn</span>
               </div>
+              <span className="text-[12px] text-text-dim text-right">—</span>
               <span className="text-[12px] text-text-dim text-right">{fmtCur(unattributedSpend)}</span>
               <span className="text-[12px] text-text-dim text-right">—</span>
               <span className="text-[12px] text-text-dim text-right">—</span>
