@@ -497,6 +497,8 @@ app.get('/api/custom-sources/:id/entries', customSources.listEntries);
 app.post('/api/custom-sources/:id/entries', customSources.createEntry);
 app.put('/api/custom-sources/:id/entries/:entryId', customSources.updateEntry);
 app.delete('/api/custom-sources/:id/entries/:entryId', customSources.deleteEntry);
+app.get('/api/custom-sources/:id/campaigns', customSources.listCampaigns);
+app.put('/api/custom-sources/:id/campaigns/:campaignId/settings', customSources.updateCampaignSettings);
 
 // User settings routes
 app.get('/api/user-settings', async (req, res) => {

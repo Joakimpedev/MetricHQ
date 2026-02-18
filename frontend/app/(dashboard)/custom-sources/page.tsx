@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, AlertTriangle, Globe, X } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -57,6 +57,129 @@ interface Entry {
   clicks: number;
   revenue: string;
   purchases: number;
+}
+
+interface CampaignSummary {
+  campaign_id: string;
+  total_spend: string;
+  total_impressions: number;
+  total_clicks: number;
+  total_revenue: string;
+  total_purchases: number;
+  entry_count: number;
+  first_date: string;
+  last_date: string;
+  country_attribution: 'none' | 'single' | 'multiple';
+  attributed_country_code: string;
+}
+
+// --- Attribution Pill ---
+function AttributionPill({ campaign, sourceId, onUpdated }: {
+  campaign: CampaignSummary;
+  sourceId: number;
+  onUpdated: () => void;
+}) {
+  const { user } = useUser();
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState(campaign.country_attribution);
+  const [cc, setCc] = useState(campaign.attributed_country_code);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMode(campaign.country_attribution);
+    setCc(campaign.attributed_country_code);
+  }, [campaign.country_attribution, campaign.attributed_country_code]);
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/custom-sources/${sourceId}/campaigns/${encodeURIComponent(campaign.campaign_id)}/settings`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
+        }
+      );
+      if (res.ok) {
+        setOpen(false);
+        onUpdated();
+      }
+    } catch { /* ignore */ } finally {
+      setSaving(false);
+    }
+  };
+
+  const pillColor = campaign.country_attribution === 'none'
+    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+    : campaign.country_attribution === 'single'
+      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+      : 'bg-purple-500/15 text-purple-600 dark:text-purple-400';
+
+  const pillLabel = campaign.country_attribution === 'none'
+    ? 'No country'
+    : campaign.country_attribution === 'single'
+      ? campaign.attributed_country_code || '??'
+      : 'Multiple';
+
+  return (
+    <div className="relative">
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(!open); }}
+        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium cursor-pointer hover:opacity-80 transition-opacity ${pillColor}`}
+      >
+        {campaign.country_attribution === 'none' && <AlertTriangle size={9} />}
+        {campaign.country_attribution === 'single' && <Globe size={9} />}
+        {pillLabel}
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-30 p-3 min-w-[200px]"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-text-heading">Country Attribution</span>
+            <button onClick={() => setOpen(false)} className="text-text-dim hover:text-text-body">
+              <X size={12} />
+            </button>
+          </div>
+          <div className="space-y-1.5 mb-3">
+            {(['none', 'single', 'multiple'] as const).map(opt => (
+              <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="attr"
+                  checked={mode === opt}
+                  onChange={() => setMode(opt)}
+                  className="text-accent focus:ring-accent"
+                />
+                <span className="text-[12px] text-text-body capitalize">{opt === 'none' ? 'None' : opt === 'single' ? 'Single country' : 'Multiple countries'}</span>
+              </label>
+            ))}
+          </div>
+          {mode === 'single' && (
+            <div className="mb-3">
+              <input
+                type="text"
+                value={cc}
+                onChange={e => setCc(e.target.value.toUpperCase().slice(0, 2))}
+                placeholder="e.g. US"
+                className="w-full px-2 py-1.5 text-[12px] bg-bg-body border border-border-dim rounded text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent"
+              />
+            </div>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || (mode === 'single' && cc.length < 2)}
+            className="w-full bg-accent hover:bg-accent-hover text-accent-text px-3 py-1.5 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatDate(d: string): string {
@@ -796,12 +919,16 @@ export default function CustomSourcesPage() {
   const [editingSource, setEditingSource] = useState<CustomSource | null>(null);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
 
-  // Entries state
+  // Two-level tree state
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [entriesTotal, setEntriesTotal] = useState(0);
-  const [entriesPage, setEntriesPage] = useState(1);
-  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [campaignData, setCampaignData] = useState<Record<number, CampaignSummary[]>>({});
+  const [campaignsLoading, setCampaignsLoading] = useState<Record<number, boolean>>({});
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  const [campaignEntries, setCampaignEntries] = useState<Record<string, Entry[]>>({});
+  const [campaignEntriesTotal, setCampaignEntriesTotal] = useState<Record<string, number>>({});
+  const [campaignEntriesPage, setCampaignEntriesPage] = useState<Record<string, number>>({});
+  const [campaignEntriesLoading, setCampaignEntriesLoading] = useState<Record<string, boolean>>({});
+
   const [entryModalOpen, setEntryModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [entryMenu, setEntryMenu] = useState<number | null>(null);
@@ -820,27 +947,43 @@ export default function CustomSourcesPage() {
     }
   }, [user?.id]);
 
-  const fetchEntries = useCallback(async (sourceId: number) => {
+  const fetchCampaigns = useCallback(async (sourceId: number) => {
     if (!user?.id) return;
-    setEntriesLoading(true);
+    setCampaignsLoading(prev => ({ ...prev, [sourceId]: true }));
     try {
-      const params = new URLSearchParams({ userId: user.id, page: String(entriesPage), limit: String(entriesLimit) });
+      const params = new URLSearchParams({ userId: user.id });
+      const res = await fetch(`${API_URL}/api/custom-sources/${sourceId}/campaigns?${params}`);
+      const json = await res.json();
+      if (res.ok) setCampaignData(prev => ({ ...prev, [sourceId]: json.campaigns || [] }));
+    } catch { /* ignore */ } finally {
+      setCampaignsLoading(prev => ({ ...prev, [sourceId]: false }));
+    }
+  }, [user?.id]);
+
+  const fetchCampaignEntries = useCallback(async (sourceId: number, campaignId: string, page = 1) => {
+    if (!user?.id) return;
+    const key = `${sourceId}_${campaignId}`;
+    setCampaignEntriesLoading(prev => ({ ...prev, [key]: true }));
+    try {
+      const params = new URLSearchParams({
+        userId: user.id,
+        campaign: campaignId,
+        page: String(page),
+        limit: String(entriesLimit),
+      });
       const res = await fetch(`${API_URL}/api/custom-sources/${sourceId}/entries?${params}`);
       const json = await res.json();
       if (res.ok) {
-        setEntries(json.entries || []);
-        setEntriesTotal(json.total || 0);
+        setCampaignEntries(prev => ({ ...prev, [key]: json.entries || [] }));
+        setCampaignEntriesTotal(prev => ({ ...prev, [key]: json.total || 0 }));
+        setCampaignEntriesPage(prev => ({ ...prev, [key]: page }));
       }
     } catch { /* ignore */ } finally {
-      setEntriesLoading(false);
+      setCampaignEntriesLoading(prev => ({ ...prev, [key]: false }));
     }
-  }, [user?.id, entriesPage]);
+  }, [user?.id]);
 
   useEffect(() => { fetchSources(); }, [fetchSources]);
-
-  useEffect(() => {
-    if (selectedSourceId !== null) fetchEntries(selectedSourceId);
-  }, [selectedSourceId, fetchEntries]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -854,19 +997,18 @@ export default function CustomSourcesPage() {
     if (!user?.id) return;
     try {
       await fetch(`${API_URL}/api/custom-sources/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
-      if (selectedSourceId === id) {
-        setSelectedSourceId(null);
-        setEntries([]);
-      }
+      if (selectedSourceId === id) setSelectedSourceId(null);
       fetchSources();
     } catch { /* ignore */ }
   };
 
-  const handleDeleteEntry = async (sourceId: number, entryId: number) => {
+  const handleDeleteEntry = async (sourceId: number, entryId: number, campaignId: string) => {
     if (!user?.id) return;
     try {
       await fetch(`${API_URL}/api/custom-sources/${sourceId}/entries/${entryId}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
-      fetchEntries(sourceId);
+      const key = `${sourceId}_${campaignId}`;
+      fetchCampaignEntries(sourceId, campaignId, campaignEntriesPage[key] || 1);
+      fetchCampaigns(sourceId);
     } catch { /* ignore */ }
   };
 
@@ -875,12 +1017,23 @@ export default function CustomSourcesPage() {
       setSelectedSourceId(null);
     } else {
       setSelectedSourceId(id);
-      setEntriesPage(1);
+      if (!campaignData[id]) fetchCampaigns(id);
     }
   };
 
+  const handleCampaignClick = (sourceId: number, campaignId: string) => {
+    const key = `${sourceId}_${campaignId}`;
+    const next = new Set(expandedCampaigns);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+      if (!campaignEntries[key]) fetchCampaignEntries(sourceId, campaignId, 1);
+    }
+    setExpandedCampaigns(next);
+  };
+
   const selectedSource = sources.find(s => s.id === selectedSourceId) || null;
-  const entriesTotalPages = Math.ceil(entriesTotal / entriesLimit);
 
   const metricTags = (s: CustomSource) => {
     const tags: string[] = ['Spend'];
@@ -890,6 +1043,8 @@ export default function CustomSourcesPage() {
     if (s.track_revenue) tags.push('Revenue');
     return tags;
   };
+
+  const fmtNum = (n: number) => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
 
   return (
     <div className="max-w-[1000px] mx-auto">
@@ -935,8 +1090,11 @@ export default function CustomSourcesPage() {
         <div className="bg-bg-surface rounded-xl border border-border-dim overflow-hidden">
           {sources.map(source => {
             const isSelected = selectedSourceId === source.id;
+            const campaigns = campaignData[source.id] || [];
+            const isLoadingCampaigns = campaignsLoading[source.id];
             return (
               <div key={source.id}>
+                {/* Level 0: Source row */}
                 <div
                   className={`flex items-center justify-between px-5 py-3.5 border-b border-border-dim/40 last:border-0 cursor-pointer transition-colors ${isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'}`}
                   onClick={() => handleSourceClick(source.id)}
@@ -986,14 +1144,16 @@ export default function CustomSourcesPage() {
                   </div>
                 </div>
 
-                {/* Entries table (expanded) */}
-                {isSelected && selectedSource && (
+                {/* Level 1: Campaign list (expanded source) */}
+                {isSelected && (
                   <div className="border-b border-border-dim bg-bg-body">
                     <div className="flex items-center justify-between px-5 py-3 border-b border-border-dim/40">
-                      <span className="text-[12px] text-text-dim">{entriesTotal} entr{entriesTotal === 1 ? 'y' : 'ies'}</span>
+                      <span className="text-[12px] text-text-dim">
+                        {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
+                      </span>
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => setImportModalSource(selectedSource)}
+                          onClick={() => setImportModalSource(source)}
                           className="flex items-center gap-1 text-accent hover:text-accent-hover text-[12px] font-medium transition-colors"
                         >
                           <Upload size={13} /> Import
@@ -1007,11 +1167,11 @@ export default function CustomSourcesPage() {
                       </div>
                     </div>
 
-                    {entriesLoading ? (
+                    {isLoadingCampaigns ? (
                       <div className="px-5 py-6 flex justify-center">
-                        <div className="text-text-dim text-[12px]">Loading...</div>
+                        <div className="text-text-dim text-[12px]">Loading campaigns...</div>
                       </div>
-                    ) : entries.length === 0 ? (
+                    ) : campaigns.length === 0 ? (
                       <div className="px-5 py-8 flex flex-col items-center gap-2">
                         <p className="text-text-dim text-[12px]">No entries yet</p>
                         <button
@@ -1023,80 +1183,137 @@ export default function CustomSourcesPage() {
                       </div>
                     ) : (
                       <>
-                        {/* Column headers */}
-                        <div className={`grid px-5 py-2 border-b border-border-dim/40 text-[10px] uppercase tracking-wider text-text-dim`}
-                          style={{ gridTemplateColumns: `6.5rem 1fr 4rem 5rem${selectedSource.track_impressions ? ' 5rem' : ''}${selectedSource.track_clicks ? ' 4rem' : ''}${selectedSource.track_revenue ? ' 5rem' : ''}${selectedSource.track_conversions ? ' 4rem' : ''} 2.5rem` }}>
-                          <span>Date</span>
-                          <span>Campaign</span>
-                          <span>Country</span>
-                          <span className="text-right">Spend</span>
-                          {selectedSource.track_impressions && <span className="text-right">Impr.</span>}
-                          {selectedSource.track_clicks && <span className="text-right">Clicks</span>}
-                          {selectedSource.track_revenue && <span className="text-right">Revenue</span>}
-                          {selectedSource.track_conversions && <span className="text-right">Conv.</span>}
-                          <span />
-                        </div>
+                        {campaigns.map(camp => {
+                          const campKey = `${source.id}_${camp.campaign_id}`;
+                          const isExpanded = expandedCampaigns.has(campKey);
+                          const entries = campaignEntries[campKey] || [];
+                          const total = campaignEntriesTotal[campKey] || 0;
+                          const page = campaignEntriesPage[campKey] || 1;
+                          const isLoadingEntries = campaignEntriesLoading[campKey];
+                          const totalPages = Math.ceil(total / entriesLimit);
 
-                        {entries.map(entry => (
-                          <div key={entry.id}
-                            className="grid px-5 py-2.5 border-b border-border-dim/20 last:border-0 hover:bg-bg-hover/50 transition-colors items-center"
-                            style={{ gridTemplateColumns: `6.5rem 1fr 4rem 5rem${selectedSource.track_impressions ? ' 5rem' : ''}${selectedSource.track_clicks ? ' 4rem' : ''}${selectedSource.track_revenue ? ' 5rem' : ''}${selectedSource.track_conversions ? ' 4rem' : ''} 2.5rem` }}>
-                            <span className="text-[12px] text-text-body">{formatDate(entry.date)}</span>
-                            <span className="text-[12px] text-text-heading font-medium truncate pr-2">{entry.campaign_id}</span>
-                            <span className="text-[12px] text-text-dim">{entry.country_code || '—'}</span>
-                            <span className="text-[12px] text-text-body text-right">${parseFloat(entry.spend).toFixed(2)}</span>
-                            {selectedSource.track_impressions && <span className="text-[12px] text-text-body text-right">{entry.impressions.toLocaleString()}</span>}
-                            {selectedSource.track_clicks && <span className="text-[12px] text-text-body text-right">{entry.clicks.toLocaleString()}</span>}
-                            {selectedSource.track_revenue && <span className="text-[12px] text-text-body text-right">${parseFloat(entry.revenue).toFixed(2)}</span>}
-                            {selectedSource.track_conversions && <span className="text-[12px] text-text-body text-right">{entry.purchases}</span>}
-                            <div className="relative">
-                              <button
-                                onClick={e => { e.stopPropagation(); setEntryMenu(entryMenu === entry.id ? null : entry.id); }}
-                                className="p-1 rounded hover:bg-bg-elevated transition-colors text-text-dim hover:text-text-heading"
+                          return (
+                            <div key={camp.campaign_id}>
+                              {/* Campaign row */}
+                              <div
+                                className={`flex items-center gap-3 px-5 pl-10 py-2.5 border-b border-border-dim/20 cursor-pointer transition-colors ${isExpanded ? 'bg-bg-hover/50' : 'hover:bg-bg-hover/30'}`}
+                                onClick={() => handleCampaignClick(source.id, camp.campaign_id)}
                               >
-                                <MoreVertical size={13} />
-                              </button>
-                              {entryMenu === entry.id && (
-                                <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
-                                  <button
-                                    onClick={() => { setEditingEntry(entry); setEntryModalOpen(true); setEntryMenu(null); }}
-                                    className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
-                                  >
-                                    <Pencil size={11} /> Edit
-                                  </button>
-                                  <button
-                                    onClick={() => { setEntryMenu(null); handleDeleteEntry(source.id, entry.id); }}
-                                    className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-error hover:bg-bg-hover transition-colors"
-                                  >
-                                    <Trash2 size={11} /> Delete
-                                  </button>
+                                {isExpanded ? <ChevronDown size={12} className="text-text-dim shrink-0" /> : <ChevronRight size={12} className="text-text-dim shrink-0" />}
+                                <span className="text-[12px] font-medium text-text-heading truncate flex-1 min-w-0">{camp.campaign_id}</span>
+                                <AttributionPill campaign={camp} sourceId={source.id} onUpdated={() => fetchCampaigns(source.id)} />
+                                <span className="text-[12px] text-text-body w-20 text-right">${parseFloat(camp.total_spend).toFixed(2)}</span>
+                                {source.track_impressions && (
+                                  <span className="text-[12px] text-text-dim w-14 text-right">{fmtNum(camp.total_impressions)}</span>
+                                )}
+                                {source.track_clicks && (
+                                  <span className="text-[12px] text-text-dim w-14 text-right">{fmtNum(camp.total_clicks)}</span>
+                                )}
+                                {source.track_revenue && (
+                                  <span className="text-[12px] text-text-body w-20 text-right">${parseFloat(camp.total_revenue).toFixed(2)}</span>
+                                )}
+                                <span className="text-[10px] text-text-dim w-12 text-right">{camp.entry_count} rows</span>
+                              </div>
+
+                              {/* Level 2: Daily entries for campaign */}
+                              {isExpanded && (
+                                <div className="bg-bg-body/50">
+                                  {isLoadingEntries ? (
+                                    <div className="px-5 pl-16 py-4 text-text-dim text-[11px]">Loading entries...</div>
+                                  ) : entries.length === 0 ? (
+                                    <div className="px-5 pl-16 py-4 text-text-dim text-[11px]">No entries</div>
+                                  ) : (
+                                    <>
+                                      {/* Entry headers */}
+                                      <div className="grid px-5 pl-16 py-1.5 border-b border-border-dim/20 text-[9px] uppercase tracking-wider text-text-dim"
+                                        style={{ gridTemplateColumns: `6rem 4rem 5rem${source.track_impressions ? ' 5rem' : ''}${source.track_clicks ? ' 4rem' : ''}${source.track_revenue ? ' 5rem' : ''}${source.track_conversions ? ' 4rem' : ''} 5rem 2.5rem` }}>
+                                        <span>Date</span>
+                                        <span>Country</span>
+                                        <span className="text-right">Spend</span>
+                                        {source.track_impressions && <span className="text-right">Impr.</span>}
+                                        {source.track_clicks && <span className="text-right">Clicks</span>}
+                                        {source.track_revenue && <span className="text-right">Revenue</span>}
+                                        {source.track_conversions && <span className="text-right">Conv.</span>}
+                                        <span />
+                                        <span />
+                                      </div>
+
+                                      {entries.map(entry => {
+                                        const needsDetail = camp.country_attribution === 'multiple' && !entry.country_code;
+                                        return (
+                                          <div key={entry.id}
+                                            className="grid px-5 pl-16 py-2 border-b border-border-dim/10 last:border-0 hover:bg-bg-hover/30 transition-colors items-center"
+                                            style={{ gridTemplateColumns: `6rem 4rem 5rem${source.track_impressions ? ' 5rem' : ''}${source.track_clicks ? ' 4rem' : ''}${source.track_revenue ? ' 5rem' : ''}${source.track_conversions ? ' 4rem' : ''} 5rem 2.5rem` }}>
+                                            <span className="text-[11px] text-text-body">{formatDate(entry.date)}</span>
+                                            <span className="text-[11px] text-text-dim">{entry.country_code || '—'}</span>
+                                            <span className="text-[11px] text-text-body text-right">${parseFloat(entry.spend).toFixed(2)}</span>
+                                            {source.track_impressions && <span className="text-[11px] text-text-body text-right">{entry.impressions.toLocaleString()}</span>}
+                                            {source.track_clicks && <span className="text-[11px] text-text-body text-right">{entry.clicks.toLocaleString()}</span>}
+                                            {source.track_revenue && <span className="text-[11px] text-text-body text-right">${parseFloat(entry.revenue).toFixed(2)}</span>}
+                                            {source.track_conversions && <span className="text-[11px] text-text-body text-right">{entry.purchases}</span>}
+                                            <span>
+                                              {needsDetail && (
+                                                <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium">
+                                                  <AlertTriangle size={8} /> Needs detail
+                                                </span>
+                                              )}
+                                            </span>
+                                            <div className="relative">
+                                              <button
+                                                onClick={e => { e.stopPropagation(); setEntryMenu(entryMenu === entry.id ? null : entry.id); }}
+                                                className="p-1 rounded hover:bg-bg-elevated transition-colors text-text-dim hover:text-text-heading"
+                                              >
+                                                <MoreVertical size={12} />
+                                              </button>
+                                              {entryMenu === entry.id && (
+                                                <div className="absolute right-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
+                                                  <button
+                                                    onClick={() => { setEditingEntry(entry); setEntryModalOpen(true); setEntryMenu(null); }}
+                                                    className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-text-body hover:bg-bg-hover transition-colors"
+                                                  >
+                                                    <Pencil size={11} /> Edit
+                                                  </button>
+                                                  <button
+                                                    onClick={() => { setEntryMenu(null); handleDeleteEntry(source.id, entry.id, camp.campaign_id); }}
+                                                    className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-error hover:bg-bg-hover transition-colors"
+                                                  >
+                                                    <Trash2 size={11} /> Delete
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+
+                                      {/* Pagination */}
+                                      {totalPages > 1 && (
+                                        <div className="flex items-center justify-between px-5 pl-16 py-2 border-t border-border-dim/20">
+                                          <span className="text-[10px] text-text-dim">Page {page} of {totalPages}</span>
+                                          <div className="flex items-center gap-1">
+                                            {Array.from({ length: totalPages }, (_, i) => (
+                                              <button
+                                                key={i}
+                                                onClick={() => fetchCampaignEntries(source.id, camp.campaign_id, i + 1)}
+                                                className={`px-1.5 py-0.5 text-[10px] rounded ${
+                                                  page === i + 1
+                                                    ? 'bg-accent text-accent-text font-medium'
+                                                    : 'text-text-dim hover:bg-bg-hover'
+                                                }`}
+                                              >
+                                                {i + 1}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
-                          </div>
-                        ))}
-
-                        {/* Pagination */}
-                        {entriesTotalPages > 1 && (
-                          <div className="flex items-center justify-between px-5 py-2.5 border-t border-border-dim/40">
-                            <span className="text-[11px] text-text-dim">Page {entriesPage} of {entriesTotalPages}</span>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: entriesTotalPages }, (_, i) => (
-                                <button
-                                  key={i}
-                                  onClick={() => setEntriesPage(i + 1)}
-                                  className={`px-2 py-0.5 text-[11px] rounded ${
-                                    entriesPage === i + 1
-                                      ? 'bg-accent text-accent-text font-medium'
-                                      : 'text-text-dim hover:bg-bg-hover'
-                                  }`}
-                                >
-                                  {i + 1}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })}
                       </>
                     )}
                   </div>
@@ -1125,7 +1342,7 @@ export default function CustomSourcesPage() {
           onSaved={() => {
             setEntryModalOpen(false);
             setEditingEntry(null);
-            fetchEntries(selectedSource.id);
+            fetchCampaigns(selectedSource.id);
           }}
         />
       )}
@@ -1136,7 +1353,7 @@ export default function CustomSourcesPage() {
           source={importModalSource}
           onClose={() => setImportModalSource(null)}
           onImported={() => {
-            if (selectedSourceId) fetchEntries(selectedSourceId);
+            if (selectedSourceId) fetchCampaigns(selectedSourceId);
           }}
         />
       )}
