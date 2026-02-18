@@ -188,22 +188,6 @@ app.get('/api/cohorts', async (req, res) => {
       spendByDate[dateStr] = Math.round(parseFloat(row.spend) * 100) / 100;
     }
 
-    // Also include custom source spend
-    const customSpendResult = await pool.query(
-      `SELECT date,
-              COALESCE(SUM(spend), 0) as spend
-       FROM campaign_metrics
-       WHERE user_id = $1 AND date >= $2 AND date <= $3
-         AND platform LIKE 'custom_%'
-       GROUP BY date
-       ORDER BY date`,
-      [dataOwnerId, start, end]
-    );
-    for (const row of customSpendResult.rows) {
-      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
-      spendByDate[dateStr] = (spendByDate[dateStr] || 0) + Math.round(parseFloat(row.spend) * 100) / 100;
-    }
-
     // Build response: array of cohorts sorted by date
     const cohorts = [];
     const allDates = new Set([...Object.keys(cohortMap), ...Object.keys(spendByDate)]);
