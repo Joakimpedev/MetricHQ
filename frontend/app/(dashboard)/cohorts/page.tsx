@@ -132,11 +132,13 @@ export default function CohortsPage() {
   // Avg LTV — avg revenue per subscriber so far
   const avgLtv = totalSubs > 0 ? totalCumRevenue / totalSubs : 0;
 
-  // Avg payback days — for each cohort with spend, find the first day where cumulative revenue >= spend
+  // Payback tracking — for each cohort with spend, find the first day where cumulative revenue >= spend
   const paybackDays: number[] = [];
+  let cohortsWithSpend = 0;
   if (data) {
     for (const c of data.cohorts) {
       if (c.spend <= 0 || c.subscribers === 0) continue;
+      cohortsWithSpend++;
       const days = Object.keys(c.cumulativeRevenue).map(Number).sort((a, b) => a - b);
       for (const d of days) {
         if ((c.cumulativeRevenue[d] || 0) >= c.spend) {
@@ -149,6 +151,7 @@ export default function CohortsPage() {
   const avgPaybackDays = paybackDays.length > 0
     ? Math.round(paybackDays.reduce((a, b) => a + b, 0) / paybackDays.length)
     : null;
+  const paybackRate = cohortsWithSpend > 0 ? paybackDays.length / cohortsWithSpend : 0;
 
   const isCountryView = groupBy === 'country';
 
@@ -227,16 +230,26 @@ export default function CohortsPage() {
           </div>
         </div>
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
-          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Avg LTV</div>
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">LTV (to date)</div>
           <div className="text-text-heading text-[20px] font-semibold">
             {avgLtv > 0 ? formatCurrency(avgLtv) : '--'}
           </div>
+          {avgLtv > 0 && avgCac > 0 && (
+            <div className="text-text-dim text-[11px] mt-1">
+              {formatCurrency(avgLtv)} rev / {formatCurrency(avgCac)} cost per sub
+            </div>
+          )}
         </div>
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
-          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Avg Payback</div>
-          <div className="text-text-heading text-[20px] font-semibold">
-            {avgPaybackDays !== null ? `${avgPaybackDays}d` : '--'}
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Payback</div>
+          <div className={`text-[20px] font-semibold ${paybackRate === 0 ? 'text-red-400' : paybackRate < 0.5 ? 'text-yellow-400' : 'text-text-heading'}`}>
+            {cohortsWithSpend === 0 ? '--' : paybackDays.length === 0 ? 'None' : `${avgPaybackDays}d`}
           </div>
+          {cohortsWithSpend > 0 && (
+            <div className="text-text-dim text-[11px] mt-1">
+              {paybackDays.length}/{cohortsWithSpend} {isCountryView ? 'countries' : 'cohorts'} paid back
+            </div>
+          )}
         </div>
       </div>
 
