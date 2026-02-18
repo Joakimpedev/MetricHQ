@@ -3,9 +3,23 @@ const { syncForUser } = require('./sync');
 const { getUserSubscription } = require('./subscription');
 
 const COUNTRY_NAMES = {
-  NO: 'Norway', SE: 'Sweden', US: 'United States', GB: 'United Kingdom',
+  US: 'United States', GB: 'United Kingdom', CA: 'Canada', AU: 'Australia',
   DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', NL: 'Netherlands',
-  PL: 'Poland', DK: 'Denmark', FI: 'Finland', CA: 'Canada', AU: 'Australia'
+  PL: 'Poland', PT: 'Portugal', BE: 'Belgium', AT: 'Austria', CH: 'Switzerland',
+  IE: 'Ireland', NO: 'Norway', SE: 'Sweden', DK: 'Denmark', FI: 'Finland',
+  NZ: 'New Zealand', JP: 'Japan', KR: 'South Korea', SG: 'Singapore',
+  IN: 'India', BR: 'Brazil', MX: 'Mexico', AR: 'Argentina', CL: 'Chile',
+  CO: 'Colombia', ZA: 'South Africa', NG: 'Nigeria', EG: 'Egypt',
+  IL: 'Israel', AE: 'United Arab Emirates', SA: 'Saudi Arabia', TR: 'Turkey',
+  RU: 'Russia', UA: 'Ukraine', CZ: 'Czech Republic', RO: 'Romania',
+  HU: 'Hungary', GR: 'Greece', HR: 'Croatia', BG: 'Bulgaria', RS: 'Serbia',
+  SK: 'Slovakia', SI: 'Slovenia', LT: 'Lithuania', LV: 'Latvia', EE: 'Estonia',
+  TH: 'Thailand', VN: 'Vietnam', PH: 'Philippines', MY: 'Malaysia',
+  ID: 'Indonesia', TW: 'Taiwan', HK: 'Hong Kong', CN: 'China',
+  PK: 'Pakistan', BD: 'Bangladesh', LK: 'Sri Lanka',
+  PE: 'Peru', EC: 'Ecuador', UY: 'Uruguay', VE: 'Venezuela',
+  KE: 'Kenya', GH: 'Ghana', TZ: 'Tanzania', MA: 'Morocco', TN: 'Tunisia',
+  QA: 'Qatar', KW: 'Kuwait', BH: 'Bahrain', OM: 'Oman', JO: 'Jordan', LB: 'Lebanon',
 };
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, AlertTriangle, Globe, X } from 'lucide-react';
 
@@ -73,6 +73,122 @@ interface CampaignSummary {
   attributed_country_code: string;
 }
 
+const COUNTRIES: { code: string; name: string }[] = [
+  { code: 'US', name: 'United States' }, { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' }, { code: 'AU', name: 'Australia' },
+  { code: 'DE', name: 'Germany' }, { code: 'FR', name: 'France' },
+  { code: 'ES', name: 'Spain' }, { code: 'IT', name: 'Italy' },
+  { code: 'NL', name: 'Netherlands' }, { code: 'PL', name: 'Poland' },
+  { code: 'PT', name: 'Portugal' }, { code: 'BE', name: 'Belgium' },
+  { code: 'AT', name: 'Austria' }, { code: 'CH', name: 'Switzerland' },
+  { code: 'IE', name: 'Ireland' }, { code: 'NO', name: 'Norway' },
+  { code: 'SE', name: 'Sweden' }, { code: 'DK', name: 'Denmark' },
+  { code: 'FI', name: 'Finland' }, { code: 'NZ', name: 'New Zealand' },
+  { code: 'JP', name: 'Japan' }, { code: 'KR', name: 'South Korea' },
+  { code: 'SG', name: 'Singapore' }, { code: 'IN', name: 'India' },
+  { code: 'BR', name: 'Brazil' }, { code: 'MX', name: 'Mexico' },
+  { code: 'AR', name: 'Argentina' }, { code: 'CL', name: 'Chile' },
+  { code: 'CO', name: 'Colombia' }, { code: 'ZA', name: 'South Africa' },
+  { code: 'NG', name: 'Nigeria' }, { code: 'EG', name: 'Egypt' },
+  { code: 'IL', name: 'Israel' }, { code: 'AE', name: 'United Arab Emirates' },
+  { code: 'SA', name: 'Saudi Arabia' }, { code: 'TR', name: 'Turkey' },
+  { code: 'RU', name: 'Russia' }, { code: 'UA', name: 'Ukraine' },
+  { code: 'CZ', name: 'Czech Republic' }, { code: 'RO', name: 'Romania' },
+  { code: 'HU', name: 'Hungary' }, { code: 'GR', name: 'Greece' },
+  { code: 'HR', name: 'Croatia' }, { code: 'BG', name: 'Bulgaria' },
+  { code: 'RS', name: 'Serbia' }, { code: 'SK', name: 'Slovakia' },
+  { code: 'SI', name: 'Slovenia' }, { code: 'LT', name: 'Lithuania' },
+  { code: 'LV', name: 'Latvia' }, { code: 'EE', name: 'Estonia' },
+  { code: 'TH', name: 'Thailand' }, { code: 'VN', name: 'Vietnam' },
+  { code: 'PH', name: 'Philippines' }, { code: 'MY', name: 'Malaysia' },
+  { code: 'ID', name: 'Indonesia' }, { code: 'TW', name: 'Taiwan' },
+  { code: 'HK', name: 'Hong Kong' }, { code: 'CN', name: 'China' },
+  { code: 'PK', name: 'Pakistan' }, { code: 'BD', name: 'Bangladesh' },
+  { code: 'LK', name: 'Sri Lanka' }, { code: 'PE', name: 'Peru' },
+  { code: 'EC', name: 'Ecuador' }, { code: 'UY', name: 'Uruguay' },
+  { code: 'VE', name: 'Venezuela' }, { code: 'KE', name: 'Kenya' },
+  { code: 'GH', name: 'Ghana' }, { code: 'TZ', name: 'Tanzania' },
+  { code: 'MA', name: 'Morocco' }, { code: 'TN', name: 'Tunisia' },
+  { code: 'QA', name: 'Qatar' }, { code: 'KW', name: 'Kuwait' },
+  { code: 'BH', name: 'Bahrain' }, { code: 'OM', name: 'Oman' },
+  { code: 'JO', name: 'Jordan' }, { code: 'LB', name: 'Lebanon' },
+];
+
+const COUNTRY_MAP = Object.fromEntries(COUNTRIES.map(c => [c.code, c.name]));
+
+// --- Country Dropdown ---
+function CountrySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const [search, setSearch] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = COUNTRIES.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selected = COUNTRY_MAP[value];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setDropdownOpen(!dropdownOpen)}
+        className="w-full flex items-center gap-2 px-2 py-1.5 text-[12px] bg-bg-body border border-border-dim rounded text-text-body focus:outline-none focus:border-accent text-left"
+      >
+        {value ? (
+          <>
+            <img src={`https://flagcdn.com/w20/${value.toLowerCase()}.png`} alt="" className="w-4 h-3 object-cover rounded-sm" />
+            <span>{selected || value}</span>
+          </>
+        ) : (
+          <span className="text-text-dim/50">Select country...</span>
+        )}
+        <ChevronDown size={12} className="ml-auto text-text-dim" />
+      </button>
+      {dropdownOpen && (
+        <div className="absolute left-0 top-full mt-1 w-full bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-40 overflow-hidden">
+          <div className="p-1.5 border-b border-border-dim">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              autoFocus
+              className="w-full px-2 py-1 text-[11px] bg-bg-body border border-border-dim rounded text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="max-h-[160px] overflow-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-[11px] text-text-dim">No countries found</div>
+            ) : (
+              filtered.map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => { onChange(c.code); setDropdownOpen(false); setSearch(''); }}
+                  className={`flex items-center gap-2 w-full px-3 py-1.5 text-[11px] hover:bg-bg-hover transition-colors text-left ${c.code === value ? 'bg-accent/10 text-accent font-medium' : 'text-text-body'}`}
+                >
+                  <img src={`https://flagcdn.com/w20/${c.code.toLowerCase()}.png`} alt="" className="w-4 h-3 object-cover rounded-sm" />
+                  {c.name}
+                  <span className="text-text-dim ml-auto">{c.code}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Attribution Pill ---
 function AttributionPill({ campaign, sourceId, onUpdated }: {
   campaign: CampaignSummary;
@@ -120,7 +236,7 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
   const pillLabel = campaign.country_attribution === 'none'
     ? 'No country'
     : campaign.country_attribution === 'single'
-      ? campaign.attributed_country_code || '??'
+      ? (COUNTRY_MAP[campaign.attributed_country_code] || campaign.attributed_country_code || '??')
       : 'Multiple';
 
   return (
@@ -130,12 +246,14 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
         className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium cursor-pointer hover:opacity-80 transition-opacity ${pillColor}`}
       >
         {campaign.country_attribution === 'none' && <AlertTriangle size={9} />}
-        {campaign.country_attribution === 'single' && <Globe size={9} />}
+        {campaign.country_attribution === 'single' && (
+          <img src={`https://flagcdn.com/w20/${campaign.attributed_country_code.toLowerCase()}.png`} alt="" className="w-3 h-2 object-cover rounded-sm" />
+        )}
         {pillLabel}
       </button>
       {open && (
         <div
-          className="absolute left-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-30 p-3 min-w-[200px]"
+          className="absolute left-0 top-full mt-1 bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-30 p-3 min-w-[240px]"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-2">
@@ -154,24 +272,18 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
                   onChange={() => setMode(opt)}
                   className="text-accent focus:ring-accent"
                 />
-                <span className="text-[12px] text-text-body capitalize">{opt === 'none' ? 'None' : opt === 'single' ? 'Single country' : 'Multiple countries'}</span>
+                <span className="text-[12px] text-text-body">{opt === 'none' ? 'None' : opt === 'single' ? 'Single country' : 'Multiple countries'}</span>
               </label>
             ))}
           </div>
           {mode === 'single' && (
             <div className="mb-3">
-              <input
-                type="text"
-                value={cc}
-                onChange={e => setCc(e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="e.g. US"
-                className="w-full px-2 py-1.5 text-[12px] bg-bg-body border border-border-dim rounded text-text-body placeholder:text-text-dim/50 focus:outline-none focus:border-accent"
-              />
+              <CountrySelect value={cc} onChange={setCc} />
             </div>
           )}
           <button
             onClick={handleSave}
-            disabled={saving || (mode === 'single' && cc.length < 2)}
+            disabled={saving || (mode === 'single' && !cc)}
             className="w-full bg-accent hover:bg-accent-hover text-accent-text px-3 py-1.5 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save'}
