@@ -43,6 +43,7 @@ function formatNextSync(lastSynced: string, intervalHours: number): string {
 function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncIntervalHours?: number }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [userTriggered, setUserTriggered] = useState(false);
   const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   const fetchSyncStatus = useCallback(async () => {
@@ -52,17 +53,22 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
       if (res.ok) {
         const json = await res.json();
         setLastSynced(json.lastSynced);
-        setSyncing(json.isSyncing);
+        // Only let server status control spinner if user triggered the sync
+        if (userTriggered) {
+          setSyncing(json.isSyncing);
+          if (!json.isSyncing) setUserTriggered(false);
+        }
       }
     } catch {
       // Silently ignore
     }
-  }, [userId]);
+  }, [userId, userTriggered]);
 
   const handleRefresh = async () => {
-    if (syncing) return;
+    if (syncing && userTriggered) return;
     setCooldownError(null);
     setSyncing(true);
+    setUserTriggered(true);
     try {
       const res = await fetch(`${API_URL}/api/sync`, {
         method: 'POST',

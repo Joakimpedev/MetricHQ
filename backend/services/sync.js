@@ -762,15 +762,24 @@ async function getSyncStatus(userId) {
   let isSyncing = false;
 
   for (const row of result.rows) {
+    // Treat syncing locks older than 5 minutes as stale (crashed/timed out)
+    const isStale = row.status === 'syncing' && row.started_at &&
+      (Date.now() - new Date(row.started_at).getTime() > 5 * 60 * 1000);
+
+    // Auto-clear stale locks so they don't block future syncs
+    if (isStale) {
+      pool.query(
+        `UPDATE sync_log SET status = 'error', error_message = 'Stale lock cleared' WHERE user_id = $1 AND platform = $2 AND status = 'syncing'`,
+        [userId, row.platform]
+      ).catch(() => {});
+    }
+
     platforms[row.platform] = {
-      status: row.status,
+      status: isStale ? 'error' : row.status,
       lastSynced: row.last_synced_at,
-      error: row.error_message,
+      error: isStale ? 'Stale lock cleared' : row.error_message,
       recordsSynced: row.records_synced
     };
-    // Treat syncing locks older than 10 minutes as stale (crashed/timed out)
-    const isStale = row.status === 'syncing' && row.started_at &&
-      (Date.now() - new Date(row.started_at).getTime() > 10 * 60 * 1000);
     if (row.status === 'syncing' && !isStale) isSyncing = true;
     if (row.last_synced_at && (!lastSynced || row.last_synced_at > lastSynced)) {
       lastSynced = row.last_synced_at;
