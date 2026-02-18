@@ -226,15 +226,14 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
       });
-      const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        if (json.debug) console.log('[Attribution debug]', JSON.stringify(json.debug, null, 2));
         setDisplayMode(mode);
         setDisplayCc(cc);
         setOpen(false);
         onUpdated();
       } else {
-        setError(json.error || `Save failed (${res.status})`);
+        const errJson = await res.json().catch(() => ({}));
+        setError(errJson.error || `Save failed (${res.status})`);
       }
     } catch (err) {
       setError('Network error');
