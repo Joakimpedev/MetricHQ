@@ -390,7 +390,7 @@ app.get('/api/posthog/events', async (req, res) => {
 
 // Manual sync trigger (fire-and-forget)
 app.post('/api/sync', async (req, res) => {
-  const { userId } = req.body || {};
+  const { userId, resetPosthog } = req.body || {};
 
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
@@ -406,10 +406,23 @@ app.post('/api/sync', async (req, res) => {
       return res.status(403).json({ error: 'Only the team owner can trigger syncs' });
     }
 
+    // Wipe bad PostHog cache so next sync does a full 30-day re-fetch
+    if (resetPosthog) {
+      await pool.query(
+        `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'posthog'`,
+        [internalUserId]
+      );
+      await pool.query(
+        `DELETE FROM sync_log WHERE user_id = $1 AND platform = 'posthog'`,
+        [internalUserId]
+      );
+      console.log(`[sync] Cleared PostHog cache for user ${internalUserId} (currency fix reset)`);
+    }
+
     // Enforce sync interval based on subscription tier
     const sub = await getUserSubscription(internalUserId);
     const intervalHours = sub.limits.syncIntervalHours;
-    if (intervalHours && isFinite(intervalHours)) {
+    if (intervalHours && isFinite(intervalHours) && !resetPosthog) {
       const lastSync = await pool.query(
         `SELECT MAX(last_synced_at) as last FROM sync_log WHERE user_id = $1 AND status = 'done'`,
         [internalUserId]
@@ -427,7 +440,7 @@ app.post('/api/sync', async (req, res) => {
     syncForUser(internalUserId).catch(err => {
       console.error('Background sync error:', err.message);
     });
-    res.json({ ok: true, message: 'Sync started' });
+    res.json({ ok: true, message: resetPosthog ? 'PostHog cache cleared, full re-sync started' : 'Sync started' });
   } catch (error) {
     console.error('Sync trigger error:', error);
     res.status(500).json({ error: 'Failed to start sync' });

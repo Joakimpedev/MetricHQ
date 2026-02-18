@@ -264,8 +264,9 @@ async function syncPostHog(userId, apiKey, projectId, settings = {}) {
         // Derive country from currency code
         const code = currencyToCountry(currencyCode);
 
-        // Convert revenue from local currency to USD
-        const revenue = await convertToUSD(rawRevenue, currencyCode);
+        // RevenueCat sends properties.revenue already in USD —
+        // only use currency for country attribution, not conversion
+        const revenue = rawRevenue;
 
         await client.query(
           `INSERT INTO metrics_cache (user_id, country_code, date, platform, revenue, purchases)
