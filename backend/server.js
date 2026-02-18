@@ -84,9 +84,21 @@ app.get('/api/metrics', async (req, res) => {
   }
 });
 
-// Cohort analysis: group subscribers by acquisition date, track cumulative revenue vs ad spend
+// Currency -> country mapping for cohort country grouping (via RevenueCat currency)
+const CURRENCY_TO_COUNTRY = {
+  USD: 'US', EUR: 'DE', GBP: 'GB', JPY: 'JP', CAD: 'CA', AUD: 'AU', CHF: 'CH',
+  CNY: 'CN', SEK: 'SE', NOK: 'NO', DKK: 'DK', NZD: 'NZ', SGD: 'SG', HKD: 'HK',
+  KRW: 'KR', INR: 'IN', BRL: 'BR', MXN: 'MX', ZAR: 'ZA', TRY: 'TR', PLN: 'PL',
+  THB: 'TH', IDR: 'ID', MYR: 'MY', PHP: 'PH', VND: 'VN', CZK: 'CZ', ILS: 'IL',
+  HUF: 'HU', RON: 'RO', BGN: 'BG', HRK: 'HR', RUB: 'RU', UAH: 'UA', AED: 'AE',
+  SAR: 'SA', TWD: 'TW', PKR: 'PK', EGP: 'EG', NGN: 'NG', KES: 'KE', BDT: 'BD',
+  COP: 'CO', ARS: 'AR', CLP: 'CL', PEN: 'PE', QAR: 'QA', KWD: 'KW', BHD: 'BH',
+  OMR: 'OM', JOD: 'JO', ISK: 'IS', GEL: 'GE', AMD: 'AM', UZS: 'UZ', KZT: 'KZ',
+};
+
+// Cohort analysis: group subscribers by date or country, track cumulative revenue vs ad spend
 app.get('/api/cohorts', async (req, res) => {
-  const { userId, startDate, endDate } = req.query;
+  const { userId, startDate, endDate, groupBy } = req.query;
 
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
@@ -125,24 +137,29 @@ app.get('/api/cohorts', async (req, res) => {
       posthogHost: settings.posthogHost
     });
 
-    // Step 1: Find each person's first purchase date (their cohort)
-    const personFirstPurchase = {}; // person_id -> first purchase date string
     const initialEvent = (settings.purchaseEvent || 'rc_initial_purchase');
+
+    // Step 1: Find each person's first purchase date and country (from currency)
+    const personFirstPurchase = {}; // person_id -> { date, country }
     for (const row of rawEvents) {
       const personId = Array.isArray(row) ? row[0] : row.person_id;
       const eventName = Array.isArray(row) ? row[1] : row.event;
       const date = String(Array.isArray(row) ? row[2] : row.date).slice(0, 10);
+      const currency = String(Array.isArray(row) ? row[4] : row.currency || 'USD').toUpperCase();
       if (!personId) continue;
-      // Only use initial purchase events for cohort assignment
       if (eventName === initialEvent) {
-        if (!personFirstPurchase[personId] || date < personFirstPurchase[personId]) {
-          personFirstPurchase[personId] = date;
+        if (!personFirstPurchase[personId] || date < personFirstPurchase[personId].date) {
+          personFirstPurchase[personId] = {
+            date,
+            country: CURRENCY_TO_COUNTRY[currency] || 'US'
+          };
         }
       }
     }
 
-    // Step 2: Build cohort map by processing all events
-    // cohortMap: { cohortDate -> { daysSince -> { revenue, users Set } } }
+    // Step 2: Build cohort map — keyed by date or country depending on groupBy
+    // cohortMap: { key -> { daysSince -> { revenue, users Set } } }
+    const useCountry = groupBy === 'country';
     const cohortMap = {};
     for (const row of rawEvents) {
       const personId = Array.isArray(row) ? row[0] : row.person_id;
@@ -150,80 +167,129 @@ app.get('/api/cohorts', async (req, res) => {
       const revenue = parseFloat(Array.isArray(row) ? row[3] : row.revenue) || 0;
       if (!personId || !personFirstPurchase[personId]) continue;
 
-      const cohortDate = personFirstPurchase[personId];
-      const daysSince = Math.floor((new Date(date + 'T00:00:00Z') - new Date(cohortDate + 'T00:00:00Z')) / 86400000);
+      const cohortKey = useCountry ? personFirstPurchase[personId].country : personFirstPurchase[personId].date;
+      const firstDate = personFirstPurchase[personId].date;
+      const daysSince = Math.floor((new Date(date + 'T00:00:00Z') - new Date(firstDate + 'T00:00:00Z')) / 86400000);
       if (daysSince < 0) continue;
 
-      if (!cohortMap[cohortDate]) cohortMap[cohortDate] = {};
-      if (!cohortMap[cohortDate][daysSince]) cohortMap[cohortDate][daysSince] = { revenue: 0, users: new Set() };
-      cohortMap[cohortDate][daysSince].revenue += revenue;
-      cohortMap[cohortDate][daysSince].users.add(personId);
+      if (!cohortMap[cohortKey]) cohortMap[cohortKey] = {};
+      if (!cohortMap[cohortKey][daysSince]) cohortMap[cohortKey][daysSince] = { revenue: 0, users: new Set() };
+      cohortMap[cohortKey][daysSince].revenue += revenue;
+      cohortMap[cohortKey][daysSince].users.add(personId);
     }
 
     // Convert Sets to counts
-    for (const cohortDate of Object.keys(cohortMap)) {
-      for (const day of Object.keys(cohortMap[cohortDate])) {
-        cohortMap[cohortDate][day] = {
-          revenue: Math.round(cohortMap[cohortDate][day].revenue * 100) / 100,
-          users: cohortMap[cohortDate][day].users.size
+    for (const key of Object.keys(cohortMap)) {
+      for (const day of Object.keys(cohortMap[key])) {
+        cohortMap[key][day] = {
+          revenue: Math.round(cohortMap[key][day].revenue * 100) / 100,
+          users: cohortMap[key][day].users.size
         };
       }
     }
 
-    // Get ad spend per day from metrics_cache (all ad platforms, not posthog)
-    const spendResult = await pool.query(
-      `SELECT date,
-              COALESCE(SUM(spend), 0) as spend
-       FROM metrics_cache
-       WHERE user_id = $1 AND date >= $2 AND date <= $3
-         AND platform != 'posthog' AND platform != 'stripe'
-       GROUP BY date
-       ORDER BY date`,
-      [dataOwnerId, start, end]
-    );
+    // Get ad spend from metrics_cache
+    if (useCountry) {
+      // Group spend by country
+      const spendResult = await pool.query(
+        `SELECT country_code,
+                COALESCE(SUM(spend), 0) as spend
+         FROM metrics_cache
+         WHERE user_id = $1 AND date >= $2 AND date <= $3
+           AND platform != 'posthog' AND platform != 'stripe'
+         GROUP BY country_code
+         ORDER BY country_code`,
+        [dataOwnerId, start, end]
+      );
 
-    const spendByDate = {};
-    for (const row of spendResult.rows) {
-      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
-      spendByDate[dateStr] = Math.round(parseFloat(row.spend) * 100) / 100;
-    }
-
-    // Build response: array of cohorts sorted by date
-    const cohorts = [];
-    const allDates = new Set([...Object.keys(cohortMap), ...Object.keys(spendByDate)]);
-    const sortedDates = [...allDates].sort();
-
-    for (const date of sortedDates) {
-      const dayData = cohortMap[date] || {};
-      const spend = spendByDate[date] || 0;
-
-      // Calculate cumulative revenue at each day milestone
-      const cumulativeRevenue = {};
-      let cumTotal = 0;
-      const maxDay = Math.max(0, ...Object.keys(dayData).map(Number));
-      for (let d = 0; d <= maxDay; d++) {
-        if (dayData[d]) {
-          cumTotal += dayData[d].revenue;
-        }
-        cumulativeRevenue[d] = Math.round(cumTotal * 100) / 100;
+      const spendByCountry = {};
+      for (const row of spendResult.rows) {
+        const cc = row.country_code || 'US';
+        spendByCountry[cc] = (spendByCountry[cc] || 0) + Math.round(parseFloat(row.spend) * 100) / 100;
       }
 
-      // Only include dates that have either subscribers or spend
-      const day0Users = dayData[0]?.users || 0;
-      if (day0Users === 0 && spend === 0) continue;
+      // Build response: array of cohorts sorted by country
+      const cohorts = [];
+      const allKeys = new Set([...Object.keys(cohortMap), ...Object.keys(spendByCountry)]);
 
-      cohorts.push({
-        date,
-        spend,
-        subscribers: day0Users,
-        cac: day0Users > 0 ? Math.round((spend / day0Users) * 100) / 100 : null,
-        dayRevenue: dayData,
-        cumulativeRevenue,
-        currentROAS: spend > 0 && cumTotal > 0 ? Math.round((cumTotal / spend) * 100) / 100 : null,
-      });
+      for (const country of [...allKeys].sort()) {
+        const dayData = cohortMap[country] || {};
+        const spend = spendByCountry[country] || 0;
+
+        const cumulativeRevenue = {};
+        let cumTotal = 0;
+        const maxDay = Math.max(0, ...Object.keys(dayData).map(Number));
+        for (let d = 0; d <= maxDay; d++) {
+          if (dayData[d]) cumTotal += dayData[d].revenue;
+          cumulativeRevenue[d] = Math.round(cumTotal * 100) / 100;
+        }
+
+        const day0Users = dayData[0]?.users || 0;
+        if (day0Users === 0 && spend === 0) continue;
+
+        cohorts.push({
+          country,
+          spend,
+          subscribers: day0Users,
+          cac: day0Users > 0 ? Math.round((spend / day0Users) * 100) / 100 : null,
+          dayRevenue: dayData,
+          cumulativeRevenue,
+          currentROAS: spend > 0 && cumTotal > 0 ? Math.round((cumTotal / spend) * 100) / 100 : null,
+        });
+      }
+
+      res.json({ cohorts, groupBy: 'country', startDate: start, endDate: end });
+    } else {
+      // Group spend by date (original behavior)
+      const spendResult = await pool.query(
+        `SELECT date,
+                COALESCE(SUM(spend), 0) as spend
+         FROM metrics_cache
+         WHERE user_id = $1 AND date >= $2 AND date <= $3
+           AND platform != 'posthog' AND platform != 'stripe'
+         GROUP BY date
+         ORDER BY date`,
+        [dataOwnerId, start, end]
+      );
+
+      const spendByDate = {};
+      for (const row of spendResult.rows) {
+        const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
+        spendByDate[dateStr] = Math.round(parseFloat(row.spend) * 100) / 100;
+      }
+
+      const cohorts = [];
+      const allDates = new Set([...Object.keys(cohortMap), ...Object.keys(spendByDate)]);
+      const sortedDates = [...allDates].sort();
+
+      for (const date of sortedDates) {
+        const dayData = cohortMap[date] || {};
+        const spend = spendByDate[date] || 0;
+
+        const cumulativeRevenue = {};
+        let cumTotal = 0;
+        const maxDay = Math.max(0, ...Object.keys(dayData).map(Number));
+        for (let d = 0; d <= maxDay; d++) {
+          if (dayData[d]) cumTotal += dayData[d].revenue;
+          cumulativeRevenue[d] = Math.round(cumTotal * 100) / 100;
+        }
+
+        const day0Users = dayData[0]?.users || 0;
+        if (day0Users === 0 && spend === 0) continue;
+
+        cohorts.push({
+          date,
+          spend,
+          subscribers: day0Users,
+          cac: day0Users > 0 ? Math.round((spend / day0Users) * 100) / 100 : null,
+          dayRevenue: dayData,
+          cumulativeRevenue,
+          currentROAS: spend > 0 && cumTotal > 0 ? Math.round((cumTotal / spend) * 100) / 100 : null,
+        });
+      }
+
+      res.json({ cohorts, groupBy: 'date', startDate: start, endDate: end });
     }
-
-    res.json({ cohorts, startDate: start, endDate: end });
   } catch (error) {
     console.error('Cohort analysis error:', error);
     res.status(500).json({ error: 'Failed to fetch cohort data' });

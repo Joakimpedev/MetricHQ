@@ -195,7 +195,7 @@ async function fetchEventProperties(apiKey, projectId, eventName, options = {}) 
  * @param {string} [options.purchaseEvent] - Initial purchase event name
  * @param {string} [options.renewalEvent] - Renewal event name
  * @param {string} [options.posthogHost]
- * @returns {Promise<Array>} Rows of [person_id, event_name, date, revenue]
+ * @returns {Promise<Array>} Rows of [person_id, event_name, date, revenue, currency]
  */
 async function fetchCohortData(apiKey, projectId, startDate, endDate, options = {}) {
   const initialEvent = (options.purchaseEvent || DEFAULT_EVENT).replace(/[^a-zA-Z0-9_ .\-]/g, '');
@@ -217,7 +217,8 @@ async function fetchCohortData(apiKey, projectId, startDate, endDate, options = 
       person_id,
       event,
       toDate(timestamp) AS date,
-      properties.revenue AS revenue
+      properties.revenue AS revenue,
+      properties.currency AS currency
     FROM events
     WHERE ${eventFilter}
       AND timestamp >= '${startDate}'

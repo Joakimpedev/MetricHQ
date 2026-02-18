@@ -9,12 +9,24 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKE
 // Day milestones to show as columns
 const DAY_MILESTONES = [0, 7, 14, 21, 28];
 
+const COUNTRY_NAMES: Record<string, string> = {
+  US: 'United States', GB: 'United Kingdom', CA: 'Canada', AU: 'Australia',
+  DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', NL: 'Netherlands',
+  JP: 'Japan', KR: 'South Korea', BR: 'Brazil', MX: 'Mexico', IN: 'India',
+  SE: 'Sweden', NO: 'Norway', DK: 'Denmark', CH: 'Switzerland', NZ: 'New Zealand',
+  SG: 'Singapore', HK: 'Hong Kong', PL: 'Poland', CZ: 'Czech Republic',
+  TR: 'Turkey', ZA: 'South Africa', IL: 'Israel', AE: 'UAE', SA: 'Saudi Arabia',
+  TW: 'Taiwan', TH: 'Thailand', ID: 'Indonesia', MY: 'Malaysia', PH: 'Philippines',
+  VN: 'Vietnam', CN: 'China', RU: 'Russia', UA: 'Ukraine',
+};
+
 interface CohortDayData {
   [day: string]: { revenue: number; users: number };
 }
 
 interface CohortEntry {
-  date: string;
+  date?: string;
+  country?: string;
   spend: number;
   subscribers: number;
   cac: number | null;
@@ -25,6 +37,7 @@ interface CohortEntry {
 
 interface CohortResponse {
   cohorts: CohortEntry[];
+  groupBy: 'date' | 'country';
   startDate: string;
   endDate: string;
 }
@@ -57,6 +70,7 @@ export default function CohortsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [daysBack, setDaysBack] = useState(14);
+  const [groupBy, setGroupBy] = useState<'date' | 'country'>('date');
 
   const fetchCohorts = useCallback(async () => {
     if (!user?.id) return;
@@ -69,7 +83,7 @@ export default function CohortsPage() {
     const startDate = startD.toISOString().slice(0, 10);
 
     try {
-      const params = new URLSearchParams({ userId: user.id, startDate, endDate });
+      const params = new URLSearchParams({ userId: user.id, startDate, endDate, groupBy });
       const res = await fetch(`${API_URL}/api/cohorts?${params}`);
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -82,7 +96,7 @@ export default function CohortsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, daysBack]);
+  }, [user?.id, daysBack, groupBy]);
 
   useEffect(() => {
     fetchCohorts();
@@ -104,29 +118,59 @@ export default function CohortsPage() {
   const totalSubs = data?.cohorts.reduce((sum, c) => sum + c.subscribers, 0) || 0;
   const avgCac = totalSubs > 0 ? totalSpend / totalSubs : 0;
 
+  const isCountryView = groupBy === 'country';
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-text-dim text-[13px]">
-            Track how each day&apos;s subscribers pay back their acquisition cost over time.
+            {isCountryView
+              ? 'Compare how subscribers from each country pay back their acquisition cost.'
+              : 'Track how each day\u2019s subscribers pay back their acquisition cost over time.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {[7, 14, 30].map(d => (
+        <div className="flex items-center gap-3">
+          {/* Group by toggle */}
+          <div className="flex items-center bg-bg-card border border-border-dim rounded-md overflow-hidden">
             <button
-              key={d}
-              onClick={() => setDaysBack(d)}
-              className={`px-3 py-1.5 text-[12px] rounded-md transition-colors ${
-                daysBack === d
+              onClick={() => setGroupBy('date')}
+              className={`px-3 py-1.5 text-[12px] transition-colors ${
+                groupBy === 'date'
                   ? 'bg-accent text-accent-text font-medium'
-                  : 'bg-bg-card text-text-dim hover:text-text-body border border-border-dim'
+                  : 'text-text-dim hover:text-text-body'
               }`}
             >
-              {d}d
+              By Date
             </button>
-          ))}
+            <button
+              onClick={() => setGroupBy('country')}
+              className={`px-3 py-1.5 text-[12px] transition-colors ${
+                groupBy === 'country'
+                  ? 'bg-accent text-accent-text font-medium'
+                  : 'text-text-dim hover:text-text-body'
+              }`}
+            >
+              By Country
+            </button>
+          </div>
+          {/* Days back selector */}
+          <div className="flex items-center gap-2">
+            {[7, 14, 30].map(d => (
+              <button
+                key={d}
+                onClick={() => setDaysBack(d)}
+                className={`px-3 py-1.5 text-[12px] rounded-md transition-colors ${
+                  daysBack === d
+                    ? 'bg-accent text-accent-text font-medium'
+                    : 'bg-bg-card text-text-dim hover:text-text-body border border-border-dim'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -173,7 +217,9 @@ export default function CohortsPage() {
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-border-dim">
-                  <th className="text-left text-text-dim font-medium px-4 py-3 whitespace-nowrap">Cohort Date</th>
+                  <th className="text-left text-text-dim font-medium px-4 py-3 whitespace-nowrap">
+                    {isCountryView ? 'Country' : 'Cohort Date'}
+                  </th>
                   <th className="text-right text-text-dim font-medium px-4 py-3 whitespace-nowrap">Ad Spend</th>
                   <th className="text-right text-text-dim font-medium px-4 py-3 whitespace-nowrap">Subs</th>
                   <th className="text-right text-text-dim font-medium px-4 py-3 whitespace-nowrap">CAC</th>
@@ -191,10 +237,13 @@ export default function CohortsPage() {
               </thead>
               <tbody>
                 {data.cohorts.map((cohort) => {
+                  const rowKey = isCountryView ? cohort.country! : cohort.date!;
                   return (
-                    <tr key={cohort.date} className="border-b border-border-dim/50 hover:bg-bg-hover/50 transition-colors">
+                    <tr key={rowKey} className="border-b border-border-dim/50 hover:bg-bg-hover/50 transition-colors">
                       <td className="px-4 py-3 text-text-heading font-medium whitespace-nowrap">
-                        {formatDate(cohort.date)}
+                        {isCountryView
+                          ? (COUNTRY_NAMES[cohort.country!] || cohort.country!)
+                          : formatDate(cohort.date!)}
                       </td>
                       <td className="px-4 py-3 text-right text-text-body whitespace-nowrap">
                         {cohort.spend > 0 ? formatCurrency(cohort.spend) : '--'}
@@ -207,9 +256,14 @@ export default function CohortsPage() {
                       </td>
                       {visibleMilestones.map(d => {
                         const cumRev = cohort.cumulativeRevenue[d];
-                        // Check if this day has happened yet
-                        const cohortAge = Math.floor((Date.now() - new Date(cohort.date + 'T00:00:00').getTime()) / 86400000);
-                        const hasData = cumRev !== undefined && d <= cohortAge;
+                        // For country view, all days are valid since we aggregate across the range
+                        // For date view, check if enough time has passed
+                        const hasData = isCountryView
+                          ? cumRev !== undefined
+                          : (() => {
+                              const cohortAge = Math.floor((Date.now() - new Date(cohort.date! + 'T00:00:00').getTime()) / 86400000);
+                              return cumRev !== undefined && d <= cohortAge;
+                            })();
                         return (
                           <td key={d} className="px-4 py-3 text-right text-text-body whitespace-nowrap">
                             {hasData ? formatCurrency(cumRev) : (
@@ -220,8 +274,12 @@ export default function CohortsPage() {
                       })}
                       {visibleMilestones.map(d => {
                         const cumRev = cohort.cumulativeRevenue[d];
-                        const cohortAge = Math.floor((Date.now() - new Date(cohort.date + 'T00:00:00').getTime()) / 86400000);
-                        const hasData = cumRev !== undefined && d <= cohortAge;
+                        const hasData = isCountryView
+                          ? cumRev !== undefined
+                          : (() => {
+                              const cohortAge = Math.floor((Date.now() - new Date(cohort.date! + 'T00:00:00').getTime()) / 86400000);
+                              return cumRev !== undefined && d <= cohortAge;
+                            })();
                         const roas = hasData && cohort.spend > 0 ? cumRev / cohort.spend : null;
                         return (
                           <td key={`roas-${d}`} className={`px-4 py-3 text-right whitespace-nowrap ${getCellBg(roas)}`}>
@@ -250,7 +308,11 @@ export default function CohortsPage() {
           <p><span className="text-green-400 font-medium">Green</span> = ROAS above 1.0x (profitable)</p>
           <p><span className="text-yellow-400 font-medium">Yellow</span> = ROAS 0.7-1.0x (close to breakeven)</p>
           <p><span className="text-red-400 font-medium">Red</span> = ROAS below 0.7x (unprofitable so far)</p>
-          <p className="pt-1 text-text-dim/80">Day N Revenue = cumulative revenue from that cohort&apos;s subscribers through day N. ROAS = cumulative revenue / ad spend for that day.</p>
+          <p className="pt-1 text-text-dim/80">
+            {isCountryView
+              ? 'Country is determined by payment currency. Day N Revenue = cumulative revenue from that country\u2019s subscribers through day N after their first purchase.'
+              : 'Day N Revenue = cumulative revenue from that cohort\u2019s subscribers through day N. ROAS = cumulative revenue / ad spend.'}
+          </p>
         </div>
       </div>
     </div>
