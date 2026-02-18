@@ -129,9 +129,8 @@ export default function CohortsPage() {
   // Overall ROAS
   const overallRoas = totalSpend > 0 ? totalCumRevenue / totalSpend : 0;
 
-  // LTV:CAC ratio — avg revenue per sub / avg CAC
+  // Avg LTV — avg revenue per subscriber so far
   const avgLtv = totalSubs > 0 ? totalCumRevenue / totalSubs : 0;
-  const ltvCacRatio = avgCac > 0 ? avgLtv / avgCac : 0;
 
   // Avg payback days — for each cohort with spend, find the first day where cumulative revenue >= spend
   const paybackDays: number[] = [];
@@ -228,9 +227,9 @@ export default function CohortsPage() {
           </div>
         </div>
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
-          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">LTV:CAC</div>
-          <div className={`text-[20px] font-semibold ${ltvCacRatio >= 3 ? 'text-green-400' : ltvCacRatio >= 1 ? 'text-yellow-400' : ltvCacRatio > 0 ? 'text-red-400' : 'text-text-heading'}`}>
-            {ltvCacRatio > 0 ? `${ltvCacRatio.toFixed(1)}x` : '--'}
+          <div className="text-text-dim text-[11px] uppercase tracking-wider mb-1">Avg LTV</div>
+          <div className="text-text-heading text-[20px] font-semibold">
+            {avgLtv > 0 ? formatCurrency(avgLtv) : '--'}
           </div>
         </div>
         <div className="bg-bg-card border border-border-dim rounded-lg p-4">
