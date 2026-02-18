@@ -103,23 +103,32 @@ async function aggregateMetrics(userId, startDate, endDate) {
   }));
 
   // ---- Read campaign-per-country data for hover tooltips ----
+  // Uses attribution-aware country: if campaign_settings says 'single' country,
+  // spend/impressions/clicks go to the attributed country (matching metrics_cache logic).
   const countryCampaignResult = await pool.query(
-    `SELECT country_code, platform, campaign_id,
-            COALESCE(SUM(spend), 0) as spend,
-            COALESCE(SUM(revenue), 0) as revenue,
-            COALESCE(SUM(impressions), 0) as impressions,
-            COALESCE(SUM(clicks), 0) as clicks,
-            COALESCE(SUM(purchases), 0) as purchases
-     FROM campaign_metrics
-     WHERE user_id = $1 AND date >= $2 AND date <= $3 AND country_code IS NOT NULL
-     GROUP BY country_code, platform, campaign_id`,
+    `SELECT
+       CASE
+         WHEN cs.country_attribution = 'single' AND cs.country_code != '' THEN cs.country_code
+         ELSE cm.country_code
+       END as effective_country,
+       cm.platform, cm.campaign_id,
+       COALESCE(SUM(cm.spend), 0) as spend,
+       COALESCE(SUM(cm.revenue), 0) as revenue,
+       COALESCE(SUM(cm.impressions), 0) as impressions,
+       COALESCE(SUM(cm.clicks), 0) as clicks,
+       COALESCE(SUM(cm.purchases), 0) as purchases
+     FROM campaign_metrics cm
+     LEFT JOIN campaign_settings cs
+       ON cs.user_id = cm.user_id AND cs.platform = cm.platform AND cs.campaign_id = cm.campaign_id
+     WHERE cm.user_id = $1 AND cm.date >= $2 AND cm.date <= $3
+     GROUP BY effective_country, cm.platform, cm.campaign_id`,
     [userId, startDate, endDate]
   );
 
   // Group by country_code -> array of { platform, campaign, spend, revenue, ... }
   const countryCampaigns = {};
   for (const row of countryCampaignResult.rows) {
-    const cc = row.country_code;
+    const cc = row.effective_country;
     if (!cc) continue;
     if (!countryCampaigns[cc]) countryCampaigns[cc] = [];
     countryCampaigns[cc].push({
