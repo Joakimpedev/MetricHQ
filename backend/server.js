@@ -118,23 +118,56 @@ app.get('/api/cohorts', async (req, res) => {
 
     const { access_token: apiKey, account_id: projectId, settings } = account.rows[0];
 
-    // Fetch cohort data from PostHog
-    const cohortRows = await fetchCohortData(apiKey, projectId, start, end, {
+    // Fetch raw purchase/renewal events from PostHog
+    const rawEvents = await fetchCohortData(apiKey, projectId, start, end, {
       purchaseEvent: settings.purchaseEvent,
       renewalEvent: settings.renewalEvent,
       posthogHost: settings.posthogHost
     });
 
-    // Build cohort map: { cohortDate -> { daysSince -> { revenue, users } } }
+    // Step 1: Find each person's first purchase date (their cohort)
+    const personFirstPurchase = {}; // person_id -> first purchase date string
+    const initialEvent = (settings.purchaseEvent || 'rc_initial_purchase');
+    for (const row of rawEvents) {
+      const personId = Array.isArray(row) ? row[0] : row.person_id;
+      const eventName = Array.isArray(row) ? row[1] : row.event;
+      const date = String(Array.isArray(row) ? row[2] : row.date).slice(0, 10);
+      if (!personId) continue;
+      // Only use initial purchase events for cohort assignment
+      if (eventName === initialEvent) {
+        if (!personFirstPurchase[personId] || date < personFirstPurchase[personId]) {
+          personFirstPurchase[personId] = date;
+        }
+      }
+    }
+
+    // Step 2: Build cohort map by processing all events
+    // cohortMap: { cohortDate -> { daysSince -> { revenue, users Set } } }
     const cohortMap = {};
-    for (const row of cohortRows) {
-      const cohortDate = Array.isArray(row) ? String(row[0]).slice(0, 10) : String(row.first_purchase_date).slice(0, 10);
-      const daysSince = Array.isArray(row) ? parseInt(row[1], 10) : parseInt(row.days_since, 10);
-      const revenue = Array.isArray(row) ? parseFloat(row[2]) : parseFloat(row.total_revenue || 0);
-      const users = Array.isArray(row) ? parseInt(row[3], 10) : parseInt(row.unique_users || 0);
+    for (const row of rawEvents) {
+      const personId = Array.isArray(row) ? row[0] : row.person_id;
+      const date = String(Array.isArray(row) ? row[2] : row.date).slice(0, 10);
+      const revenue = parseFloat(Array.isArray(row) ? row[3] : row.revenue) || 0;
+      if (!personId || !personFirstPurchase[personId]) continue;
+
+      const cohortDate = personFirstPurchase[personId];
+      const daysSince = Math.floor((new Date(date + 'T00:00:00Z') - new Date(cohortDate + 'T00:00:00Z')) / 86400000);
+      if (daysSince < 0) continue;
 
       if (!cohortMap[cohortDate]) cohortMap[cohortDate] = {};
-      cohortMap[cohortDate][daysSince] = { revenue: Math.round(revenue * 100) / 100, users };
+      if (!cohortMap[cohortDate][daysSince]) cohortMap[cohortDate][daysSince] = { revenue: 0, users: new Set() };
+      cohortMap[cohortDate][daysSince].revenue += revenue;
+      cohortMap[cohortDate][daysSince].users.add(personId);
+    }
+
+    // Convert Sets to counts
+    for (const cohortDate of Object.keys(cohortMap)) {
+      for (const day of Object.keys(cohortMap[cohortDate])) {
+        cohortMap[cohortDate][day] = {
+          revenue: Math.round(cohortMap[cohortDate][day].revenue * 100) / 100,
+          users: cohortMap[cohortDate][day].users.size
+        };
+      }
     }
 
     // Get ad spend per day from metrics_cache (all ad platforms, not posthog)

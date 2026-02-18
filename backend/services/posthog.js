@@ -185,18 +185,17 @@ async function fetchEventProperties(apiKey, projectId, eventName, options = {}) 
 }
 
 /**
- * Fetch cohort-based revenue data from PostHog.
- * Groups users by their first purchase date, then sums all their revenue
- * (initial + renewals) bucketed by days since acquisition.
+ * Fetch all purchase/renewal events with person_id from PostHog.
+ * Returns raw events so the caller can compute cohorts in JS.
  * @param {string} apiKey
  * @param {string} projectId
- * @param {string} startDate - YYYY-MM-DD (earliest cohort date)
+ * @param {string} startDate - YYYY-MM-DD
  * @param {string} endDate - YYYY-MM-DD
  * @param {object} [options]
  * @param {string} [options.purchaseEvent] - Initial purchase event name
  * @param {string} [options.renewalEvent] - Renewal event name
  * @param {string} [options.posthogHost]
- * @returns {Promise<Array>} Rows of [cohort_date, days_since, total_revenue, unique_users]
+ * @returns {Promise<Array>} Rows of [person_id, event_name, date, revenue]
  */
 async function fetchCohortData(apiKey, projectId, startDate, endDate, options = {}) {
   const initialEvent = (options.purchaseEvent || DEFAULT_EVENT).replace(/[^a-zA-Z0-9_ .\-]/g, '');
@@ -207,31 +206,24 @@ async function fetchCohortData(apiKey, projectId, startDate, endDate, options = 
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
   const endNext = endExclusive.toISOString().slice(0, 10);
 
-  // Build event filter — include both initial and renewal events if renewal exists
+  // Build event filter
   const eventFilter = renewalEvent
     ? `event IN ('${initialEvent}', '${renewalEvent}')`
     : `event = '${initialEvent}'`;
 
+  // Simple flat query — no JOINs, just get all events with person info
   const query = `
     SELECT
-      first_purchase_date,
-      dateDiff('day', first_purchase_date, toDate(e.timestamp)) AS days_since,
-      sum(e.properties.revenue) AS total_revenue,
-      count(distinct e.person_id) AS unique_users
-    FROM events e
-    INNER JOIN (
-      SELECT person_id, min(toDate(timestamp)) AS first_purchase_date
-      FROM events
-      WHERE event = '${initialEvent}'
-        AND timestamp >= '${startDate}'
-        AND timestamp < '${endNext}'
-      GROUP BY person_id
-    ) cohorts ON cohorts.person_id = e.person_id
+      person_id,
+      event,
+      toDate(timestamp) AS date,
+      properties.revenue AS revenue
+    FROM events
     WHERE ${eventFilter}
-      AND e.timestamp >= '${startDate}'
-      AND e.timestamp < '${endNext}'
-    GROUP BY first_purchase_date, days_since
-    ORDER BY first_purchase_date, days_since
+      AND timestamp >= '${startDate}'
+      AND timestamp < '${endNext}'
+    ORDER BY person_id, timestamp
+    LIMIT 10000
   `;
 
   try {
