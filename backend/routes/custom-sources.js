@@ -504,11 +504,30 @@ async function updateCampaignSettings(req, res) {
       `SELECT DISTINCT to_char(date, 'YYYY-MM-DD') as date_str FROM campaign_metrics WHERE user_id = $1 AND platform = $2 AND campaign_id = $3`,
       [dataOwnerId, platform, campaignId]
     );
-    for (const row of dates.rows) {
-      await recalcMetricsCacheForDate(dataOwnerId, platform, row.date_str);
+    const recalcDates = dates.rows.map(r => r.date_str);
+    for (const d of recalcDates) {
+      await recalcMetricsCacheForDate(dataOwnerId, platform, d);
     }
 
-    res.json({ ok: true });
+    // Debug: return what metrics_cache looks like now for this platform
+    const debugCache = await pool.query(
+      `SELECT country_code, to_char(date, 'YYYY-MM-DD') as date, spend, impressions, clicks, revenue, purchases
+       FROM metrics_cache WHERE user_id = $1 AND platform = $2 ORDER BY date, country_code`,
+      [dataOwnerId, platform]
+    );
+    const debugSettings = await pool.query(
+      `SELECT campaign_id, country_attribution, country_code FROM campaign_settings WHERE user_id = $1 AND platform = $2`,
+      [dataOwnerId, platform]
+    );
+
+    res.json({
+      ok: true,
+      debug: {
+        datesRecalculated: recalcDates,
+        metricsCache: debugCache.rows,
+        campaignSettings: debugSettings.rows,
+      }
+    });
   } catch (error) {
     console.error('Update campaign settings error:', error);
     res.status(500).json({ error: error.message || 'Failed to update campaign settings' });
