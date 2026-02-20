@@ -351,29 +351,7 @@ function RevenueCatModal({
           )}
         </div>
 
-        {/* Webhook Setup Instructions */}
         <div className="px-5 pb-5 pt-0">
-          <div className="border-t border-border-dim pt-4">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Webhook (optional)</p>
-            <p className="text-[11px] text-text-dim leading-relaxed mb-3">
-              Historical data syncs automatically. For <strong className="text-text-body">real-time</strong> updates between syncs, add this webhook in <strong className="text-text-body">RevenueCat → Project Settings → Integrations → Webhooks</strong>. Set the <strong className="text-text-body">Authorization header</strong> to your <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">sk_...</code> key.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-[11px] bg-bg-elevated px-3 py-2 rounded-lg font-mono text-text-body truncate border border-border-dim">
-                {webhookUrl}
-              </code>
-              <button
-                onClick={handleCopy}
-                className="flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-medium bg-bg-elevated border border-border-dim hover:bg-bg-hover text-text-body transition-colors"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-            <p className="text-[10px] text-text-dim mt-2">
-              Revenue data (country, amount, product) will sync automatically via webhook events.
-            </p>
-          </div>
-
           {isConnected && !editing && (
             <div className="border-t border-border-dim pt-4 mt-4">
               <button
