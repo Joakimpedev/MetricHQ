@@ -259,7 +259,7 @@ function DashboardContent({
   const { subscription, loading } = useSubscription();
   const isExpired = !loading && subscription && ['expired', 'none', 'cancelled'].includes(subscription.status);
   // Allow pricing and invite pages even if expired
-  const showPaywall = isExpired && pathname !== '/pricing' && pathname !== '/invite';
+  const showPaywall = isExpired && pathname !== '/pricing' && pathname !== '/invite' && pathname !== '/settings';
 
   const syncSlot = pathname === '/dashboard' && userId ? (
     <SyncIndicator userId={userId} syncIntervalHours={subscription?.limits?.syncIntervalHours} />

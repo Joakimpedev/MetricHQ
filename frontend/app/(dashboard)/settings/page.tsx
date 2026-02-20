@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Check } from 'lucide-react';
 import ThemeSwitcher from '../../../components/ThemeSwitcher';
 import CurrencySelect from '../../../components/CurrencySelect';
 import { useCurrency } from '../../../lib/currency';
-import { useSubscription } from '../../../components/SubscriptionProvider';
+import { useSubscription, useDevmode, setDevmode } from '../../../components/SubscriptionProvider';
 import TeamSection from '../../../components/TeamSection';
 import ApiKeysSection from '../../../components/ApiKeysSection';
 
@@ -192,6 +192,79 @@ function RevenueAllocationSetting() {
   );
 }
 
+function DevmodeGate() {
+  const clickCount = useRef(0);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [input, setInput] = useState('');
+  const devmode = useDevmode();
+
+  const handleClick = () => {
+    clickCount.current++;
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+    clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 3000);
+    if (clickCount.current >= 10) {
+      clickCount.current = 0;
+      setShowPrompt(true);
+      setInput('');
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim().toLowerCase() === 'devmode32') {
+      setDevmode(true);
+      setShowPrompt(false);
+    } else {
+      setShowPrompt(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Hidden click target — the app version text at the bottom */}
+      <div className="text-center pt-4 pb-2">
+        <span
+          className="text-[10px] text-text-dim/40 select-none cursor-default"
+          onClick={handleClick}
+        >
+          MetricHQ v1.0
+        </span>
+      </div>
+
+      {showPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPrompt(false)}>
+          <form
+            onSubmit={handleSubmit}
+            onClick={e => e.stopPropagation()}
+            className="bg-bg-surface border border-border-dim rounded-xl p-5 w-72 space-y-3"
+          >
+            <p className="text-[13px] text-text-body">marco...</p>
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              autoFocus
+              className="w-full text-[12px] bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-text-body focus:outline-none focus:border-accent"
+            />
+          </form>
+        </div>
+      )}
+
+      {devmode && (
+        <div className="text-center pb-2">
+          <button
+            onClick={() => setDevmode(false)}
+            className="text-[10px] text-text-dim/40 hover:text-text-dim transition-colors"
+          >
+            exit devmode
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useUser();
   const { currency, setCurrency } = useCurrency();
@@ -310,6 +383,8 @@ export default function SettingsPage() {
           <CurrencySelect value={currency} onChange={setCurrency} />
         </div>
       </div>
+
+      <DevmodeGate />
     </div>
   );
 }

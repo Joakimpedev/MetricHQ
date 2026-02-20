@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 import { useUser } from '@clerk/nextjs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -46,8 +46,55 @@ const SubscriptionContext = createContext<SubscriptionContextValue>({
   refetch: () => {},
 });
 
+const DEVMODE_KEY = 'mhq_devmode';
+
+function subscribeToStorage(cb: () => void) {
+  window.addEventListener('storage', cb);
+  // Also listen for custom event for same-tab updates
+  window.addEventListener('mhq-devmode-change', cb);
+  return () => {
+    window.removeEventListener('storage', cb);
+    window.removeEventListener('mhq-devmode-change', cb);
+  };
+}
+
+function getDevmodeSnapshot(): boolean {
+  try { return localStorage.getItem(DEVMODE_KEY) === 'true'; } catch { return false; }
+}
+
+function getDevmodeServerSnapshot(): boolean {
+  return false;
+}
+
+export function useDevmode() {
+  return useSyncExternalStore(subscribeToStorage, getDevmodeSnapshot, getDevmodeServerSnapshot);
+}
+
+export function setDevmode(enabled: boolean) {
+  try {
+    if (enabled) localStorage.setItem(DEVMODE_KEY, 'true');
+    else localStorage.removeItem(DEVMODE_KEY);
+    window.dispatchEvent(new Event('mhq-devmode-change'));
+  } catch { /* ignore */ }
+}
+
+const devmodeSub: Subscription = {
+  plan: 'pro',
+  status: 'active',
+  isActive: true,
+  limits: { maxAdPlatforms: Infinity, syncIntervalHours: 4, dataRetentionDays: Infinity, campaignPL: true, teamAccess: true, apiAccess: true },
+  trialEnd: null,
+  currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
+};
+
 export function useSubscription() {
-  return useContext(SubscriptionContext);
+  const ctx = useContext(SubscriptionContext);
+  const devmode = useDevmode();
+  if (devmode) {
+    return { subscription: devmodeSub, loading: false, refetch: ctx.refetch };
+  }
+  return ctx;
 }
 
 export default function SubscriptionProvider({ children }: { children: React.ReactNode }) {
