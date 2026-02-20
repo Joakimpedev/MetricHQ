@@ -45,7 +45,13 @@ async function* fetchAllCustomers(apiKey, projectId) {
 
     // next_page is a full path like /v2/projects/.../customers?starting_after=...
     const nextPage = response.data.next_page;
-    url = nextPage ? `https://api.revenuecat.com${nextPage}` : null;
+    if (!nextPage) {
+      url = null;
+    } else if (nextPage.startsWith('http')) {
+      url = nextPage;
+    } else {
+      url = `https://api.revenuecat.com${nextPage}`;
+    }
   }
 }
 
@@ -71,7 +77,13 @@ async function fetchCustomerPurchases(apiKey, projectId, customerId) {
     purchases.push(...items);
 
     const nextPage = response.data.next_page;
-    url = nextPage ? `https://api.revenuecat.com${nextPage}` : null;
+    if (!nextPage) {
+      url = null;
+    } else if (nextPage.startsWith('http')) {
+      url = nextPage;
+    } else {
+      url = `https://api.revenuecat.com${nextPage}`;
+    }
   }
 
   return purchases;
