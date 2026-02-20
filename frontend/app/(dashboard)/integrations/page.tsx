@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock, Pause } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
-import { PostHogLogo, TikTokLogo, MetaLogo, StripeLogo, GoogleAdsLogo, LinkedInLogo } from '../../../components/PlatformLogos';
+import { PostHogLogo, TikTokLogo, MetaLogo, StripeLogo, GoogleAdsLogo, LinkedInLogo, RevenueCatLogo } from '../../../components/PlatformLogos';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -187,6 +187,191 @@ function StripeModal({
                 className="text-[12px] font-medium text-error hover:bg-error/10 px-3 py-2 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {disconnecting ? 'Disconnecting...' : 'Disconnect Stripe'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// RevenueCat configuration modal (API key + webhook URL)
+function RevenueCatModal({
+  userId,
+  connection,
+  onClose,
+  onSaved,
+  onDisconnect,
+}: {
+  userId: string;
+  connection?: Connection;
+  onClose: () => void;
+  onSaved: () => void;
+  onDisconnect?: () => void;
+}) {
+  const isConnected = !!connection?.connected;
+  const [editing, setEditing] = useState(!isConnected);
+  const [apiKey, setApiKey] = useState(connection?.fullKey || '');
+  const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const webhookUrl = `${API_URL}/api/webhooks/revenuecat`;
+
+  const handleDisconnect = async () => {
+    if (!confirm('Disconnect RevenueCat? Your synced data will be removed.')) return;
+    setDisconnecting(true);
+    try {
+      if (onDisconnect) onDisconnect();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!apiKey.trim()) {
+      setMessage({ type: 'error', text: 'Secret API Key is required.' });
+      return;
+    }
+    if (!/^sk_/.test(apiKey.trim())) {
+      setMessage({ type: 'error', text: 'Must start with sk_' });
+      return;
+    }
+    setMessage(null);
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_URL}/api/settings/revenuecat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, apiKey: apiKey.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save.' });
+        return;
+      }
+      setMessage({ type: 'success', text: 'Saved!' });
+      setEditing(false);
+      onSaved();
+    } catch {
+      setMessage({ type: 'error', text: 'Network error.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-bg-overlay" onClick={onClose} />
+      <div className="relative bg-bg-surface border border-border rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-0">
+          <div className="flex items-center gap-3">
+            <RevenueCatLogo />
+            <div>
+              <h2 className="text-[15px] font-semibold text-text-heading">RevenueCat</h2>
+              <p className="text-[11px] text-text-dim">In-app purchase revenue</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {isConnected && !editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-heading transition-colors"
+                title="Edit credentials"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg-hover text-text-dim hover:text-text-body transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* API Key */}
+        <div className="p-5 space-y-2">
+          <CredentialField
+            label="Secret API Key"
+            value={connection?.fullKey || ''}
+            maskedValue={connection?.maskedKey}
+            sensitive
+            editing={editing}
+            editValue={apiKey}
+            onEditChange={setApiKey}
+            placeholder="sk_..."
+          />
+
+          {editing && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              {isConnected && (
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    setMessage(null);
+                    setApiKey(connection?.fullKey || '');
+                  }}
+                  className="px-4 py-2 rounded-lg text-[12px] font-medium text-text-dim hover:text-text-body transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              {message && (
+                <p className={`text-[12px] ${message.type === 'success' ? 'text-success' : 'text-error'}`}>
+                  {message.text}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Webhook Setup Instructions */}
+        <div className="px-5 pb-5 pt-0">
+          <div className="border-t border-border-dim pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Webhook Setup</p>
+            <p className="text-[11px] text-text-dim leading-relaxed mb-3">
+              Add this webhook URL in your RevenueCat dashboard under <strong className="text-text-body">Project Settings → Integrations → Webhooks</strong>. Set the Authorization header to your secret key above.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[11px] bg-bg-elevated px-3 py-2 rounded-lg font-mono text-text-body truncate border border-border-dim">
+                {webhookUrl}
+              </code>
+              <button
+                onClick={handleCopy}
+                className="flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-medium bg-bg-elevated border border-border-dim hover:bg-bg-hover text-text-body transition-colors"
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-[10px] text-text-dim mt-2">
+              Revenue data (country, amount, product) will sync automatically via webhook events.
+            </p>
+          </div>
+
+          {isConnected && !editing && (
+            <div className="border-t border-border-dim pt-4 mt-4">
+              <button
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+                className="text-[12px] font-medium text-error hover:bg-error/10 px-3 py-2 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {disconnecting ? 'Disconnecting...' : 'Disconnect RevenueCat'}
               </button>
             </div>
           )}
@@ -601,9 +786,29 @@ function PostHogModal({
             )}
 
             {selectedEvent && (
-              <p className="mt-2.5 text-[11px] text-success flex items-center gap-1.5">
-                <Check size={12} /> Using: <span className="font-mono">{selectedEvent}</span>
-              </p>
+              <div className="mt-2.5 flex items-center justify-between">
+                <p className="text-[11px] text-success flex items-center gap-1.5">
+                  <Check size={12} /> Using: <span className="font-mono">{selectedEvent}</span>
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Remove purchase event? This will clear all PostHog revenue data from your dashboard.')) return;
+                    setSavingEvent(true);
+                    try {
+                      const params = new URLSearchParams({ userId });
+                      await fetch(`${API_URL}/api/settings/posthog/event?${params}`, { method: 'DELETE' });
+                      setSelectedEvent('');
+                      onSaved();
+                    } catch { /* ignore */ } finally {
+                      setSavingEvent(false);
+                    }
+                  }}
+                  disabled={savingEvent}
+                  className="text-[11px] text-error hover:bg-error/10 px-2 py-1 rounded transition-colors disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </div>
             )}
 
             {isConnected && !editing && (
@@ -797,6 +1002,13 @@ export default function IntegrationsPage() {
             connected={!!connections.stripe}
             onClick={() => setOpenModal('stripe')}
           />
+          <IntegrationCard
+            name="RevenueCat"
+            description="Configure integration"
+            logo={<RevenueCatLogo />}
+            connected={!!connections.revenuecat}
+            onClick={() => setOpenModal('revenuecat')}
+          />
         </div>
       </div>
 
@@ -896,6 +1108,15 @@ export default function IntegrationsPage() {
           onClose={() => setOpenModal(null)}
           onSaved={fetchConnections}
           onDisconnect={() => handleDisconnect('stripe')}
+        />
+      )}
+      {openModal === 'revenuecat' && user?.id && (
+        <RevenueCatModal
+          userId={user.id}
+          connection={connections.revenuecat}
+          onClose={() => setOpenModal(null)}
+          onSaved={fetchConnections}
+          onDisconnect={() => handleDisconnect('revenuecat')}
         />
       )}
       {openModal === 'google_ads' && user?.id && (

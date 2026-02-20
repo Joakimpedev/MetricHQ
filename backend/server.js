@@ -346,6 +346,14 @@ app.get('/api/connections', async (req, res) => {
           : '••••••••••••';
         conn.fullKey = key;
       }
+      // Return masked + full API key for RevenueCat
+      if (row.platform === 'revenuecat' && row.access_token) {
+        const key = row.access_token;
+        conn.maskedKey = key.length > 8
+          ? key.slice(0, 6) + '••••••••' + key.slice(-4)
+          : '••••••••••••';
+        conn.fullKey = key;
+      }
       connections[row.platform] = conn;
     });
 
@@ -495,6 +503,113 @@ app.post('/api/settings/stripe', async (req, res) => {
   } catch (error) {
     console.error('Stripe settings error:', error);
     res.status(500).json({ error: 'Failed to save Stripe settings' });
+  }
+});
+
+// Connect RevenueCat: store secret API key
+app.post('/api/settings/revenuecat', async (req, res) => {
+  const { userId, apiKey } = req.body || {};
+
+  if (!userId || !apiKey) {
+    return res.status(400).json({ error: 'userId and apiKey are required' });
+  }
+
+  if (!/^sk_/.test(apiKey.trim())) {
+    return res.status(400).json({ error: 'Invalid RevenueCat key format. Must start with sk_' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Team owner no longer has an active Pro plan' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can modify integrations' });
+    }
+    await pool.query(
+      `INSERT INTO connected_accounts (user_id, platform, account_id, access_token)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, platform) DO UPDATE
+       SET access_token = $4, updated_at = NOW()`,
+      [internalUserId, 'revenuecat', 'revenuecat_account', apiKey.trim()]
+    );
+    res.json({ ok: true, message: 'RevenueCat connected' });
+  } catch (error) {
+    console.error('RevenueCat settings error:', error);
+    res.status(500).json({ error: 'Failed to save RevenueCat settings' });
+  }
+});
+
+// RevenueCat webhook: receives transaction events
+const { processWebhookEvent } = require('./services/revenuecat');
+
+app.post('/api/webhooks/revenuecat', async (req, res) => {
+  const { event } = req.body || {};
+
+  if (!event) {
+    return res.status(400).json({ error: 'Missing event payload' });
+  }
+
+  // Validate auth header against stored secret key
+  const authHeader = req.headers['authorization'] || '';
+
+  try {
+    // Find the user by matching the stored secret key
+    const keyResult = await pool.query(
+      `SELECT user_id FROM connected_accounts WHERE platform = 'revenuecat' AND access_token = $1`,
+      [authHeader.replace('Bearer ', '')]
+    );
+
+    if (keyResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid authorization' });
+    }
+
+    const userId = keyResult.rows[0].user_id;
+    const result = await processWebhookEvent(userId, event);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error('RevenueCat webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Remove PostHog purchase event and clear cached revenue data
+app.delete('/api/settings/posthog/event', async (req, res) => {
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (dataOwnerId !== internalUserId) {
+      return res.status(403).json({ error: 'Only the team owner can modify integrations' });
+    }
+
+    // Clear the purchaseEvent from settings
+    await pool.query(
+      `UPDATE connected_accounts
+       SET settings = COALESCE(settings, '{}'::jsonb) - 'purchaseEvent', updated_at = NOW()
+       WHERE user_id = $1 AND platform = 'posthog'`,
+      [internalUserId]
+    );
+
+    // Delete all PostHog revenue data from metrics_cache and campaign_metrics
+    await pool.query(
+      `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'posthog'`,
+      [internalUserId]
+    );
+
+    res.json({ ok: true, message: 'Purchase event removed and revenue data cleared' });
+  } catch (error) {
+    console.error('PostHog event remove error:', error);
+    res.status(500).json({ error: 'Failed to remove event' });
   }
 });
 

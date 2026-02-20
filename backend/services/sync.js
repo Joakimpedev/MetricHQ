@@ -232,6 +232,11 @@ async function syncMeta(userId, accessToken, adAccountId) {
 }
 
 async function syncPostHog(userId, apiKey, projectId, settings = {}) {
+  // Skip revenue sync if no purchase event is configured
+  if (!settings.purchaseEvent) {
+    return;
+  }
+
   const { startDate, endDate } = await getSyncDateRange(userId, 'posthog');
   const locked = await acquireLock(userId, 'posthog');
   if (!locked) return;
