@@ -502,12 +502,17 @@ async function syncStripe(userId, apiKey) {
 }
 
 async function syncRevenueCat(userId, apiKey, projectId) {
+  console.log(`[sync] RevenueCat sync starting for user ${userId}, projectId: ${projectId}`);
   const { startDate, endDate } = await getSyncDateRange(userId, 'revenuecat');
   const locked = await acquireLock(userId, 'revenuecat');
-  if (!locked) return;
+  if (!locked) {
+    console.log(`[sync] RevenueCat sync skipped for user ${userId}: could not acquire lock`);
+    return;
+  }
 
   try {
     const data = await fetchRevenueCatRevenue(apiKey, projectId, startDate, endDate) || [];
+    console.log(`[sync] RevenueCat fetched ${data.length} transactions for user ${userId} (${startDate} to ${endDate})`);
 
     const client = await pool.connect();
     try {
@@ -722,6 +727,9 @@ async function syncForUser(userId) {
 
   // Count ad platforms and only sync up to the limit (oldest first)
   let adPlatformsSynced = 0;
+
+  const platformList = accounts.rows.map(a => a.platform).join(', ');
+  console.log(`[sync] User ${userId} connected platforms: ${platformList || 'none'}`);
 
   const promises = [];
   for (const acc of accounts.rows) {
