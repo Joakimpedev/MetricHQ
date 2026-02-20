@@ -346,7 +346,7 @@ function RevenueCatModal({
           <div className="border-t border-border-dim pt-4">
             <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Webhook Setup</p>
             <p className="text-[11px] text-text-dim leading-relaxed mb-3">
-              Add this webhook URL in your RevenueCat dashboard under <strong className="text-text-body">Project Settings → Integrations → Webhooks</strong>. Set the Authorization header to your secret key above.
+              In your RevenueCat dashboard, go to <strong className="text-text-body">Project Settings → Integrations → Webhooks</strong>. Paste the URL below and set the <strong className="text-text-body">Authorization header value</strong> to your secret key (the same <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">sk_...</code> key you entered above).
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-[11px] bg-bg-elevated px-3 py-2 rounded-lg font-mono text-text-body truncate border border-border-dim">
