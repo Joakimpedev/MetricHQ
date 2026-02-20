@@ -426,8 +426,8 @@ export default function ProfitTrend({ data, prevData, isSingleDay, summary, comp
           {isSingleDay || data.length < 2 ? (
             <GhostChart />
           ) : (
-            <div className="h-[360px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[360px]" style={{ minWidth: 0, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
