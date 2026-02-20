@@ -6,6 +6,7 @@ const { fetchRevenueData, fetchEventCounts } = require('./posthog');
 const { fetchRevenueData: fetchStripeRevenue } = require('./stripe');
 const { fetchAdSpend: fetchGoogleAdSpend } = require('./google-ads');
 const { fetchAdSpend: fetchLinkedInSpend } = require('./linkedin');
+const { fetchRevenueData: fetchRevenueCatRevenue } = require('./revenuecat');
 const { refreshGoogleToken, refreshLinkedInToken } = require('./token-refresh');
 const { getUserSubscription } = require('./subscription');
 const { convertToUSD } = require('./exchange-rates');
@@ -499,6 +500,74 @@ async function syncStripe(userId, apiKey) {
   }
 }
 
+async function syncRevenueCat(userId, apiKey, projectId) {
+  const { startDate, endDate } = await getSyncDateRange(userId, 'revenuecat');
+  const locked = await acquireLock(userId, 'revenuecat');
+  if (!locked) return;
+
+  try {
+    const data = await fetchRevenueCatRevenue(apiKey, projectId, startDate, endDate) || [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM metrics_cache WHERE user_id = $1 AND platform = 'revenuecat' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+      await client.query(
+        `DELETE FROM campaign_metrics WHERE user_id = $1 AND platform = 'revenuecat' AND date >= $2 AND date <= $3`,
+        [userId, startDate, endDate]
+      );
+
+      for (const row of data) {
+        const country = (row.country || '').toUpperCase().slice(0, 2);
+        const rawRevenue = parseFloat(row.revenue || 0);
+        const revenue = await convertToUSD(rawRevenue, row.currency || 'USD');
+        const purchases = parseInt(row.purchases || 0, 10);
+        const product = row.product || '';
+        const dateStr = String(row.date).slice(0, 10);
+
+        if (country) {
+          await client.query(
+            `INSERT INTO metrics_cache (user_id, country_code, date, platform, revenue, purchases)
+             VALUES ($1, $2, $3, 'revenuecat', $4, $5)
+             ON CONFLICT (user_id, country_code, date, platform) DO UPDATE
+               SET revenue = metrics_cache.revenue + $4,
+                   purchases = metrics_cache.purchases + $5,
+                   cached_at = NOW()`,
+            [userId, country, dateStr, revenue, purchases]
+          );
+        }
+
+        if (product) {
+          await client.query(
+            `INSERT INTO campaign_metrics (user_id, platform, campaign_id, country_code, date, revenue, purchases)
+             VALUES ($1, 'revenuecat', $2, $3, $4, $5, $6)
+             ON CONFLICT (user_id, platform, campaign_id, country_code, date) DO UPDATE
+               SET revenue = campaign_metrics.revenue + $5,
+                   purchases = campaign_metrics.purchases + $6`,
+            [userId, product, country || '', dateStr, revenue, purchases]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await releaseLock(userId, 'revenuecat', { success: true, recordsSynced: data.length });
+  } catch (err) {
+    console.error(`[sync] RevenueCat sync failed for user ${userId}:`, err.message);
+    await releaseLock(userId, 'revenuecat', { success: false, errorMessage: err.message });
+  }
+}
+
 // ---- Custom event sections sync ----
 
 /**
@@ -683,6 +752,9 @@ async function syncForUser(userId) {
         break;
       case 'linkedin':
         promises.push(syncLinkedIn(userId, acc.access_token, acc.account_id));
+        break;
+      case 'revenuecat':
+        promises.push(syncRevenueCat(userId, acc.access_token, acc.account_id));
         break;
     }
   }

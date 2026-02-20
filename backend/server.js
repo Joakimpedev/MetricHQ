@@ -506,12 +506,12 @@ app.post('/api/settings/stripe', async (req, res) => {
   }
 });
 
-// Connect RevenueCat: store secret API key
+// Connect RevenueCat: store secret API key and project ID
 app.post('/api/settings/revenuecat', async (req, res) => {
-  const { userId, apiKey } = req.body || {};
+  const { userId, apiKey, projectId } = req.body || {};
 
-  if (!userId || !apiKey) {
-    return res.status(400).json({ error: 'userId and apiKey are required' });
+  if (!userId || !apiKey || !projectId) {
+    return res.status(400).json({ error: 'userId, apiKey, and projectId are required' });
   }
 
   if (!/^sk_/.test(apiKey.trim())) {
@@ -531,8 +531,8 @@ app.post('/api/settings/revenuecat', async (req, res) => {
       `INSERT INTO connected_accounts (user_id, platform, account_id, access_token)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id, platform) DO UPDATE
-       SET access_token = $4, updated_at = NOW()`,
-      [internalUserId, 'revenuecat', 'revenuecat_account', apiKey.trim()]
+       SET account_id = $3, access_token = $4, updated_at = NOW()`,
+      [internalUserId, 'revenuecat', projectId.trim(), apiKey.trim()]
     );
     res.json({ ok: true, message: 'RevenueCat connected' });
   } catch (error) {

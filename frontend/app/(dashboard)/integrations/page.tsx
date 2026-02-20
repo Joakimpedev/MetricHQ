@@ -213,6 +213,7 @@ function RevenueCatModal({
   const isConnected = !!connection?.connected;
   const [editing, setEditing] = useState(!isConnected);
   const [apiKey, setApiKey] = useState(connection?.fullKey || '');
+  const [projectId, setProjectId] = useState(connection?.accountId || '');
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -231,12 +232,12 @@ function RevenueCatModal({
   };
 
   const handleSave = async () => {
-    if (!apiKey.trim()) {
-      setMessage({ type: 'error', text: 'Secret API Key is required.' });
+    if (!apiKey.trim() || !projectId.trim()) {
+      setMessage({ type: 'error', text: 'Secret API Key and Project ID are required.' });
       return;
     }
     if (!/^sk_/.test(apiKey.trim())) {
-      setMessage({ type: 'error', text: 'Must start with sk_' });
+      setMessage({ type: 'error', text: 'API Key must start with sk_' });
       return;
     }
     setMessage(null);
@@ -245,7 +246,7 @@ function RevenueCatModal({
       const response = await fetch(`${API_URL}/api/settings/revenuecat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, apiKey: apiKey.trim() }),
+        body: JSON.stringify({ userId, apiKey: apiKey.trim(), projectId: projectId.trim() }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -297,7 +298,7 @@ function RevenueCatModal({
           </div>
         </div>
 
-        {/* API Key */}
+        {/* Credentials */}
         <div className="p-5 space-y-2">
           <CredentialField
             label="Secret API Key"
@@ -308,6 +309,14 @@ function RevenueCatModal({
             editValue={apiKey}
             onEditChange={setApiKey}
             placeholder="sk_..."
+          />
+          <CredentialField
+            label="Project ID"
+            value={connection?.accountId || ''}
+            editing={editing}
+            editValue={projectId}
+            onEditChange={setProjectId}
+            placeholder="proj1a2b3c4d"
           />
 
           {editing && (
@@ -326,6 +335,7 @@ function RevenueCatModal({
                     setEditing(false);
                     setMessage(null);
                     setApiKey(connection?.fullKey || '');
+                    setProjectId(connection?.accountId || '');
                   }}
                   className="px-4 py-2 rounded-lg text-[12px] font-medium text-text-dim hover:text-text-body transition-colors"
                 >
@@ -344,9 +354,9 @@ function RevenueCatModal({
         {/* Webhook Setup Instructions */}
         <div className="px-5 pb-5 pt-0">
           <div className="border-t border-border-dim pt-4">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Webhook Setup</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1">Webhook (optional)</p>
             <p className="text-[11px] text-text-dim leading-relaxed mb-3">
-              In your RevenueCat dashboard, go to <strong className="text-text-body">Project Settings → Integrations → Webhooks</strong>. Paste the URL below and set the <strong className="text-text-body">Authorization header value</strong> to your secret key (the same <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">sk_...</code> key you entered above).
+              Historical data syncs automatically. For <strong className="text-text-body">real-time</strong> updates between syncs, add this webhook in <strong className="text-text-body">RevenueCat → Project Settings → Integrations → Webhooks</strong>. Set the <strong className="text-text-body">Authorization header</strong> to your <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">sk_...</code> key.
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-[11px] bg-bg-elevated px-3 py-2 rounded-lg font-mono text-text-body truncate border border-border-dim">
