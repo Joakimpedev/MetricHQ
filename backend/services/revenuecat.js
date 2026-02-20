@@ -5,13 +5,32 @@ const { convertToUSD } = require('./exchange-rates');
 const RC_API_V2 = 'https://api.revenuecat.com/v2';
 
 /**
+ * Extract just the project ID if user pasted a full URL or path.
+ * Accepts: "proj1a2b3c4d", "https://app.revenuecat.com/.../proj1a2b3c4d", etc.
+ */
+function cleanProjectId(raw) {
+  let id = String(raw || '').trim();
+  // Strip full URLs — extract last path segment that looks like a project ID
+  if (id.includes('/')) {
+    const parts = id.replace(/\/+$/, '').split('/');
+    id = parts[parts.length - 1];
+  }
+  // Strip any protocol/URL remnants
+  id = id.replace(/^https?:?\/?\/?/, '').trim();
+  return id;
+}
+
+/**
  * Fetch all customers from RevenueCat API v2 (paginated).
  * @param {string} apiKey - RevenueCat secret key (sk_...)
  * @param {string} projectId - RevenueCat project ID
  * @returns {AsyncGenerator<object>} Yields customer objects
  */
 async function* fetchAllCustomers(apiKey, projectId) {
-  let url = `${RC_API_V2}/projects/${projectId}/customers?limit=100`;
+  const pid = cleanProjectId(projectId);
+  const url0 = `${RC_API_V2}/projects/${encodeURIComponent(pid)}/customers?limit=100`;
+  console.log(`[revenuecat] Fetching customers from: ${url0}`);
+  let url = url0;
 
   while (url) {
     const response = await axios.get(url, {
@@ -39,7 +58,8 @@ async function* fetchAllCustomers(apiKey, projectId) {
  */
 async function fetchCustomerPurchases(apiKey, projectId, customerId) {
   const purchases = [];
-  let url = `${RC_API_V2}/projects/${projectId}/customers/${encodeURIComponent(customerId)}/purchases?limit=100`;
+  const pid = cleanProjectId(projectId);
+  let url = `${RC_API_V2}/projects/${encodeURIComponent(pid)}/customers/${encodeURIComponent(customerId)}/purchases?limit=100`;
 
   while (url) {
     const response = await axios.get(url, {

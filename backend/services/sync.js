@@ -53,14 +53,15 @@ async function acquireLock(userId, platform) {
  * Release lock: mark done or error, update last_synced_at.
  */
 async function releaseLock(userId, platform, { success, recordsSynced = 0, errorMessage = null }) {
+  const status = success ? 'done' : 'error';
   await pool.query(
     `UPDATE sync_log
-     SET status = $3,
-         last_synced_at = CASE WHEN $3 = 'done' THEN NOW() ELSE last_synced_at END,
+     SET status = $3::text,
+         last_synced_at = CASE WHEN $3::text = 'done' THEN NOW() ELSE last_synced_at END,
          error_message = $4,
          records_synced = $5
      WHERE user_id = $1 AND platform = $2`,
-    [userId, platform, success ? 'done' : 'error', errorMessage, recordsSynced]
+    [userId, platform, status, errorMessage, recordsSynced]
   );
 }
 

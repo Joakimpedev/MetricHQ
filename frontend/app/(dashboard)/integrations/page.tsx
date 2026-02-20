@@ -351,7 +351,30 @@ function RevenueCatModal({
           )}
         </div>
 
+        {/* Setup Guide */}
         <div className="px-5 pb-5 pt-0">
+          <div className="border-t border-border-dim pt-4">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-2">Where to find these</p>
+            <div className="space-y-2.5 text-[11px] text-text-dim leading-relaxed">
+              <div>
+                <p><strong className="text-text-body">Secret API Key</strong></p>
+                <p>RevenueCat dashboard → <strong className="text-text-body">Project Settings → API Keys</strong> → create a new secret key (starts with <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">sk_</code>). Use a V2 key with <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">customer_information:customers:read</code> permission.</p>
+              </div>
+              <div>
+                <p><strong className="text-text-body">Project ID</strong></p>
+                <p>RevenueCat dashboard → <strong className="text-text-body">Project Settings</strong> → copy the Project ID at the top (looks like <code className="text-[10px] bg-bg-elevated px-1 py-0.5 rounded font-mono">proj1a2b3c4d</code>).</p>
+              </div>
+            </div>
+            <a
+              href="https://www.revenuecat.com/docs/projects/authentication"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 text-[11px] text-accent hover:text-accent-hover transition-colors underline underline-offset-2"
+            >
+              RevenueCat API key docs
+            </a>
+          </div>
+
           {isConnected && !editing && (
             <div className="border-t border-border-dim pt-4 mt-4">
               <button
