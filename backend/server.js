@@ -9,9 +9,15 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // CORS: allow frontend (localhost + production)
+// Auto-include www variant if FRONTEND_URL is a custom domain
+const frontendUrl = process.env.FRONTEND_URL;
 const allowedOrigins = [
   'http://localhost:3000',
-  process.env.FRONTEND_URL
+  frontendUrl,
+  // If FRONTEND_URL is https://example.com, also allow https://www.example.com (and vice versa)
+  frontendUrl && frontendUrl.includes('://www.')
+    ? frontendUrl.replace('://www.', '://')
+    : frontendUrl ? frontendUrl.replace('://', '://www.') : null,
 ].filter(Boolean);
 app.use(cors({
   origin: allowedOrigins.length ? allowedOrigins : true,
