@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { MoreVertical, Pencil, Trash2, Copy, Table } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList, Cell } from 'recharts';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface DisplayItem {
   event_name: string;
@@ -70,7 +70,7 @@ export default function BarChartSection({ section, startDate, endDate, onEdit, o
     setLoading(true);
     try {
       const params = new URLSearchParams({ userId: user.id, startDate, endDate });
-      const res = await fetch(`${API_URL}/api/event-display/sections/${section.id}/data?${params}`);
+      const res = await apiFetch(`/api/event-display/sections/${section.id}/data?${params}`);
       const json = await res.json();
       if (res.ok) setData(json.data || []);
     } catch {

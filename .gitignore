@@ -1,2 +1,15 @@
 # Railway CLI link (do not commit)
 .railway/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env*.local
+backend/.env
+frontend/.env.local
+
+# Dependencies
+node_modules/
+
+# OS files
+nul

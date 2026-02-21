@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface EventSection {
   id: number;
@@ -79,7 +79,7 @@ export default function EventSectionCard({ section, startDate, endDate, onEdit, 
         startDate,
         endDate,
       });
-      const res = await fetch(`${API_URL}/api/custom-events/sections/${section.id}/data?${params}`);
+      const res = await apiFetch(`/api/custom-events/sections/${section.id}/data?${params}`);
       const json = await res.json();
       if (res.ok) {
         setData(json.data || []);

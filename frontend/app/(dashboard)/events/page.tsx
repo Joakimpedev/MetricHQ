@@ -11,8 +11,8 @@ import AddDisplaySectionModal from '../../../components/AddDisplaySectionModal';
 import TableSection from '../../../components/TableSection';
 import BarChartSection from '../../../components/BarChartSection';
 import KPIBarSection from '../../../components/KPIBarSection';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface EventSection {
   id: number;
@@ -79,7 +79,7 @@ export default function EventsPage() {
     if (!user?.id || syncing) return;
     setSyncing(true);
     try {
-      await fetch(`${API_URL}/api/custom-events/sync`, {
+      await apiFetch(`/api/custom-events/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
@@ -98,7 +98,7 @@ export default function EventsPage() {
     if (!user?.id) return;
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const res = await fetch(`${API_URL}/api/custom-events/sections?${params}`);
+      const res = await apiFetch(`/api/custom-events/sections?${params}`);
       const json = await res.json();
       if (res.ok) setSections(json.sections || []);
     } catch {
@@ -110,7 +110,7 @@ export default function EventsPage() {
     if (!user?.id) return;
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const res = await fetch(`${API_URL}/api/event-display/sections?${params}`);
+      const res = await apiFetch(`/api/event-display/sections?${params}`);
       const json = await res.json();
       if (res.ok) setDisplaySections(json.sections || []);
     } catch {
@@ -121,7 +121,7 @@ export default function EventsPage() {
   // Check if PostHog is connected
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/connections?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => {
         const connections = j.connections || {};
@@ -142,7 +142,7 @@ export default function EventsPage() {
   const handleDeleteTracker = async (id: number) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/custom-events/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/custom-events/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       fetchSections();
     } catch {
       // silently ignore
@@ -152,7 +152,7 @@ export default function EventsPage() {
   const handleDeleteDisplay = async (id: number) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/event-display/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/event-display/sections/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       fetchDisplaySections();
     } catch {
       // silently ignore
@@ -164,7 +164,7 @@ export default function EventsPage() {
     try {
       const body: Record<string, string> = { userId: user.id };
       if (sectionType) body.section_type = sectionType;
-      await fetch(`${API_URL}/api/event-display/sections/${id}/duplicate`, {
+      await apiFetch(`/api/event-display/sections/${id}/duplicate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -179,7 +179,7 @@ export default function EventsPage() {
     if (!user?.id) return;
     if (!confirm('Delete all event trackers, display sections, and cached data? This cannot be undone.')) return;
     try {
-      await fetch(`${API_URL}/api/custom-events/all?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/custom-events/all?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       setSections([]);
       setDisplaySections([]);
     } catch {

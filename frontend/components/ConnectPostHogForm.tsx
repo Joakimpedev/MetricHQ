@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface ConnectPostHogFormProps {
   userId?: string;
@@ -29,7 +29,7 @@ export default function ConnectPostHogForm({ userId, existingProjectId, onSucces
     setMessage(null);
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/settings/posthog`, {
+      const response = await apiFetch(`/api/settings/posthog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

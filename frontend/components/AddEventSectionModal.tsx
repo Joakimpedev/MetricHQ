@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { X, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface EventSection {
   id: number;
@@ -42,7 +42,7 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
   useEffect(() => {
     if (!user?.id) return;
     setLoadingEvents(true);
-    fetch(`${API_URL}/api/posthog/events?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/posthog/events?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => setEvents(j.events || []))
       .catch(() => {})
@@ -68,7 +68,7 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
     }
     setLoadingProperties(true);
     const params = new URLSearchParams({ userId: user.id, eventName });
-    fetch(`${API_URL}/api/custom-events/properties?${params}`)
+    apiFetch(`/api/custom-events/properties?${params}`)
       .then(r => r.json())
       .then(j => setProperties(j.properties || []))
       .catch(() => setProperties([]))
@@ -94,9 +94,9 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
 
     try {
       const url = isEdit
-        ? `${API_URL}/api/custom-events/sections/${section.id}`
-        : `${API_URL}/api/custom-events/sections`;
-      const res = await fetch(url, {
+        ? `/api/custom-events/sections/${section.id}`
+        : `/api/custom-events/sections`;
+      const res = await apiFetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

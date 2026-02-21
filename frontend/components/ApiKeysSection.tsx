@@ -5,8 +5,8 @@ import { useUser } from '@clerk/nextjs';
 import { useSubscription } from './SubscriptionProvider';
 import { Key, Copy, MoreHorizontal, X } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface ApiKey {
   id: number;
@@ -49,7 +49,7 @@ export default function ApiKeysSection() {
 
   async function fetchKeys() {
     try {
-      const res = await fetch(`${API_URL}/api/settings/api-keys?userId=${user!.id}`);
+      const res = await apiFetch(`/api/settings/api-keys?userId=${user!.id}`);
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys || []);
@@ -61,7 +61,7 @@ export default function ApiKeysSection() {
     setGenerating(true);
     setGenError('');
     try {
-      const res = await fetch(`${API_URL}/api/settings/api-keys`, {
+      const res = await apiFetch(`/api/settings/api-keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user!.id, name: keyName.trim() || undefined }),
@@ -82,7 +82,7 @@ export default function ApiKeysSection() {
 
   async function handleRevoke(keyId: number) {
     try {
-      await fetch(`${API_URL}/api/settings/api-keys/${keyId}?userId=${user!.id}`, {
+      await apiFetch(`/api/settings/api-keys/${keyId}?userId=${user!.id}`, {
         method: 'DELETE',
       });
       setKeys(prev => prev.map(k => k.id === keyId ? { ...k, revoked_at: new Date().toISOString() } : k));

@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { Plus, Search, DollarSign, MoreVertical, Pencil, Trash2, ChevronRight, Lock } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import CustomCostModal from '../../../components/CustomCostModal';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface CustomCost {
   id: number;
@@ -70,7 +70,7 @@ export default function CustomCostsPage() {
     try {
       const params = new URLSearchParams({ userId: user.id, page: String(page), limit: String(limit) });
       if (search.trim()) params.set('search', search.trim());
-      const res = await fetch(`${API_URL}/api/custom-costs?${params}`);
+      const res = await apiFetch(`/api/custom-costs?${params}`);
       const json = await res.json();
       if (res.ok) {
         setCosts(json.costs);
@@ -144,7 +144,7 @@ export default function CustomCostsPage() {
     if (!user?.id) return;
     try {
       await Promise.all(group.costs.map(c =>
-        fetch(`${API_URL}/api/custom-costs/${c.id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' })
+        apiFetch(`/api/custom-costs/${c.id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' })
       ));
       fetchCosts();
     } catch {
@@ -162,7 +162,7 @@ export default function CustomCostsPage() {
   const handleDelete = async (id: number) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/custom-costs/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/custom-costs/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       fetchCosts();
     } catch {
       // silently ignore

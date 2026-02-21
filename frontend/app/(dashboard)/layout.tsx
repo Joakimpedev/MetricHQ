@@ -9,8 +9,8 @@ import Sidebar from '../../components/Sidebar';
 import TopBar from '../../components/TopBar';
 import SubscriptionProvider, { useSubscription } from '../../components/SubscriptionProvider';
 import TrialBanner from '../../components/TrialBanner';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -42,7 +42,7 @@ function SyncIndicator({ userId }: { userId: string }) {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const params = new URLSearchParams({ userId });
-      const res = await fetch(`${API_URL}/api/sync/status?${params}`);
+      const res = await apiFetch(`/api/sync/status?${params}`);
       if (res.ok) {
         const json = await res.json();
         setLastSynced(json.lastSynced);
@@ -62,7 +62,7 @@ function SyncIndicator({ userId }: { userId: string }) {
     setSyncing(true);
     setUserTriggered(true);
     try {
-      const res = await fetch(`${API_URL}/api/sync`, {
+      const res = await apiFetch(`/api/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -76,7 +76,7 @@ function SyncIndicator({ userId }: { userId: string }) {
       const poll = setInterval(async () => {
         attempts++;
         try {
-          const statusRes = await fetch(`${API_URL}/api/sync/status?${new URLSearchParams({ userId })}`);
+          const statusRes = await apiFetch(`/api/sync/status?${new URLSearchParams({ userId })}`);
           if (statusRes.ok) {
             const json = await statusRes.json();
             setLastSynced(json.lastSynced);

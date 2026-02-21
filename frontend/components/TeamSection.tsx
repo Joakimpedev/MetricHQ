@@ -5,8 +5,8 @@ import { useUser } from '@clerk/nextjs';
 import { useSubscription } from './SubscriptionProvider';
 import { UserPlus, Copy, MoreHorizontal, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface TeamMember {
   id: number;
@@ -48,7 +48,7 @@ export default function TeamSection() {
 
   async function fetchMembers() {
     try {
-      const res = await fetch(`${API_URL}/api/team?userId=${user!.id}`);
+      const res = await apiFetch(`/api/team?userId=${user!.id}`);
       if (res.ok) {
         const data = await res.json();
         setMembers(data.members || []);
@@ -63,7 +63,7 @@ export default function TeamSection() {
     setInviteError('');
     setInviteLink('');
     try {
-      const res = await fetch(`${API_URL}/api/team/invite`, {
+      const res = await apiFetch(`/api/team/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user!.id, email: inviteEmail.trim() }),
@@ -84,7 +84,7 @@ export default function TeamSection() {
 
   async function handleRemove(memberId: number) {
     try {
-      await fetch(`${API_URL}/api/team/members/${memberId}?userId=${user!.id}`, {
+      await apiFetch(`/api/team/members/${memberId}?userId=${user!.id}`, {
         method: 'DELETE',
       });
       setMembers(prev => prev.filter(m => m.id !== memberId));

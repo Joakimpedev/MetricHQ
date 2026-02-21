@@ -11,10 +11,10 @@ import { useSubscription } from '../../../components/SubscriptionProvider';
 import OnboardingWizard from '../../../components/OnboardingWizard';
 import CostBreakdownChart from '../../../components/CostBreakdownChart';
 import { useCurrency } from '../../../lib/currency';
+import { apiFetch } from '@/lib/api';
 
 const ProfitTrend = dynamic(() => import('../../../components/ProfitTrend'), { ssr: false });
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface Summary {
   totalSpend: number;
@@ -467,7 +467,7 @@ export default function DashboardPage() {
         compareStartDate: comp.compareStartDate,
         compareEndDate: comp.compareEndDate,
       });
-      const response = await fetch(`${API_URL}/api/metrics?${params}`);
+      const response = await apiFetch(`/api/metrics?${params}`);
       const json = await response.json();
       if (!response.ok) {
         if (json.error === 'team_owner_downgraded') {
@@ -493,7 +493,7 @@ export default function DashboardPage() {
     }
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`);
+        const res = await apiFetch(`/api/connections?userId=${encodeURIComponent(user.id)}`);
         const json = await res.json();
         if (!res.ok) { setShowOnboarding(false); return; }
         const hasConnections = Object.values(json.connections || {}).some((c: unknown) => (c as { connected?: boolean }).connected);
@@ -512,8 +512,8 @@ export default function DashboardPage() {
     (async () => {
       try {
         const [sourcesRes, settingsRes] = await Promise.all([
-          fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
-          fetch(`${API_URL}/api/user-settings?userId=${encodeURIComponent(user.id)}`),
+          apiFetch(`/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
+          apiFetch(`/api/user-settings?userId=${encodeURIComponent(user.id)}`),
         ]);
         if (sourcesRes.ok) {
           const json = await sourcesRes.json();
@@ -620,7 +620,7 @@ export default function DashboardPage() {
           setShowOnboarding(false);
           setSyncing(true);
           // Trigger sync in background
-          fetch(`${API_URL}/api/sync`, {
+          apiFetch(`/api/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user!.id }),
@@ -628,7 +628,7 @@ export default function DashboardPage() {
           // Poll for data
           const poll = setInterval(async () => {
             try {
-              const res = await fetch(`${API_URL}/api/sync/status?userId=${encodeURIComponent(user!.id)}`);
+              const res = await apiFetch(`/api/sync/status?userId=${encodeURIComponent(user!.id)}`);
               const json = await res.json();
               if (json.status === 'idle' || json.status === 'complete') {
                 clearInterval(poll);

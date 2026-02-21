@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom';
 import { useUser } from '@clerk/nextjs';
 import { X, Plus, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import CurrencySelect from './CurrencySelect';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface CustomCost {
   id: number;
@@ -308,7 +308,7 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
   // Fetch existing categories
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API_URL}/api/custom-costs/categories?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/custom-costs/categories?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => setCategories(j.categories || []))
       .catch(() => {});
@@ -368,9 +368,9 @@ export default function CustomCostModal({ cost, onClose, onSaved }: Props) {
 
     try {
       const url = isEdit
-        ? `${API_URL}/api/custom-costs/${cost.id}`
-        : `${API_URL}/api/custom-costs`;
-      const res = await fetch(url, {
+        ? `/api/custom-costs/${cost.id}`
+        : `/api/custom-costs`;
+      const res = await apiFetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { X, Loader2, Minus, Plus, Table, BarChart3, LineChart, PieChart, Activity, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface DisplayItem {
   event_name: string;
@@ -106,7 +106,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     setSaving(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/event-display/sections`, {
+      const res = await apiFetch(`/api/event-display/sections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +143,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   useEffect(() => {
     if (!user?.id) return;
     setLoadingTrackers(true);
-    fetch(`${API_URL}/api/custom-events/sections?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/custom-events/sections?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => setTrackerSections(j.sections || []))
       .catch(() => {})
@@ -173,7 +173,7 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
     setLoadingValues(prev => ({ ...prev, [cacheKey]: true }));
     try {
       const params = new URLSearchParams({ userId: user.id, eventName, propertyName });
-      const res = await fetch(`${API_URL}/api/custom-events/values?${params}`);
+      const res = await apiFetch(`/api/custom-events/values?${params}`);
       const json = await res.json();
       const values = json.values || [];
       valuesCacheRef.current[cacheKey] = values;
@@ -333,9 +333,9 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
 
     try {
       const url = isEdit
-        ? `${API_URL}/api/event-display/sections/${section.id}`
-        : `${API_URL}/api/event-display/sections`;
-      const res = await fetch(url, {
+        ? `/api/event-display/sections/${section.id}`
+        : `/api/event-display/sections`;
+      const res = await apiFetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

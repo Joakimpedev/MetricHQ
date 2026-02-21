@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, SignInButton } from '@clerk/nextjs';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 export default function InvitePage() {
   const searchParams = useSearchParams();
@@ -24,7 +24,7 @@ export default function InvitePage() {
 
     async function acceptInvite() {
       try {
-        const res = await fetch(`${API_URL}/api/team/accept`, {
+        const res = await apiFetch(`/api/team/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user!.id, token }),

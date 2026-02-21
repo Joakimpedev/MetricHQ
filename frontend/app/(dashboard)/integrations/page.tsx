@@ -6,9 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { X, ChevronDown, Loader2, Eye, EyeOff, Pencil, Check, Lock, Pause } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
-import { PostHogLogo, TikTokLogo, MetaLogo, StripeLogo, GoogleAdsLogo, LinkedInLogo, RevenueCatLogo } from '../../../components/PlatformLogos';
+import { PostHogLogo, TikTokLogo, StripeLogo, GoogleAdsLogo, RevenueCatLogo } from '../../../components/PlatformLogos';
+import { apiFetch, API_URL } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface Connection {
   connected: boolean;
@@ -67,7 +67,7 @@ function StripeModal({
     setMessage(null);
     setSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/settings/stripe`, {
+      const response = await apiFetch(`/api/settings/stripe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, apiKey: apiKey.trim() }),
@@ -243,7 +243,7 @@ function RevenueCatModal({
     setMessage(null);
     setSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/settings/revenuecat`, {
+      const response = await apiFetch(`/api/settings/revenuecat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, apiKey: apiKey.trim(), projectId: projectId.trim() }),
@@ -585,7 +585,7 @@ function PostHogModal({
     setEventsError(null);
     try {
       const params = new URLSearchParams({ userId });
-      const res = await fetch(`${API_URL}/api/posthog/events?${params}`);
+      const res = await apiFetch(`/api/posthog/events?${params}`);
       const json = await res.json();
       if (res.ok) {
         setEvents(json.events || []);
@@ -607,7 +607,7 @@ function PostHogModal({
     setMessage(null);
     setSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/settings/posthog`, {
+      const response = await apiFetch(`/api/settings/posthog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -637,7 +637,7 @@ function PostHogModal({
     setSelectedEvent(eventName);
     setSavingEvent(true);
     try {
-      await fetch(`${API_URL}/api/settings/posthog/event`, {
+      await apiFetch(`/api/settings/posthog/event`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, purchaseEvent: eventName }),
@@ -807,7 +807,7 @@ function PostHogModal({
                     setSavingEvent(true);
                     try {
                       const params = new URLSearchParams({ userId });
-                      await fetch(`${API_URL}/api/settings/posthog/event?${params}`, { method: 'DELETE' });
+                      await apiFetch(`/api/settings/posthog/event?${params}`, { method: 'DELETE' });
                       setSelectedEvent('');
                       onSaved();
                     } catch { /* ignore */ } finally {
@@ -930,7 +930,7 @@ export default function IntegrationsPage() {
   const platformLimitError = searchParams.get('error') === 'platform_limit';
 
   // Determine which ad platforms are active, paused, or locked
-  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'] as const;
+  const adPlatformKeys = ['tiktok', 'google_ads'] as const;
   const connectedAdPlatforms = adPlatformKeys
     .filter(p => connections[p]?.connected)
     .sort((a, b) => {
@@ -956,7 +956,7 @@ export default function IntegrationsPage() {
     if (!user?.id) return;
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const response = await fetch(`${API_URL}/api/connections?${params}`);
+      const response = await apiFetch(`/api/connections?${params}`);
       const json = await response.json();
       if (response.ok) {
         setConnections(json.connections || {});
@@ -972,7 +972,7 @@ export default function IntegrationsPage() {
     if (!user?.id) return;
     try {
       const params = new URLSearchParams({ userId: user.id });
-      await fetch(`${API_URL}/api/connections/${platform}?${params}`, { method: 'DELETE' });
+      await apiFetch(`/api/connections/${platform}?${params}`, { method: 'DELETE' });
       setOpenModal(null);
       fetchConnections();
     } catch {
@@ -1046,16 +1046,6 @@ export default function IntegrationsPage() {
             upgradePlanName={adUpgradePlan}
           />
           <IntegrationCard
-            name="Meta Ads"
-            description="Configure integration"
-            logo={<MetaLogo />}
-            connected={!!connections.meta}
-            onClick={() => setOpenModal('meta')}
-            locked={atAdLimit && !connections.meta?.connected}
-            paused={pausedPlatforms.has('meta')}
-            upgradePlanName={adUpgradePlan}
-          />
-          <IntegrationCard
             name="Google Ads"
             description="Configure integration"
             logo={<GoogleAdsLogo />}
@@ -1063,16 +1053,6 @@ export default function IntegrationsPage() {
             onClick={() => setOpenModal('google_ads')}
             locked={atAdLimit && !connections.google_ads?.connected}
             paused={pausedPlatforms.has('google_ads')}
-            upgradePlanName={adUpgradePlan}
-          />
-          <IntegrationCard
-            name="LinkedIn Ads"
-            description="Configure integration"
-            logo={<LinkedInLogo />}
-            connected={!!connections.linkedin}
-            onClick={() => setOpenModal('linkedin')}
-            locked={atAdLimit && !connections.linkedin?.connected}
-            paused={pausedPlatforms.has('linkedin')}
             upgradePlanName={adUpgradePlan}
           />
         </div>
@@ -1098,18 +1078,6 @@ export default function IntegrationsPage() {
           connection={connections.tiktok}
           onClose={() => setOpenModal(null)}
           onDisconnect={() => handleDisconnect('tiktok')}
-        />
-      )}
-      {openModal === 'meta' && user?.id && (
-        <OAuthModal
-          platform="meta"
-          logo={<MetaLogo />}
-          name="Meta Ads"
-          description="Facebook & Instagram ad spend"
-          userId={user.id}
-          connection={connections.meta}
-          onClose={() => setOpenModal(null)}
-          onDisconnect={() => handleDisconnect('meta')}
         />
       )}
       {openModal === 'stripe' && user?.id && (
@@ -1140,18 +1108,6 @@ export default function IntegrationsPage() {
           connection={connections.google_ads}
           onClose={() => setOpenModal(null)}
           onDisconnect={() => handleDisconnect('google_ads')}
-        />
-      )}
-      {openModal === 'linkedin' && user?.id && (
-        <OAuthModal
-          platform="linkedin"
-          logo={<LinkedInLogo />}
-          name="LinkedIn Ads"
-          description="B2B campaign spend"
-          userId={user.id}
-          connection={connections.linkedin}
-          onClose={() => setOpenModal(null)}
-          onDisconnect={() => handleDisconnect('linkedin')}
         />
       )}
     </div>

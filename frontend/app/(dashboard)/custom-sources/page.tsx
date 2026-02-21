@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useUser } from '@clerk/nextjs';
 import { Plus, PlusCircle, MoreVertical, Pencil, Trash2, ChevronDown, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, AlertTriangle, Globe, X } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 /** Parse a numeric string that may use comma as decimal separator (e.g. "197,22" → 197.22) */
 function parseNum(val: unknown): number {
@@ -230,8 +230,8 @@ function AttributionPill({ campaign, sourceId, onUpdated }: {
     setSaving(true);
     setError('');
     try {
-      const url = `${API_URL}/api/custom-sources/${sourceId}/campaigns/${encodeURIComponent(campaign.campaign_id)}/settings`;
-      const res = await fetch(url, {
+      const url = `/api/custom-sources/${sourceId}/campaigns/${encodeURIComponent(campaign.campaign_id)}/settings`;
+      const res = await apiFetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, country_attribution: mode, country_code: cc }),
@@ -380,9 +380,9 @@ function SourceModal({ source, onClose, onSaved }: {
         track_revenue: trackRevenue,
       };
       const url = source
-        ? `${API_URL}/api/custom-sources/${source.id}`
-        : `${API_URL}/api/custom-sources`;
-      const res = await fetch(url, {
+        ? `/api/custom-sources/${source.id}`
+        : `/api/custom-sources`;
+      const res = await apiFetch(url, {
         method: source ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -517,9 +517,9 @@ function EntryModal({ source, entry, onClose, onSaved }: {
         purchases: parseInt(purchases) || 0,
       };
       const url = entry
-        ? `${API_URL}/api/custom-sources/${source.id}/entries/${entry.id}`
-        : `${API_URL}/api/custom-sources/${source.id}/entries`;
-      const res = await fetch(url, {
+        ? `/api/custom-sources/${source.id}/entries/${entry.id}`
+        : `/api/custom-sources/${source.id}/entries`;
+      const res = await apiFetch(url, {
         method: entry ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -740,7 +740,7 @@ function ImportModal({ source, onClose, onImported }: {
       if (user?.id) {
         try {
           const params = new URLSearchParams({ userId: user.id, date, limit: '1000' });
-          const res = await fetch(`${API_URL}/api/custom-sources/${source.id}/entries?${params}`);
+          const res = await apiFetch(`/api/custom-sources/${source.id}/entries?${params}`);
           const json = await res.json();
           if (res.ok) existingEntries = json.entries || [];
         } catch { /* ignore */ }
@@ -756,7 +756,7 @@ function ImportModal({ source, onClose, onImported }: {
       if (user?.id) {
         try {
           const params = new URLSearchParams({ userId: user.id, limit: '1000' });
-          const res = await fetch(`${API_URL}/api/custom-sources/${source.id}/entries?${params}`);
+          const res = await apiFetch(`/api/custom-sources/${source.id}/entries?${params}`);
           const json = await res.json();
           if (res.ok) allEntries = json.entries || [];
         } catch { /* ignore */ }
@@ -832,7 +832,7 @@ function ImportModal({ source, onClose, onImported }: {
       }
 
       try {
-        const res = await fetch(`${API_URL}/api/custom-sources/${source.id}/entries`, {
+        const res = await apiFetch(`/api/custom-sources/${source.id}/entries`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1220,8 +1220,8 @@ function CountryDetailImportModal({ source, entry, campaignId, onClose, onImport
 
     // First, delete the original undetailed entry
     try {
-      await fetch(
-        `${API_URL}/api/custom-sources/${source.id}/entries/${entry.id}?userId=${encodeURIComponent(user.id)}`,
+      await apiFetch(
+        `/api/custom-sources/${source.id}/entries/${entry.id}?userId=${encodeURIComponent(user.id)}`,
         { method: 'DELETE' }
       );
     } catch { /* continue anyway */ }
@@ -1229,7 +1229,7 @@ function CountryDetailImportModal({ source, entry, campaignId, onClose, onImport
     // Create one entry per country row
     for (const row of toImport) {
       try {
-        const res = await fetch(`${API_URL}/api/custom-sources/${source.id}/entries`, {
+        const res = await apiFetch(`/api/custom-sources/${source.id}/entries`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1449,7 +1449,7 @@ export default function CustomSourcesPage() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`);
+      const res = await apiFetch(`/api/custom-sources?userId=${encodeURIComponent(user.id)}`);
       const json = await res.json();
       if (res.ok) setSources(json.sources || []);
     } catch { /* ignore */ } finally {
@@ -1462,7 +1462,7 @@ export default function CustomSourcesPage() {
     setCampaignsLoading(prev => ({ ...prev, [sourceId]: true }));
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const res = await fetch(`${API_URL}/api/custom-sources/${sourceId}/campaigns?${params}`);
+      const res = await apiFetch(`/api/custom-sources/${sourceId}/campaigns?${params}`);
       const json = await res.json();
       if (res.ok) setCampaignData(prev => ({ ...prev, [sourceId]: json.campaigns || [] }));
     } catch { /* ignore */ } finally {
@@ -1481,7 +1481,7 @@ export default function CustomSourcesPage() {
         page: String(page),
         limit: String(entriesLimit),
       });
-      const res = await fetch(`${API_URL}/api/custom-sources/${sourceId}/entries?${params}`);
+      const res = await apiFetch(`/api/custom-sources/${sourceId}/entries?${params}`);
       const json = await res.json();
       if (res.ok) {
         setCampaignEntries(prev => ({ ...prev, [key]: json.entries || [] }));
@@ -1506,7 +1506,7 @@ export default function CustomSourcesPage() {
   const handleDeleteSource = async (id: number) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/custom-sources/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/custom-sources/${id}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       if (selectedSourceId === id) setSelectedSourceId(null);
       fetchSources();
     } catch { /* ignore */ }
@@ -1515,7 +1515,7 @@ export default function CustomSourcesPage() {
   const handleDeleteEntry = async (sourceId: number, entryId: number, campaignId: string) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/custom-sources/${sourceId}/entries/${entryId}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+      await apiFetch(`/api/custom-sources/${sourceId}/entries/${entryId}?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' });
       const key = `${sourceId}_${campaignId}`;
       fetchCampaignEntries(sourceId, campaignId, campaignEntriesPage[key] || 1);
       fetchCampaigns(sourceId);

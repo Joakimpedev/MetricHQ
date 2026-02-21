@@ -10,8 +10,8 @@ import { useCurrency } from '../../../lib/currency';
 import { useSubscription, useDevmode, setDevmode } from '../../../components/SubscriptionProvider';
 import TeamSection from '../../../components/TeamSection';
 import ApiKeysSection from '../../../components/ApiKeysSection';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '-';
@@ -122,8 +122,8 @@ function RevenueAllocationSetting() {
     if (!user?.id) return;
     try {
       const [settingsRes, sourcesRes] = await Promise.all([
-        fetch(`${API_URL}/api/user-settings?userId=${encodeURIComponent(user.id)}`),
-        fetch(`${API_URL}/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
+        apiFetch(`/api/user-settings?userId=${encodeURIComponent(user.id)}`),
+        apiFetch(`/api/custom-sources?userId=${encodeURIComponent(user.id)}`),
       ]);
       if (settingsRes.ok) {
         const json = await settingsRes.json();
@@ -147,7 +147,7 @@ function RevenueAllocationSetting() {
     setAllocation(value);
     setSaving(true);
     try {
-      await fetch(`${API_URL}/api/user-settings`, {
+      await apiFetch(`/api/user-settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, settings: { revenueAllocation: value } }),

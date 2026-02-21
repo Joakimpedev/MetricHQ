@@ -30,7 +30,41 @@ app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), hand
 
 app.use(express.json());
 
-// Auth routes (TikTok, Meta OAuth)
+// Clerk JWT verification — parses Authorization: Bearer <token> on every request
+const { clerkMiddleware, getAuth } = require('@clerk/express');
+app.use(clerkMiddleware());
+
+// Protect /api/* routes with Clerk JWT auth (skip public endpoints)
+const PUBLIC_PATHS = new Set([
+  '/api/waitlist',
+  '/api/billing/webhook',
+  '/api/webhooks/revenuecat',
+  '/api/meta/data-deletion',
+]);
+const PUBLIC_PREFIXES = ['/api/v1/'];
+
+app.use('/api', (req, res, next) => {
+  const fullPath = `/api${req.path}`;
+
+  // Skip auth for public paths
+  if (PUBLIC_PATHS.has(fullPath)) return next();
+  if (PUBLIC_PREFIXES.some(p => fullPath.startsWith(p))) return next();
+
+  const auth = getAuth(req);
+
+  if (!auth?.userId) {
+    return res.status(401).json({ error: 'Unauthorized — valid Clerk session required' });
+  }
+
+  // Override userId from query/body with the verified Clerk userId
+  // so existing route handlers don't need to change
+  if (req.query.userId) req.query.userId = auth.userId;
+  if (req.body?.userId) req.body.userId = auth.userId;
+
+  next();
+});
+
+// Auth routes (TikTok, Meta OAuth — browser redirects, not JWT-protected)
 const authRoutes = require('./routes/auth');
 const { getOrCreateUserByClerkId } = authRoutes;
 app.use('/auth', authRoutes);
@@ -908,6 +942,12 @@ app.delete('/api/settings/api-keys/:id', apiKeys.revokeApiKey);
 // Public API v1 routes (API key auth)
 const apiV1Routes = require('./routes/api-v1');
 app.use('/api/v1', apiV1Routes);
+
+// Global error handler — catches unhandled errors so users don't see raw HTML
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);

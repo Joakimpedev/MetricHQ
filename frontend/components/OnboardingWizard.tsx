@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Check, Loader2, Lock, ArrowRight } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
-import { GoogleAdsLogo, MetaLogo, TikTokLogo, LinkedInLogo, StripeLogo, PostHogLogo } from './PlatformLogos';
+import { GoogleAdsLogo, TikTokLogo, StripeLogo, PostHogLogo } from './PlatformLogos';
+import { apiFetch, API_URL } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 const STORAGE_KEY = 'metrichq-onboarding-step';
 
@@ -191,7 +191,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const fetchConnections = useCallback(async () => {
     try {
       const params = new URLSearchParams({ userId });
-      const res = await fetch(`${API_URL}/api/connections?${params}`);
+      const res = await apiFetch(`/api/connections?${params}`);
       const json = await res.json();
       if (res.ok) setConnections(json.connections || {});
     } catch {
@@ -211,7 +211,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   }, [step, fetchConnections]);
 
   // Tier limits
-  const adPlatformKeys = ['tiktok', 'meta', 'google_ads', 'linkedin'];
+  const adPlatformKeys = ['tiktok', 'google_ads'];
   const connectedAdCount = adPlatformKeys.filter((p) => connections[p]?.connected).length;
   const maxAd = subscription?.limits?.maxAdPlatforms ?? Infinity;
   const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
@@ -240,7 +240,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
     setStripeError('');
     setStripeSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/settings/stripe`, {
+      const res = await apiFetch(`/api/settings/stripe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, apiKey: stripeKey.trim() }),
@@ -268,7 +268,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
     setPhError('');
     setPhSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/settings/posthog`, {
+      const res = await apiFetch(`/api/settings/posthog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -323,25 +323,11 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
               onClick={() => connectAdPlatform('google_ads')}
             />
             <AdPlatformCard
-              name="Meta Ads"
-              logo={<MetaLogo />}
-              connected={!!connections.meta?.connected}
-              locked={atAdLimit && !connections.meta?.connected}
-              onClick={() => connectAdPlatform('meta')}
-            />
-            <AdPlatformCard
               name="TikTok Ads"
               logo={<TikTokLogo />}
               connected={!!connections.tiktok?.connected}
               locked={atAdLimit && !connections.tiktok?.connected}
               onClick={() => connectAdPlatform('tiktok')}
-            />
-            <AdPlatformCard
-              name="LinkedIn Ads"
-              logo={<LinkedInLogo />}
-              connected={!!connections.linkedin?.connected}
-              locked={atAdLimit && !connections.linkedin?.connected}
-              onClick={() => connectAdPlatform('linkedin')}
             />
           </div>
 

@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { X, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface KPIMarker {
   label: string;
@@ -119,14 +119,14 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
   useEffect(() => {
     if (!user?.id) return;
     // Check connections
-    fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/connections?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => {
         if (j.connections?.revenuecat?.connected) {
           setRcConnected(true);
           // Fetch products
           setLoadingRcProducts(true);
-          fetch(`${API_URL}/api/revenuecat/products?userId=${encodeURIComponent(user.id)}`)
+          apiFetch(`/api/revenuecat/products?userId=${encodeURIComponent(user.id)}`)
             .then(r => r.json())
             .then(j => setRcProducts(j.products || []))
             .catch(() => {})
@@ -139,7 +139,7 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
   useEffect(() => {
     if (!user?.id) return;
     setLoadingTrackers(true);
-    fetch(`${API_URL}/api/custom-events/sections?userId=${encodeURIComponent(user.id)}`)
+    apiFetch(`/api/custom-events/sections?userId=${encodeURIComponent(user.id)}`)
       .then(r => r.json())
       .then(j => setTrackerSections(j.sections || []))
       .catch(() => {})
@@ -166,7 +166,7 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
     setLoadingValues(prev => ({ ...prev, [cacheKey]: true }));
     try {
       const params = new URLSearchParams({ userId: user.id, eventName, propertyName });
-      const res = await fetch(`${API_URL}/api/custom-events/values?${params}`);
+      const res = await apiFetch(`/api/custom-events/values?${params}`);
       const json = await res.json();
       const values = json.values || [];
       valuesCacheRef.current[cacheKey] = values;
@@ -260,7 +260,7 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/event-display/sections/${section.id}`, {
+      const res = await apiFetch(`/api/event-display/sections/${section.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { useCurrency } from '../../../lib/currency';
 import { useSubscription } from '../../../components/SubscriptionProvider';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 // Day milestones to show as columns
 const DAY_MILESTONES = [0, 7, 14, 21, 28];
@@ -88,7 +88,7 @@ export default function CohortsPage() {
 
     try {
       const params = new URLSearchParams({ userId: user.id, startDate, endDate, groupBy });
-      const res = await fetch(`${API_URL}/api/cohorts?${params}`);
+      const res = await apiFetch(`/api/cohorts?${params}`);
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || 'Failed to fetch cohort data');

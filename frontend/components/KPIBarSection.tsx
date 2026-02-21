@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { MoreVertical, Pencil, Trash2, Plus } from 'lucide-react';
 import SingleKPIModal from './SingleKPIModal';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface KPIItem {
   event_name: string;
@@ -61,7 +61,7 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
     setLoading(true);
     try {
       const params = new URLSearchParams({ userId: user.id, startDate, endDate });
-      const res = await fetch(`${API_URL}/api/event-display/sections/${section.id}/data?${params}`);
+      const res = await apiFetch(`/api/event-display/sections/${section.id}/data?${params}`);
       const json = await res.json();
       if (res.ok) setData(json.data || []);
     } catch {
@@ -126,7 +126,7 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
     }
 
     try {
-      await fetch(`${API_URL}/api/event-display/sections/${section.id}`, {
+      await apiFetch(`/api/event-display/sections/${section.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

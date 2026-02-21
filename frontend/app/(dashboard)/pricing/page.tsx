@@ -5,8 +5,8 @@ import { useUser } from '@clerk/nextjs';
 import { Check, Loader2, ExternalLink, AlertTriangle, X } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import { PLANS } from '../../../lib/plans';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 const PLAN_ORDER = ['starter', 'growth', 'pro'];
 
@@ -161,7 +161,7 @@ export default function PricingPage() {
     if (!priceId || !user?.id) return;
     setCheckoutLoading(priceId);
     try {
-      const res = await fetch(`${API_URL}/api/billing/checkout`, {
+      const res = await apiFetch(`/api/billing/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, priceId }),
@@ -193,7 +193,7 @@ export default function PricingPage() {
         setImpactLoading(priceId);
         try {
           const params = new URLSearchParams({ userId: user.id, targetPlan: planKey });
-          const res = await fetch(`${API_URL}/api/billing/downgrade-impact?${params}`);
+          const res = await apiFetch(`/api/billing/downgrade-impact?${params}`);
           const impact: DowngradeImpact = await res.json();
 
           if (impact.isDowngrade) {
@@ -216,7 +216,7 @@ export default function PricingPage() {
     if (!user?.id) return;
     setPortalLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/billing/portal`, {
+      const res = await apiFetch(`/api/billing/portal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),

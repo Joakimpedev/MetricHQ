@@ -5,8 +5,8 @@ import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ChevronRight, ChevronDown, Database, Lock } from 'lucide-react';
 import { useSubscription } from '../../../../components/SubscriptionProvider';
+import { apiFetch } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 interface PropertyValue {
   value: string;
@@ -30,7 +30,7 @@ export default function RawDataPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const res = await fetch(`${API_URL}/api/custom-events/raw-data?${params}`);
+      const res = await apiFetch(`/api/custom-events/raw-data?${params}`);
       const json = await res.json();
       if (res.ok) setEvents(json.events || []);
     } catch {
