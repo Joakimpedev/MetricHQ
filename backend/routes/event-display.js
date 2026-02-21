@@ -230,7 +230,7 @@ async function getSectionData(req, res) {
 
       if (hasProduct) {
         // Product-level: query campaign_metrics where campaign_id = productId
-        let q = `SELECT COALESCE(SUM(spend), 0) AS revenue, COALESCE(SUM(impressions), 0) AS purchases
+        let q = `SELECT COALESCE(SUM(revenue), 0) AS revenue, COALESCE(SUM(purchases), 0) AS purchases
                  FROM campaign_metrics WHERE user_id = $1 AND platform = 'revenuecat' AND campaign_id = $2`;
         const params = [dataOwnerId, productId];
         if (startDate) { params.push(startDate); q += ` AND date >= $${params.length}`; }

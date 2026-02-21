@@ -100,6 +100,35 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Instantly create an empty KPI bar (no config step)
+  const createEmptyKPIBar = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/event-display/sections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          title: 'KPI Bar',
+          section_type: 'kpi_bar',
+          items: [],
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        setError(json.error || 'Failed to create');
+        return;
+      }
+      onSaved();
+    } catch {
+      setError('Network error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Available event tracker sections (for cascading dropdowns)
   const [trackerSections, setTrackerSections] = useState<EventTrackerSection[]>([]);
   const [loadingTrackers, setLoadingTrackers] = useState(false);
@@ -421,8 +450,9 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
               </div>
             </button>
             <button
-              onClick={() => { setSectionType('kpi_bar'); setStep('config'); }}
-              className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim hover:border-accent/50 hover:bg-bg-hover transition-colors text-left"
+              onClick={createEmptyKPIBar}
+              disabled={saving}
+              className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim hover:border-accent/50 hover:bg-bg-hover transition-colors text-left disabled:opacity-50"
             >
               <Activity size={20} className="text-accent shrink-0" />
               <div>
