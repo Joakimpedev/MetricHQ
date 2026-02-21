@@ -212,6 +212,17 @@ router.get('/meta/callback', async (req, res) => {
   }
 });
 
+// ----- Meta Data Deletion Callback (required by Meta app review) -----
+router.post('/meta/data-deletion', (req, res) => {
+  const signedRequest = req.body.signed_request;
+  // Acknowledge the request — Meta just needs a confirmation response
+  const confirmationCode = `del_${Date.now()}`;
+  res.json({
+    url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/privacy`,
+    confirmation_code: confirmationCode,
+  });
+});
+
 // ----- Google Ads OAuth -----
 
 router.get('/google', async (req, res) => {
