@@ -122,6 +122,7 @@ const COUNTRY_NAME_TO_CODE = Object.fromEntries(COUNTRIES.map(c => [c.name.toLow
 function CountrySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
   const [search, setSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [flipUp, setFlipUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,6 +132,15 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (code: st
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const handleToggle = () => {
+    if (!dropdownOpen && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setFlipUp(spaceBelow < 220);
+    }
+    setDropdownOpen(!dropdownOpen);
+  };
 
   const filtered = COUNTRIES.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
@@ -142,7 +152,7 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (code: st
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setDropdownOpen(!dropdownOpen)}
+        onClick={handleToggle}
         className="w-full flex items-center gap-2 px-2 py-1.5 text-[12px] bg-bg-body border border-border-dim rounded text-text-body focus:outline-none focus:border-accent text-left"
       >
         {value ? (
@@ -156,7 +166,7 @@ function CountrySelect({ value, onChange }: { value: string; onChange: (code: st
         <ChevronDown size={12} className="ml-auto text-text-dim" />
       </button>
       {dropdownOpen && (
-        <div className="absolute left-0 top-full mt-1 w-full bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-40 overflow-hidden">
+        <div className={`absolute left-0 w-full bg-bg-elevated border border-border-dim rounded-lg shadow-xl z-40 overflow-hidden ${flipUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <div className="p-1.5 border-b border-border-dim">
             <input
               type="text"
