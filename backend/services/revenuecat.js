@@ -56,26 +56,16 @@ async function* fetchAllCustomers(apiKey, projectId) {
 }
 
 /**
- * Fetch all purchases for a single customer.
- * @param {string} apiKey
- * @param {string} projectId
- * @param {string} customerId
- * @returns {Promise<Array>} Array of purchase objects
+ * Fetch all items from a paginated RevenueCat endpoint.
  */
-async function fetchCustomerPurchases(apiKey, projectId, customerId) {
-  const purchases = [];
-  const pid = cleanProjectId(projectId);
-  let url = `${RC_API_V2}/projects/${encodeURIComponent(pid)}/customers/${encodeURIComponent(customerId)}/purchases?limit=100`;
-
+async function fetchPaginated(apiKey, url) {
+  const items = [];
   while (url) {
     const response = await axios.get(url, {
       headers: { Authorization: `Bearer ${apiKey}` },
       timeout: 30000,
     });
-
-    const items = response.data.items || [];
-    purchases.push(...items);
-
+    items.push(...(response.data.items || []));
     const nextPage = response.data.next_page;
     if (!nextPage) {
       url = null;
@@ -85,8 +75,20 @@ async function fetchCustomerPurchases(apiKey, projectId, customerId) {
       url = `https://api.revenuecat.com${nextPage}`;
     }
   }
+  return items;
+}
 
-  return purchases;
+/**
+ * Fetch all purchases AND subscriptions for a single customer.
+ */
+async function fetchCustomerTransactions(apiKey, projectId, customerId) {
+  const pid = cleanProjectId(projectId);
+  const base = `${RC_API_V2}/projects/${encodeURIComponent(pid)}/customers/${encodeURIComponent(customerId)}`;
+  const [purchases, subscriptions] = await Promise.all([
+    fetchPaginated(apiKey, `${base}/purchases?limit=100`),
+    fetchPaginated(apiKey, `${base}/subscriptions?limit=100`),
+  ]);
+  return { purchases, subscriptions };
 }
 
 /**
@@ -111,9 +113,11 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
   }
   console.log(`[revenuecat] Found ${customers.length} customers, fetching purchases in parallel...`);
 
-  let debugLogged = false;
-  let customersWithPurchases = 0;
-  let purchasesBeforeFilter = 0;
+  let debugLoggedPurchase = false;
+  let debugLoggedSub = false;
+  let customersWithData = 0;
+  let totalPurchases = 0;
+  let totalSubs = 0;
 
   const BATCH_SIZE = 10;
   for (let i = 0; i < customers.length; i += BATCH_SIZE) {
@@ -121,19 +125,25 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
 
     const batchResults = await Promise.allSettled(
       batch.map(async (customer) => {
-        const purchases = await fetchCustomerPurchases(apiKey, projectId, customer.id);
-        if (purchases.length > 0) {
-          customersWithPurchases++;
-          purchasesBeforeFilter += purchases.length;
-          // Log the first raw purchase object we see for debugging
-          if (!debugLogged) {
-            debugLogged = true;
-            console.log(`[revenuecat] DEBUG first customer with purchases: ${customer.id}, purchase count: ${purchases.length}`);
-            console.log(`[revenuecat] DEBUG raw purchase sample:`, JSON.stringify(purchases[0]).slice(0, 500));
-            console.log(`[revenuecat] DEBUG date filter: ${startDate} to ${endDate}`);
-          }
+        const { purchases, subscriptions } = await fetchCustomerTransactions(apiKey, projectId, customer.id);
+        const hasData = purchases.length > 0 || subscriptions.length > 0;
+        if (hasData) customersWithData++;
+        totalPurchases += purchases.length;
+        totalSubs += subscriptions.length;
+
+        // Debug: log first raw objects we see
+        if (purchases.length > 0 && !debugLoggedPurchase) {
+          debugLoggedPurchase = true;
+          console.log(`[revenuecat] DEBUG raw purchase:`, JSON.stringify(purchases[0]).slice(0, 800));
         }
+        if (subscriptions.length > 0 && !debugLoggedSub) {
+          debugLoggedSub = true;
+          console.log(`[revenuecat] DEBUG raw subscription:`, JSON.stringify(subscriptions[0]).slice(0, 800));
+        }
+
         const matched = [];
+
+        // Process one-time purchases
         for (const purchase of purchases) {
           const purchasedAt = purchase.purchased_at
             ? new Date(purchase.purchased_at).getTime()
@@ -150,6 +160,25 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
             currency: (purchase.currency || 'USD').toUpperCase(),
           });
         }
+
+        // Process subscriptions — use current_period_starts_at as the transaction date
+        for (const sub of subscriptions) {
+          const subDate = sub.current_period_starts_at || sub.starts_at || sub.purchased_at;
+          const subTs = subDate ? new Date(subDate).getTime() : null;
+          if (!subTs || subTs < startTs || subTs > endTs) continue;
+          // Try multiple possible price fields
+          const price = parseFloat(sub.price || sub.revenue || sub.total_revenue || 0);
+          if (price <= 0) continue;
+          matched.push({
+            country: (sub.country_code || customer.country_code || '').toUpperCase().slice(0, 2),
+            date: new Date(subTs).toISOString().slice(0, 10),
+            revenue: price,
+            purchases: 1,
+            product: sub.product_id || 'unknown',
+            currency: (sub.currency || 'USD').toUpperCase(),
+          });
+        }
+
         return matched;
       })
     );
@@ -168,7 +197,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
     }
   }
 
-  console.log(`[revenuecat] Summary: ${customers.length} customers, ${customersWithPurchases} had purchases, ${purchasesBeforeFilter} total purchases, ${results.length} matched date filter (${startDate} to ${endDate})`);
+  console.log(`[revenuecat] Summary: ${customers.length} customers, ${customersWithData} had data, ${totalPurchases} purchases + ${totalSubs} subscriptions, ${results.length} matched date filter (${startDate} to ${endDate})`);
   return results;
 }
 
