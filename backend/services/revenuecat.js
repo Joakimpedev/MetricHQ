@@ -140,6 +140,11 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
       continue;
     }
 
+    // Progress log every 100 customers
+    if (customerCount % 100 === 0) {
+      console.log(`[revenuecat] Processed ${customerCount} customers so far, ${results.length} transactions found`);
+    }
+
     // Rate limit: RevenueCat recommends not hammering their API
     if (customerCount % 50 === 0) {
       await new Promise(resolve => setTimeout(resolve, 500));
