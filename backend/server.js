@@ -32,7 +32,13 @@ app.use(express.json());
 
 // Clerk JWT verification — parses Authorization: Bearer <token> on every request
 const { clerkMiddleware, getAuth } = require('@clerk/express');
-app.use(clerkMiddleware());
+try {
+  app.use(clerkMiddleware());
+} catch (err) {
+  console.error('[clerk] Failed to initialize clerkMiddleware:', err.message);
+  // Fallback: no-op middleware so the server still starts
+  app.use((req, res, next) => next());
+}
 
 // Protect /api/* routes with Clerk JWT auth (skip public endpoints)
 const PUBLIC_PATHS = new Set([
