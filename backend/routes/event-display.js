@@ -222,8 +222,51 @@ async function getSectionData(req, res) {
       return parseInt(countResult.rows[0].total);
     }
 
+    // Helper to get RevenueCat metric from metrics_cache or campaign_metrics
+    async function getRevenueCatMetric(metricType, productId) {
+      const hasProduct = productId && productId !== '';
+      let revenueSum = 0;
+      let purchasesSum = 0;
+
+      if (hasProduct) {
+        // Product-level: query campaign_metrics where campaign_id = productId
+        let q = `SELECT COALESCE(SUM(spend), 0) AS revenue, COALESCE(SUM(impressions), 0) AS purchases
+                 FROM campaign_metrics WHERE user_id = $1 AND platform = 'revenuecat' AND campaign_id = $2`;
+        const params = [dataOwnerId, productId];
+        if (startDate) { params.push(startDate); q += ` AND date >= $${params.length}`; }
+        if (endDate) { params.push(endDate); q += ` AND date <= $${params.length}`; }
+        const r = await pool.query(q, params);
+        revenueSum = parseFloat(r.rows[0].revenue) || 0;
+        purchasesSum = parseInt(r.rows[0].purchases) || 0;
+      } else {
+        // All products: query metrics_cache
+        let q = `SELECT COALESCE(SUM(revenue), 0) AS revenue, COALESCE(SUM(purchases), 0) AS purchases
+                 FROM metrics_cache WHERE user_id = $1 AND platform = 'revenuecat'`;
+        const params = [dataOwnerId];
+        if (startDate) { params.push(startDate); q += ` AND date >= $${params.length}`; }
+        if (endDate) { params.push(endDate); q += ` AND date <= $${params.length}`; }
+        const r = await pool.query(q, params);
+        revenueSum = parseFloat(r.rows[0].revenue) || 0;
+        purchasesSum = parseInt(r.rows[0].purchases) || 0;
+      }
+
+      switch (metricType) {
+        case '__rc:revenue': return revenueSum;
+        case '__rc:subscribers': return purchasesSum;
+        case '__rc:avg_revenue': return purchasesSum > 0 ? revenueSum / purchasesSum : 0;
+        default: return 0;
+      }
+    }
+
     const results = [];
     for (const item of items.rows) {
+      // RevenueCat metrics: __rc: prefixed event names
+      if (item.event_name && item.event_name.startsWith('__rc:')) {
+        const value = await getRevenueCatMetric(item.event_name, item.property_value);
+        results.push({ ...item, count: Math.round(value * 100) / 100 });
+        continue;
+      }
+
       const count = await getCount(item.event_name, item.property_name, item.property_value);
       const result = { ...item, count };
 

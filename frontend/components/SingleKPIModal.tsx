@@ -46,6 +46,14 @@ interface Props {
   onSaved: () => void;
 }
 
+type KPISource = 'posthog' | 'revenuecat';
+
+const RC_METRICS = [
+  { value: '__rc:revenue', label: 'Revenue (Gross)' },
+  { value: '__rc:subscribers', label: 'Subscribers' },
+  { value: '__rc:avg_revenue', label: 'Avg Revenue / Subscriber' },
+];
+
 const emptyMarker = (): KPIMarker => ({
   label: '',
   item_type: 'count',
@@ -78,6 +86,12 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
     return emptyMarker();
   });
 
+  // Determine initial source from existing item
+  const [source, setSource] = useState<KPISource>(() => {
+    if (isEdit && section.items[markerIndex]?.event_name?.startsWith('__rc:')) return 'revenuecat';
+    return 'posthog';
+  });
+
   const [costPerSource, setCostPerSource] = useState<'ad_spend' | 'revenue'>(() => {
     if (isEdit && section.items[markerIndex]?.item_type === 'cost_per' && section.items[markerIndex]?.rate_event_name === 'revenue') {
       return 'revenue';
@@ -88,12 +102,39 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // PostHog event tracker data
   const [trackerSections, setTrackerSections] = useState<EventTrackerSection[]>([]);
   const [loadingTrackers, setLoadingTrackers] = useState(false);
   const [valuesCache, setValuesCache] = useState<Record<string, string[]>>({});
   const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({});
   const valuesCacheRef = React.useRef<Record<string, string[]>>({});
   const fetchingRef = React.useRef<Set<string>>(new Set());
+
+  // RevenueCat data
+  const [rcConnected, setRcConnected] = useState(false);
+  const [rcProducts, setRcProducts] = useState<string[]>([]);
+  const [loadingRcProducts, setLoadingRcProducts] = useState(false);
+
+  // Check if RevenueCat is connected + fetch products
+  useEffect(() => {
+    if (!user?.id) return;
+    // Check connections
+    fetch(`${API_URL}/api/connections?userId=${encodeURIComponent(user.id)}`)
+      .then(r => r.json())
+      .then(j => {
+        if (j.connections?.revenuecat?.connected) {
+          setRcConnected(true);
+          // Fetch products
+          setLoadingRcProducts(true);
+          fetch(`${API_URL}/api/revenuecat/products?userId=${encodeURIComponent(user.id)}`)
+            .then(r => r.json())
+            .then(j => setRcProducts(j.products || []))
+            .catch(() => {})
+            .finally(() => setLoadingRcProducts(false));
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -139,14 +180,14 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || source !== 'posthog') return;
     if (marker.event_name && marker.property_name) {
       fetchValues(marker.event_name, marker.property_name);
     }
     if (marker.rate_event_name && marker.rate_property_name) {
       fetchValues(marker.rate_event_name, marker.rate_property_name);
     }
-  }, [user?.id, marker.event_name, marker.property_name, marker.rate_event_name, marker.rate_property_name, fetchValues]);
+  }, [user?.id, source, marker.event_name, marker.property_name, marker.rate_event_name, marker.rate_property_name, fetchValues]);
 
   const updateMarker = (updates: Partial<KPIMarker>) => {
     setMarker(prev => {
@@ -169,10 +210,19 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
     });
   };
 
+  const handleSourceChange = (newSource: KPISource) => {
+    setSource(newSource);
+    // Reset marker when switching source
+    setMarker(prev => ({
+      ...emptyMarker(),
+      label: prev.label, // keep title
+    }));
+  };
+
   const handleSave = async () => {
     if (!user?.id) return;
     if (!marker.event_name) {
-      setError('Select an event');
+      setError(source === 'revenuecat' ? 'Select a metric' : 'Select an event');
       return;
     }
 
@@ -287,6 +337,41 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
     );
   };
 
+  const renderRevenueCatSelector = () => (
+    <div className="space-y-3">
+      <div>
+        <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Metric</label>
+        <select
+          value={marker.event_name}
+          onChange={e => {
+            const val = e.target.value;
+            setMarker(prev => ({ ...prev, event_name: val, item_type: 'count' }));
+          }}
+          className={selectClass}
+        >
+          <option value="">Select metric...</option>
+          {RC_METRICS.map(m => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Product</label>
+        <select
+          value={marker.property_value}
+          onChange={e => setMarker(prev => ({ ...prev, property_value: e.target.value }))}
+          className={selectClass}
+          disabled={loadingRcProducts}
+        >
+          <option value="">{loadingRcProducts ? 'Loading...' : 'All Products'}</option>
+          {rcProducts.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-bg-overlay" onClick={onClose} />
@@ -302,6 +387,35 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
         </div>
 
         <div className="px-5 py-4 space-y-4">
+          {/* Source toggle — only show if RevenueCat is connected */}
+          {rcConnected && (
+            <div>
+              <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Source</label>
+              <div className="flex gap-1 p-0.5 bg-bg-body rounded-lg border border-border-dim">
+                <button
+                  onClick={() => handleSourceChange('posthog')}
+                  className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                    source === 'posthog'
+                      ? 'bg-bg-surface text-text-heading shadow-sm'
+                      : 'text-text-dim hover:text-text-body'
+                  }`}
+                >
+                  PostHog
+                </button>
+                <button
+                  onClick={() => handleSourceChange('revenuecat')}
+                  className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                    source === 'revenuecat'
+                      ? 'bg-bg-surface text-text-heading shadow-sm'
+                      : 'text-text-dim hover:text-text-body'
+                  }`}
+                >
+                  RevenueCat
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <div>
             <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Title</label>
@@ -314,125 +428,132 @@ export default function SingleKPIModal({ section, markerIndex, onClose, onSaved 
             />
           </div>
 
-          {/* Type toggle */}
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Type</label>
-            <div className="flex gap-1 p-0.5 bg-bg-body rounded-lg border border-border-dim">
-              <button
-                onClick={() => updateMarker({ item_type: 'count' })}
-                className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-                  marker.item_type === 'count'
-                    ? 'bg-bg-surface text-text-heading shadow-sm'
-                    : 'text-text-dim hover:text-text-body'
-                }`}
-              >
-                Count
-              </button>
-              <button
-                onClick={() => updateMarker({ item_type: 'rate' })}
-                className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-                  marker.item_type === 'rate'
-                    ? 'bg-bg-surface text-text-heading shadow-sm'
-                    : 'text-text-dim hover:text-text-body'
-                }`}
-              >
-                Rate
-              </button>
-              <button
-                onClick={() => updateMarker({ item_type: 'cost_per' })}
-                className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-                  marker.item_type === 'cost_per'
-                    ? 'bg-bg-surface text-text-heading shadow-sm'
-                    : 'text-text-dim hover:text-text-body'
-                }`}
-              >
-                Per Event
-              </button>
-            </div>
-          </div>
-
-          {/* Event selectors */}
-          {loadingTrackers ? (
-            <div className="flex items-center gap-2 py-3 text-[13px] text-text-dim">
-              <Loader2 size={14} className="animate-spin" /> Loading event trackers...
-            </div>
-          ) : marker.item_type === 'rate' ? (
-            <div className="space-y-3">
+          {source === 'revenuecat' ? (
+            /* RevenueCat selectors */
+            renderRevenueCatSelector()
+          ) : (
+            <>
+              {/* Type toggle (PostHog only) */}
               <div>
-                <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
-                  Total pool (e.g. page views)
-                </label>
-                {renderEventSelector(
-                  marker.event_name,
-                  marker.property_name,
-                  marker.property_value,
-                  (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
-                )}
-              </div>
-              <div>
-                <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
-                  Target action (e.g. signups)
-                </label>
-                {renderEventSelector(
-                  marker.rate_event_name,
-                  marker.rate_property_name,
-                  marker.rate_property_value,
-                  (field, value) => {
-                    const rateField = `rate_${field}` as keyof KPIMarker;
-                    updateMarker({ [rateField]: value } as Partial<KPIMarker>);
-                  },
-                )}
-              </div>
-            </div>
-          ) : marker.item_type === 'cost_per' ? (
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Source</label>
+                <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Type</label>
                 <div className="flex gap-1 p-0.5 bg-bg-body rounded-lg border border-border-dim">
                   <button
-                    onClick={() => setCostPerSource('ad_spend')}
+                    onClick={() => updateMarker({ item_type: 'count' })}
                     className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-                      costPerSource === 'ad_spend'
+                      marker.item_type === 'count'
                         ? 'bg-bg-surface text-text-heading shadow-sm'
                         : 'text-text-dim hover:text-text-body'
                     }`}
                   >
-                    Ad Spend
+                    Count
                   </button>
                   <button
-                    onClick={() => setCostPerSource('revenue')}
+                    onClick={() => updateMarker({ item_type: 'rate' })}
                     className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
-                      costPerSource === 'revenue'
+                      marker.item_type === 'rate'
                         ? 'bg-bg-surface text-text-heading shadow-sm'
                         : 'text-text-dim hover:text-text-body'
                     }`}
                   >
-                    Revenue
+                    Rate
+                  </button>
+                  <button
+                    onClick={() => updateMarker({ item_type: 'cost_per' })}
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                      marker.item_type === 'cost_per'
+                        ? 'bg-bg-surface text-text-heading shadow-sm'
+                        : 'text-text-dim hover:text-text-body'
+                    }`}
+                  >
+                    Per Event
                   </button>
                 </div>
               </div>
-              <div>
-                <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
-                  {costPerSource === 'revenue' ? 'Revenue divided by this event' : 'Ad spend divided by this event'}
-                </label>
-                {renderEventSelector(
-                  marker.event_name,
-                  marker.property_name,
-                  marker.property_value,
-                  (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
-                )}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Event</label>
-              {renderEventSelector(
-                marker.event_name,
-                marker.property_name,
-                marker.property_value,
-                (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
+
+              {/* Event selectors */}
+              {loadingTrackers ? (
+                <div className="flex items-center gap-2 py-3 text-[13px] text-text-dim">
+                  <Loader2 size={14} className="animate-spin" /> Loading event trackers...
+                </div>
+              ) : marker.item_type === 'rate' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
+                      Total pool (e.g. page views)
+                    </label>
+                    {renderEventSelector(
+                      marker.event_name,
+                      marker.property_name,
+                      marker.property_value,
+                      (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
+                      Target action (e.g. signups)
+                    </label>
+                    {renderEventSelector(
+                      marker.rate_event_name,
+                      marker.rate_property_name,
+                      marker.rate_property_value,
+                      (field, value) => {
+                        const rateField = `rate_${field}` as keyof KPIMarker;
+                        updateMarker({ [rateField]: value } as Partial<KPIMarker>);
+                      },
+                    )}
+                  </div>
+                </div>
+              ) : marker.item_type === 'cost_per' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Source</label>
+                    <div className="flex gap-1 p-0.5 bg-bg-body rounded-lg border border-border-dim">
+                      <button
+                        onClick={() => setCostPerSource('ad_spend')}
+                        className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                          costPerSource === 'ad_spend'
+                            ? 'bg-bg-surface text-text-heading shadow-sm'
+                            : 'text-text-dim hover:text-text-body'
+                        }`}
+                      >
+                        Ad Spend
+                      </button>
+                      <button
+                        onClick={() => setCostPerSource('revenue')}
+                        className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors ${
+                          costPerSource === 'revenue'
+                            ? 'bg-bg-surface text-text-heading shadow-sm'
+                            : 'text-text-dim hover:text-text-body'
+                        }`}
+                      >
+                        Revenue
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">
+                      {costPerSource === 'revenue' ? 'Revenue divided by this event' : 'Ad spend divided by this event'}
+                    </label>
+                    {renderEventSelector(
+                      marker.event_name,
+                      marker.property_name,
+                      marker.property_value,
+                      (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-text-dim mb-1.5 block">Event</label>
+                  {renderEventSelector(
+                    marker.event_name,
+                    marker.property_name,
+                    marker.property_value,
+                    (field, value) => updateMarker({ [field]: value } as Partial<KPIMarker>),
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {error && <p className="text-error text-[12px]">{error}</p>}

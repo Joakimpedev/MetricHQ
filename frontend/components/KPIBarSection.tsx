@@ -81,6 +81,10 @@ export default function KPIBarSection({ section, startDate, endDate, onEdit, onD
   }, [openMenuIndex]);
 
   const formatValue = (item: KPIItem) => {
+    // RevenueCat currency metrics
+    if (item.event_name === '__rc:revenue' || item.event_name === '__rc:avg_revenue') {
+      return `$${item.count.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
     if (item.item_type === 'rate') {
       const denominator = item.count;
       const numerator = item.rate_count ?? 0;

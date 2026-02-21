@@ -869,6 +869,27 @@ app.delete('/api/custom-events/sections/:id', customEvents.deleteSection);
 app.get('/api/custom-events/sections/:id/data', customEvents.getSectionData);
 app.post('/api/custom-events/sync', customEvents.syncAllSections);
 
+// RevenueCat product list (for KPI bar product filter)
+app.get('/api/revenuecat/products', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+  try {
+    const internalUserId = await getOrCreateUserByClerkId(userId);
+    const dataOwnerId = await resolveDataOwner(internalUserId);
+    if (dataOwnerId === null) return res.status(403).json({ error: 'Unauthorized' });
+
+    const result = await pool.query(
+      `SELECT DISTINCT campaign_id FROM campaign_metrics WHERE user_id = $1 AND platform = 'revenuecat' ORDER BY campaign_id`,
+      [dataOwnerId]
+    );
+    res.json({ products: result.rows.map(r => r.campaign_id) });
+  } catch (error) {
+    console.error('RevenueCat products error:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
 // Event display sections routes
 const eventDisplay = require('./routes/event-display');
 app.get('/api/event-display/sections', eventDisplay.listSections);
