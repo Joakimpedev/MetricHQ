@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Check, Loader2, Lock, ArrowRight } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
-import { GoogleAdsLogo, TikTokLogo, StripeLogo, PostHogLogo } from './PlatformLogos';
+import { GoogleAdsLogo, TikTokLogo, StripeLogo, PostHogLogo, RevenueCatLogo } from './PlatformLogos';
 import { apiFetch, API_URL } from '@/lib/api';
 
 
@@ -177,6 +177,12 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const [phSaving, setPhSaving] = useState(false);
   const [phError, setPhError] = useState('');
 
+  // RevenueCat form state
+  const [rcKey, setRcKey] = useState('');
+  const [rcProject, setRcProject] = useState('');
+  const [rcSaving, setRcSaving] = useState(false);
+  const [rcError, setRcError] = useState('');
+
   // Restore step from sessionStorage (after OAuth redirect)
   useEffect(() => {
     const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -217,7 +223,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
 
   const hasAnyAdConnected = connectedAdCount > 0;
-  const hasAnyRevenueConnected = !!connections.stripe?.connected || !!connections.posthog?.connected;
+  const hasAnyRevenueConnected = !!connections.stripe?.connected || !!connections.posthog?.connected || !!connections.revenuecat?.connected;
   const hasAnyConnected = hasAnyAdConnected || hasAnyRevenueConnected;
 
   // OAuth redirect for ad platforms
@@ -289,6 +295,38 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
       setPhError('Network error.');
     } finally {
       setPhSaving(false);
+    }
+  };
+
+  // Save RevenueCat
+  const handleRevenueCatSave = async () => {
+    if (!rcKey.trim() || !rcProject.trim()) {
+      setRcError('Secret API Key and Project ID are required.');
+      return;
+    }
+    if (!/^sk_/.test(rcKey.trim())) {
+      setRcError('API Key must start with sk_');
+      return;
+    }
+    setRcError('');
+    setRcSaving(true);
+    try {
+      const res = await apiFetch(`/api/settings/revenuecat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, apiKey: rcKey.trim(), projectId: rcProject.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRcError(data.error || 'Failed to save.');
+        return;
+      }
+      setExpandedCard(null);
+      fetchConnections();
+    } catch {
+      setRcError('Network error.');
+    } finally {
+      setRcSaving(false);
     }
   };
 
@@ -444,6 +482,48 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
                 >
                   {phSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   {phSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </RevenueCard>
+
+            <RevenueCard
+              name="RevenueCat"
+              logo={<RevenueCatLogo />}
+              connected={!!connections.revenuecat?.connected}
+              expanded={expandedCard === 'revenuecat'}
+              onClick={() => setExpandedCard(expandedCard === 'revenuecat' ? null : 'revenuecat')}
+            >
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-medium text-text-dim block mb-1">Secret API Key</label>
+                  <input
+                    type="text"
+                    value={rcKey}
+                    onChange={(e) => setRcKey(e.target.value)}
+                    placeholder="sk_..."
+                    className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-text-dim block mb-1">Project ID</label>
+                  <input
+                    type="text"
+                    value={rcProject}
+                    onChange={(e) => setRcProject(e.target.value)}
+                    placeholder="proj1a2b3c4d"
+                    className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
+                    autoComplete="off"
+                  />
+                </div>
+                {rcError && <p className="text-[11px] text-error">{rcError}</p>}
+                <button
+                  onClick={handleRevenueCatSave}
+                  disabled={rcSaving}
+                  className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
+                >
+                  {rcSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  {rcSaving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </RevenueCard>
