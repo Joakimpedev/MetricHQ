@@ -9,7 +9,18 @@ export default function TermsPage() {
     <div className="min-h-screen bg-bg-body text-text-body">
       <nav className="border-b border-border-dim">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-text-heading font-semibold text-lg">MetricHQ</Link>
+          <Link href="/" className="flex items-center gap-2">
+            <svg width="26" height="26" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
+              <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
+              <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
+              <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
+            </svg>
+            <div className="flex items-baseline">
+              <span className="text-[17px] font-bold text-text-heading tracking-tight">Metric</span>
+              <span className="text-[17px] font-bold text-accent tracking-tight">HQ</span>
+            </div>
+          </Link>
           <Link href="/dashboard" className="text-sm text-accent hover:text-accent-hover transition-colors">Dashboard</Link>
         </div>
       </nav>
@@ -111,7 +122,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-text-heading mb-3">12. Contact</h2>
             <p>If you have questions about these Terms of Service, contact us at:</p>
-            <p className="mt-2">Email: <a href="mailto:andersdavan21@gmail.com" className="text-accent hover:text-accent-hover transition-colors">andersdavan21@gmail.com</a></p>
+            <p className="mt-2">Email: <a href="mailto:contact@metrichq.app" className="text-accent hover:text-accent-hover transition-colors">contact@metrichq.app</a></p>
           </section>
         </div>
       </main>
