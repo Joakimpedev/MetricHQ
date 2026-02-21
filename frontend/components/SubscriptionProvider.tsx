@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useSyncExternalStore } from 'react';
 import { useUser } from '@clerk/nextjs';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+import { apiFetch } from '@/lib/api';
 
 interface SubscriptionLimits {
   maxAdPlatforms: number;
@@ -107,7 +106,7 @@ export default function SubscriptionProvider({ children }: { children: React.Rea
     if (!user?.id) return;
     try {
       const params = new URLSearchParams({ userId: user.id });
-      const res = await fetch(`${API_URL}/api/billing/subscription?${params}`);
+      const res = await apiFetch(`/api/billing/subscription?${params}`);
       if (res.ok) {
         const data = await res.json();
         setSubscription(data);
