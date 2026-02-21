@@ -755,23 +755,6 @@ app.post('/api/sync', async (req, res) => {
       console.log(`[sync] Cleared PostHog cache for user ${internalUserId} (currency fix reset)`);
     }
 
-    // Enforce sync interval based on subscription tier
-    const sub = await getUserSubscription(internalUserId);
-    const intervalHours = sub.limits.syncIntervalHours;
-    if (intervalHours && isFinite(intervalHours) && !resetPosthog) {
-      const lastSync = await pool.query(
-        `SELECT MAX(last_synced_at) as last FROM sync_log WHERE user_id = $1 AND status = 'done'`,
-        [internalUserId]
-      );
-      const lastSyncedAt = lastSync.rows[0]?.last;
-      if (lastSyncedAt) {
-        const nextSyncAt = new Date(new Date(lastSyncedAt).getTime() + intervalHours * 3600000);
-        if (nextSyncAt > new Date()) {
-          return res.status(429).json({ ok: false, error: 'sync_cooldown', nextSyncAt: nextSyncAt.toISOString() });
-        }
-      }
-    }
-
     // Fire-and-forget: start sync in background, respond immediately
     syncForUser(internalUserId).catch(err => {
       console.error('Background sync error:', err.message);

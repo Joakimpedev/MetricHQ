@@ -45,8 +45,6 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [userTriggered, setUserTriggered] = useState(false);
-  const [cooldownError, setCooldownError] = useState<string | null>(null);
-
   const fetchSyncStatus = useCallback(async () => {
     try {
       const params = new URLSearchParams({ userId });
@@ -67,7 +65,6 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
 
   const handleRefresh = async () => {
     if (syncing && userTriggered) return;
-    setCooldownError(null);
     setSyncing(true);
     setUserTriggered(true);
     try {
@@ -76,14 +73,6 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
-      if (res.status === 429) {
-        const data = await res.json();
-        const next = data.nextSyncAt ? new Date(data.nextSyncAt) : null;
-        const label = next ? `Next sync available ${timeAgo(next.toISOString()).replace(' ago', '')} from now` : 'Try again later';
-        setCooldownError(label);
-        setSyncing(false);
-        return;
-      }
       if (!res.ok) {
         setSyncing(false);
         return;
@@ -129,9 +118,6 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
             <span className="text-text-dim/80"> · syncs every {syncIntervalHours}h</span>
           ) : null}
         </span>
-      )}
-      {cooldownError && (
-        <span className="text-[11px] text-warning">{cooldownError}</span>
       )}
       <button
         onClick={handleRefresh}
