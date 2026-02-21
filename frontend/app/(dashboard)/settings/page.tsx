@@ -384,6 +384,19 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Legal */}
+      <div className="bg-bg-surface rounded-xl border border-border-dim p-5">
+        <h2 className="text-[14px] font-medium text-text-heading mb-4">Legal</h2>
+        <div className="flex gap-4">
+          <Link href="/privacy" className="text-[12px] text-accent hover:text-accent-hover transition-colors" target="_blank">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="text-[12px] text-accent hover:text-accent-hover transition-colors" target="_blank">
+            Terms of Service
+          </Link>
+        </div>
+      </div>
+
       <DevmodeGate />
     </div>
   );

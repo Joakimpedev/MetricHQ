@@ -537,6 +537,12 @@ export default function LandingPage() {
             <Link href="/dashboard" className="text-text-dim hover:text-text-body text-sm transition-colors">
               Dashboard
             </Link>
+            <Link href="/privacy" className="text-text-dim hover:text-text-body text-sm transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="text-text-dim hover:text-text-body text-sm transition-colors">
+              Terms
+            </Link>
           </div>
         </div>
       </footer>
