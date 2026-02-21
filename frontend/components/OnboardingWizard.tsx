@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Check, Loader2, Lock, ArrowRight } from 'lucide-react';
 import { useSubscription } from './SubscriptionProvider';
-import { GoogleAdsLogo, TikTokLogo, StripeLogo, PostHogLogo, RevenueCatLogo } from './PlatformLogos';
+import { GoogleAdsLogo, TikTokLogo, StripeLogo, RevenueCatLogo } from './PlatformLogos';
 import { apiFetch, API_URL } from '@/lib/api';
 
 
@@ -170,13 +170,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const [stripeSaving, setStripeSaving] = useState(false);
   const [stripeError, setStripeError] = useState('');
 
-  // PostHog form state
-  const [phKey, setPhKey] = useState('');
-  const [phProject, setPhProject] = useState('');
-  const [phHost, setPhHost] = useState('https://us.posthog.com');
-  const [phSaving, setPhSaving] = useState(false);
-  const [phError, setPhError] = useState('');
-
   // RevenueCat form state
   const [rcKey, setRcKey] = useState('');
   const [rcProject, setRcProject] = useState('');
@@ -223,7 +216,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
   const atAdLimit = connectedAdCount >= maxAd && maxAd !== Infinity;
 
   const hasAnyAdConnected = connectedAdCount > 0;
-  const hasAnyRevenueConnected = !!connections.stripe?.connected || !!connections.posthog?.connected || !!connections.revenuecat?.connected;
+  const hasAnyRevenueConnected = !!connections.stripe?.connected || !!connections.revenuecat?.connected;
   const hasAnyConnected = hasAnyAdConnected || hasAnyRevenueConnected;
 
   // OAuth redirect for ad platforms
@@ -262,39 +255,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
       setStripeError('Network error.');
     } finally {
       setStripeSaving(false);
-    }
-  };
-
-  // Save PostHog
-  const handlePostHogSave = async () => {
-    if (!phKey.trim() || !phProject.trim()) {
-      setPhError('API key and Project ID are required.');
-      return;
-    }
-    setPhError('');
-    setPhSaving(true);
-    try {
-      const res = await apiFetch(`/api/settings/posthog`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          apiKey: phKey.trim(),
-          projectId: phProject.trim(),
-          posthogHost: phHost.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPhError(data.error || 'Failed to save.');
-        return;
-      }
-      setExpandedCard(null);
-      fetchConnections();
-    } catch {
-      setPhError('Network error.');
-    } finally {
-      setPhSaving(false);
     }
   };
 
@@ -395,7 +355,7 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
             Where does your revenue come from?
           </h2>
           <p className="text-[13px] text-text-dim text-center mb-8">
-            Connect Stripe or PostHog so we can match revenue to your ad campaigns.
+            Connect a revenue source so we can match payments to your ad campaigns.
           </p>
 
           <div className="space-y-3 mb-8">
@@ -426,62 +386,6 @@ export default function OnboardingWizard({ userId, onComplete }: OnboardingWizar
                 >
                   {stripeSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   {stripeSaving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </RevenueCard>
-
-            <RevenueCard
-              name="PostHog"
-              logo={<PostHogLogo />}
-              connected={!!connections.posthog?.connected}
-              expanded={expandedCard === 'posthog'}
-              onClick={() => setExpandedCard(expandedCard === 'posthog' ? null : 'posthog')}
-            >
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-medium text-text-dim block mb-1">API Key</label>
-                  <input
-                    type="text"
-                    value={phKey}
-                    onChange={(e) => setPhKey(e.target.value)}
-                    placeholder="phx_..."
-                    className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-dim block mb-1">Project ID</label>
-                  <input
-                    type="text"
-                    value={phProject}
-                    onChange={(e) => setPhProject(e.target.value)}
-                    placeholder="12345"
-                    className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-                    autoComplete="off"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-text-dim block mb-1">Host</label>
-                  <input
-                    type="text"
-                    value={phHost}
-                    onChange={(e) => setPhHost(e.target.value)}
-                    placeholder="https://us.posthog.com"
-                    className="w-full bg-bg-body border border-border-dim rounded-lg px-3 py-2 text-[13px] text-text-heading font-mono placeholder-text-dim/40 focus:outline-none focus:border-accent/40 transition-colors"
-                    autoComplete="off"
-                  />
-                </div>
-                <p className="text-[10px] text-text-dim">
-                  You can select your purchase event later on the Integrations page.
-                </p>
-                {phError && <p className="text-[11px] text-error">{phError}</p>}
-                <button
-                  onClick={handlePostHogSave}
-                  disabled={phSaving}
-                  className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover disabled:opacity-50 px-4 py-2 rounded-lg text-[12px] font-medium text-accent-text transition-colors"
-                >
-                  {phSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                  {phSaving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </RevenueCard>
