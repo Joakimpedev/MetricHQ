@@ -138,7 +138,8 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
         }
         if (subscriptions.length > 0 && !debugLoggedSub) {
           debugLoggedSub = true;
-          console.log(`[revenuecat] DEBUG raw subscription:`, JSON.stringify(subscriptions[0]).slice(0, 800));
+          console.log(`[revenuecat] DEBUG subscription keys:`, Object.keys(subscriptions[0]).join(', '));
+          console.log(`[revenuecat] DEBUG raw subscription:`, JSON.stringify(subscriptions[0]).slice(0, 2000));
         }
 
         const matched = [];
@@ -163,11 +164,21 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
 
         // Process subscriptions — use current_period_starts_at as the transaction date
         for (const sub of subscriptions) {
-          const subDate = sub.current_period_starts_at || sub.starts_at || sub.purchased_at;
+          // current_period_starts_at may be ms timestamp or ISO string
+          let subDate = sub.current_period_starts_at || sub.starts_at || sub.purchased_at;
+          // If it's a large number (ms timestamp), convert to Date
+          if (typeof subDate === 'number' && subDate > 1e12) subDate = new Date(subDate);
           const subTs = subDate ? new Date(subDate).getTime() : null;
-          if (!subTs || subTs < startTs || subTs > endTs) continue;
+
           // Try multiple possible price fields
-          const price = parseFloat(sub.price || sub.revenue || sub.total_revenue || 0);
+          const price = parseFloat(sub.price || sub.revenue || sub.total_revenue || sub.price_in_purchased_currency || 0);
+
+          // Debug: log why subs get filtered
+          if (!debugLoggedSub && subscriptions.indexOf(sub) === 0) {
+            console.log(`[revenuecat] DEBUG sub date: ${subDate}, ts: ${subTs}, inRange: ${subTs >= startTs && subTs <= endTs}, price: ${price}`);
+          }
+
+          if (!subTs || subTs < startTs || subTs > endTs) continue;
           if (price <= 0) continue;
           matched.push({
             country: (sub.country_code || customer.country_code || '').toUpperCase().slice(0, 2),
