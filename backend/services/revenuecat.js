@@ -111,6 +111,10 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
   }
   console.log(`[revenuecat] Found ${customers.length} customers, fetching purchases in parallel...`);
 
+  let debugLogged = false;
+  let customersWithPurchases = 0;
+  let purchasesBeforeFilter = 0;
+
   const BATCH_SIZE = 10;
   for (let i = 0; i < customers.length; i += BATCH_SIZE) {
     const batch = customers.slice(i, i + BATCH_SIZE);
@@ -118,6 +122,17 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
     const batchResults = await Promise.allSettled(
       batch.map(async (customer) => {
         const purchases = await fetchCustomerPurchases(apiKey, projectId, customer.id);
+        if (purchases.length > 0) {
+          customersWithPurchases++;
+          purchasesBeforeFilter += purchases.length;
+          // Log the first raw purchase object we see for debugging
+          if (!debugLogged) {
+            debugLogged = true;
+            console.log(`[revenuecat] DEBUG first customer with purchases: ${customer.id}, purchase count: ${purchases.length}`);
+            console.log(`[revenuecat] DEBUG raw purchase sample:`, JSON.stringify(purchases[0]).slice(0, 500));
+            console.log(`[revenuecat] DEBUG date filter: ${startDate} to ${endDate}`);
+          }
+        }
         const matched = [];
         for (const purchase of purchases) {
           const purchasedAt = purchase.purchased_at
@@ -153,7 +168,7 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
     }
   }
 
-  console.log(`[revenuecat] Fetched ${results.length} transactions from ${customers.length} customers (${startDate} to ${endDate})`);
+  console.log(`[revenuecat] Summary: ${customers.length} customers, ${customersWithPurchases} had purchases, ${purchasesBeforeFilter} total purchases, ${results.length} matched date filter (${startDate} to ${endDate})`);
   return results;
 }
 
