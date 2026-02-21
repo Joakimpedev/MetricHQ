@@ -104,54 +104,56 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
   const startTs = new Date(startDate + 'T00:00:00Z').getTime();
   const endTs = new Date(endDate + 'T23:59:59Z').getTime();
 
-  let customerCount = 0;
-
+  // Collect all customers first, then fetch purchases in parallel batches
+  const customers = [];
   for await (const customer of fetchAllCustomers(apiKey, projectId)) {
-    customerCount++;
-    const customerId = customer.id;
-    if (!customerId) continue;
+    if (customer.id) customers.push(customer);
+  }
+  console.log(`[revenuecat] Found ${customers.length} customers, fetching purchases in parallel...`);
 
-    try {
-      const purchases = await fetchCustomerPurchases(apiKey, projectId, customerId);
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < customers.length; i += BATCH_SIZE) {
+    const batch = customers.slice(i, i + BATCH_SIZE);
 
-      for (const purchase of purchases) {
-        const purchasedAt = purchase.purchased_at
-          ? new Date(purchase.purchased_at).getTime()
-          : null;
+    const batchResults = await Promise.allSettled(
+      batch.map(async (customer) => {
+        const purchases = await fetchCustomerPurchases(apiKey, projectId, customer.id);
+        const matched = [];
+        for (const purchase of purchases) {
+          const purchasedAt = purchase.purchased_at
+            ? new Date(purchase.purchased_at).getTime()
+            : null;
+          if (!purchasedAt || purchasedAt < startTs || purchasedAt > endTs) continue;
+          const price = parseFloat(purchase.price || purchase.revenue || 0);
+          if (price <= 0) continue;
+          matched.push({
+            country: (purchase.country_code || customer.country_code || '').toUpperCase().slice(0, 2),
+            date: new Date(purchasedAt).toISOString().slice(0, 10),
+            revenue: price,
+            purchases: 1,
+            product: purchase.product_id || 'unknown',
+            currency: (purchase.currency || 'USD').toUpperCase(),
+          });
+        }
+        return matched;
+      })
+    );
 
-        // Filter by date range
-        if (!purchasedAt || purchasedAt < startTs || purchasedAt > endTs) continue;
-
-        const price = parseFloat(purchase.price || purchase.revenue || 0);
-        if (price <= 0) continue;
-
-        results.push({
-          country: (purchase.country_code || customer.country_code || '').toUpperCase().slice(0, 2),
-          date: new Date(purchasedAt).toISOString().slice(0, 10),
-          revenue: price,
-          purchases: 1,
-          product: purchase.product_id || 'unknown',
-          currency: (purchase.currency || 'USD').toUpperCase(),
-        });
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(...result.value);
+      } else {
+        console.error(`[revenuecat] Error fetching purchases:`, result.reason?.message);
       }
-    } catch (err) {
-      // Skip individual customer errors (e.g. deleted accounts)
-      console.error(`[revenuecat] Error fetching purchases for customer ${customerId}:`, err.message);
-      continue;
     }
 
-    // Progress log every 100 customers
-    if (customerCount % 100 === 0) {
-      console.log(`[revenuecat] Processed ${customerCount} customers so far, ${results.length} transactions found`);
-    }
-
-    // Rate limit: RevenueCat recommends not hammering their API
-    if (customerCount % 50 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+    const processed = Math.min(i + BATCH_SIZE, customers.length);
+    if (processed % 100 === 0 || processed === customers.length) {
+      console.log(`[revenuecat] Processed ${processed}/${customers.length} customers, ${results.length} transactions found`);
     }
   }
 
-  console.log(`[revenuecat] Fetched ${results.length} transactions from ${customerCount} customers (${startDate} to ${endDate})`);
+  console.log(`[revenuecat] Fetched ${results.length} transactions from ${customers.length} customers (${startDate} to ${endDate})`);
   return results;
 }
 

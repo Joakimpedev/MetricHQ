@@ -42,7 +42,7 @@ async function acquireLock(userId, platform) {
      ON CONFLICT (user_id, platform) DO UPDATE
        SET status = 'syncing', started_at = NOW(), error_message = NULL
        WHERE sync_log.status != 'syncing'
-          OR sync_log.started_at < NOW() - INTERVAL '10 minutes'
+          OR sync_log.started_at < NOW() - INTERVAL '30 minutes'
      RETURNING id`,
     [userId, platform]
   );
