@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
+import Link from 'next/link';
+import { Lock } from 'lucide-react';
 import { useCurrency } from '../../../lib/currency';
+import { useSubscription } from '../../../components/SubscriptionProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -65,6 +68,7 @@ function getCellBg(roas: number | null): string {
 
 export default function CohortsPage() {
   const { user } = useUser();
+  const { subscription, loading: subLoading } = useSubscription();
   const { formatCurrency } = useCurrency();
   const [data, setData] = useState<CohortResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,6 +158,26 @@ export default function CohortsPage() {
   const paybackRate = cohortsWithSpend > 0 ? paybackDays.length / cohortsWithSpend : 0;
 
   const isCountryView = groupBy === 'country';
+
+  if (!subLoading && subscription && !subscription.limits?.extraPages) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-sm">
+          <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center mx-auto mb-4">
+            <Lock size={22} className="text-text-dim" />
+          </div>
+          <h2 className="text-[16px] font-semibold text-text-heading mb-2">Available on Growth and Pro</h2>
+          <p className="text-[13px] text-text-dim mb-6">Cohort analysis is available on the Growth and Pro plans.</p>
+          <Link
+            href="/pricing"
+            className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-6 py-2.5 rounded-lg text-[13px] font-medium transition-colors"
+          >
+            View plans
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

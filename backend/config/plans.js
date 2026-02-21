@@ -1,9 +1,10 @@
 const PLAN_LIMITS = {
   starter: {
     maxAdPlatforms: 1,
-    syncIntervalHours: 24,
+    syncIntervalHours: 4,
     dataRetentionDays: 180,
     campaignPL: true,
+    extraPages: false,
     teamAccess: false,
     apiAccess: false,
   },
@@ -12,6 +13,7 @@ const PLAN_LIMITS = {
     syncIntervalHours: 4,
     dataRetentionDays: 365,
     campaignPL: true,
+    extraPages: true,
     teamAccess: false,
     apiAccess: false,
   },
@@ -20,6 +22,7 @@ const PLAN_LIMITS = {
     syncIntervalHours: 4,
     dataRetentionDays: Infinity,
     campaignPL: true,
+    extraPages: true,
     teamAccess: true,
     apiAccess: true,
   },

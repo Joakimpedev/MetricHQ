@@ -14,7 +14,7 @@ interface DowngradeImpact {
   excessPlatforms?: string[];
   teamMembersCount?: number;
   apiKeysCount?: number;
-  syncChange?: { from: string; to: string };
+  loseExtraPages?: boolean;
   retentionChange?: { from: string; to: string };
   isDowngrade: boolean;
 }
@@ -103,10 +103,10 @@ function DowngradeModal({
                 <span className="text-text-dim text-[11px]">(keys preserved)</span>
               </li>
             )}
-            {impact.syncChange && (
+            {impact.loseExtraPages && (
               <li className="flex items-start gap-2 text-[13px] text-text-body">
                 <span className="text-warning mt-0.5 shrink-0">&#8226;</span>
-                Reducing sync frequency from every {impact.syncChange.from} to every {impact.syncChange.to}
+                Losing access to Cohorts, Events & Custom Costs pages
               </li>
             )}
             {impact.retentionChange && (
@@ -243,7 +243,7 @@ export default function PricingPage() {
           {isActive ? 'Manage your plan' : 'Choose your plan'}
         </h1>
         <p className="text-text-dim text-[13px]">
-          A fraction of what Triple Whale or Hyros charge. No hidden fees.
+          Simple, transparent pricing. No hidden fees.
         </p>
       </div>
 

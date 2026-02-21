@@ -10,6 +10,7 @@ interface SubscriptionLimits {
   syncIntervalHours: number;
   dataRetentionDays: number;
   campaignPL: boolean;
+  extraPages: boolean;
   teamAccess: boolean;
   apiAccess: boolean;
 }
@@ -34,7 +35,7 @@ const defaultSub: Subscription = {
   plan: null,
   status: 'none',
   isActive: false,
-  limits: { maxAdPlatforms: 1, syncIntervalHours: 24, dataRetentionDays: 180, campaignPL: true, teamAccess: false, apiAccess: false },
+  limits: { maxAdPlatforms: 1, syncIntervalHours: 4, dataRetentionDays: 180, campaignPL: true, extraPages: false, teamAccess: false, apiAccess: false },
   trialEnd: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
@@ -82,7 +83,7 @@ const devmodeSub: Subscription = {
   plan: 'pro',
   status: 'active',
   isActive: true,
-  limits: { maxAdPlatforms: Infinity, syncIntervalHours: 4, dataRetentionDays: Infinity, campaignPL: true, teamAccess: true, apiAccess: true },
+  limits: { maxAdPlatforms: Infinity, syncIntervalHours: 4, dataRetentionDays: Infinity, campaignPL: true, extraPages: true, teamAccess: true, apiAccess: true },
   trialEnd: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,

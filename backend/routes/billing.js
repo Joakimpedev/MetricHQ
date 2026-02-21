@@ -323,12 +323,9 @@ async function getDowngradeImpact(req, res) {
       if (count > 0) impact.apiKeysCount = count;
     }
 
-    // Sync interval change
-    if (targetLimits.syncIntervalHours > currentLimits.syncIntervalHours) {
-      impact.syncChange = {
-        from: `${currentLimits.syncIntervalHours}h`,
-        to: `${targetLimits.syncIntervalHours}h`,
-      };
+    // Extra pages loss
+    if (!targetLimits.extraPages && currentLimits.extraPages) {
+      impact.loseExtraPages = true;
     }
 
     // Data retention change

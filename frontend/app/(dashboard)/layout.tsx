@@ -35,13 +35,7 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function formatNextSync(lastSynced: string, intervalHours: number): string {
-  const nextSync = new Date(new Date(lastSynced).getTime() + intervalHours * 60 * 60 * 1000);
-  if (nextSync.getTime() <= Date.now()) return 'due now';
-  return `~${nextSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncIntervalHours?: number }) {
+function SyncIndicator({ userId }: { userId: string }) {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [userTriggered, setUserTriggered] = useState(false);
@@ -105,18 +99,11 @@ function SyncIndicator({ userId, syncIntervalHours }: { userId: string; syncInte
     fetchSyncStatus();
   }, [fetchSyncStatus]);
 
-  const showNextSync = syncIntervalHours && syncIntervalHours > 4 && lastSynced;
-
   return (
     <div className="flex items-center gap-2">
       {lastSynced && (
         <span className="text-text-dim text-[12px]">
           Last synced {timeAgo(lastSynced)}
-          {showNextSync ? (
-            <span className="text-text-dim/80"> · Next sync {formatNextSync(lastSynced, syncIntervalHours)}</span>
-          ) : syncIntervalHours && isFinite(syncIntervalHours) ? (
-            <span className="text-text-dim/80"> · syncs every {syncIntervalHours}h</span>
-          ) : null}
         </span>
       )}
       <button
@@ -248,7 +235,7 @@ function DashboardContent({
   const showPaywall = isExpired && pathname !== '/pricing' && pathname !== '/invite' && pathname !== '/settings';
 
   const syncSlot = pathname === '/dashboard' && userId ? (
-    <SyncIndicator userId={userId} syncIntervalHours={subscription?.limits?.syncIntervalHours} />
+    <SyncIndicator userId={userId} />
   ) : undefined;
 
   return (

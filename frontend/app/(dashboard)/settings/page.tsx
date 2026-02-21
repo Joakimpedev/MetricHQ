@@ -47,11 +47,8 @@ function LimitRow({ label, included, hint }: { label: string; included: boolean;
   );
 }
 
-function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number; syncIntervalHours: number; dataRetentionDays: number; teamAccess: boolean; apiAccess: boolean }; plan: string | null }) {
-  const isStarter = plan === 'starter';
-  const isGrowth = plan === 'growth';
+function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number; dataRetentionDays: number; extraPages?: boolean; teamAccess: boolean; apiAccess: boolean }; plan: string | null }) {
   const allPlatforms = limits.maxAdPlatforms > 1 || limits.maxAdPlatforms === Infinity || !isFinite(limits.maxAdPlatforms);
-  const fastSync = limits.syncIntervalHours <= 4;
   const unlimitedHistory = limits.dataRetentionDays >= 9999 || !isFinite(limits.dataRetentionDays);
   const yearHistory = limits.dataRetentionDays >= 365;
 
@@ -70,13 +67,13 @@ function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number;
         )}
       </div>
       <div className="flex items-center justify-between py-2 border-t border-border-dim">
-        <span className="text-[12px] text-text-dim">Sync frequency</span>
-        {fastSync ? (
-          <span className="text-[12px] text-success flex items-center gap-1"><Check size={12} /> Every 4h</span>
+        <span className="text-[12px] text-text-dim">Extra pages</span>
+        {limits.extraPages ? (
+          <span className="text-[12px] text-success flex items-center gap-1"><Check size={12} /> Cohorts, Events & Custom Costs</span>
         ) : (
           <span className="text-[12px] text-text-dim">
-            Every {limits.syncIntervalHours}h{' · '}
-            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade for 4h</Link>
+            Growth+ only{' · '}
+            <Link href="/pricing" className="text-accent hover:text-accent-hover">Upgrade</Link>
           </span>
         )}
       </div>

@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Plus, Search, DollarSign, MoreVertical, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Search, DollarSign, MoreVertical, Pencil, Trash2, ChevronRight, Lock } from 'lucide-react';
+import { useSubscription } from '../../../components/SubscriptionProvider';
 import CustomCostModal from '../../../components/CustomCostModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
@@ -50,6 +52,7 @@ const BASE_METRIC_LABELS: Record<string, string> = {
 
 export default function CustomCostsPage() {
   const { user } = useUser();
+  const { subscription, loading: subLoading } = useSubscription();
   const [costs, setCosts] = useState<CustomCost[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -173,6 +176,26 @@ export default function CustomCostsPage() {
   };
 
   const totalPages = Math.ceil(total / limit);
+
+  if (!subLoading && subscription && !subscription.limits?.extraPages) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-sm">
+          <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center mx-auto mb-4">
+            <Lock size={22} className="text-text-dim" />
+          </div>
+          <h2 className="text-[16px] font-semibold text-text-heading mb-2">Available on Growth and Pro</h2>
+          <p className="text-[13px] text-text-dim mb-6">Custom costs are available on the Growth and Pro plans.</p>
+          <Link
+            href="/pricing"
+            className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-6 py-2.5 rounded-lg text-[13px] font-medium transition-colors"
+          >
+            View plans
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1000px] mx-auto">
