@@ -170,23 +170,19 @@ async function fetchRevenueData(apiKey, projectId, startDate, endDate) {
           if (typeof subDate === 'number' && subDate > 1e12) subDate = new Date(subDate);
           const subTs = subDate ? new Date(subDate).getTime() : null;
 
-          // Try multiple possible price fields
-          const price = parseFloat(sub.price || sub.revenue || sub.total_revenue || sub.price_in_purchased_currency || 0);
-
-          // Debug: log why subs get filtered
-          if (!debugLoggedSub && subscriptions.indexOf(sub) === 0) {
-            console.log(`[revenuecat] DEBUG sub date: ${subDate}, ts: ${subTs}, inRange: ${subTs >= startTs && subTs <= endTs}, price: ${price}`);
-          }
+          // Revenue is in total_revenue_in_usd.gross (what customer paid)
+          const revenueObj = sub.total_revenue_in_usd || {};
+          const price = parseFloat(revenueObj.gross || sub.price || 0);
 
           if (!subTs || subTs < startTs || subTs > endTs) continue;
           if (price <= 0) continue;
           matched.push({
-            country: (sub.country_code || customer.country_code || '').toUpperCase().slice(0, 2),
+            country: (sub.country || customer.country_code || '').toUpperCase().slice(0, 2),
             date: new Date(subTs).toISOString().slice(0, 10),
             revenue: price,
             purchases: 1,
             product: sub.product_id || 'unknown',
-            currency: (sub.currency || 'USD').toUpperCase(),
+            currency: (revenueObj.currency || 'USD').toUpperCase(),
           });
         }
 
