@@ -132,6 +132,10 @@ export default function AddEventSectionModal({ section, onClose, onSaved }: Prop
         </div>
 
         <div className="px-5 py-4 space-y-4">
+          <p className="text-[12px] text-text-dim">
+            An event tracker pulls data from PostHog for a specific event. Once added, you can visualize it with display sections.
+          </p>
+
           {/* Event name */}
           <div ref={eventRef}>
             <label className={labelClass}>

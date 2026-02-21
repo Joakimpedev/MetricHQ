@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SignInButton, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sun, Moon, Check } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
@@ -297,32 +298,16 @@ function PricingSection() {
 export default function LandingPage() {
   const { isSignedIn, isLoaded } = useUser();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (CLERK_ENABLED && isLoaded && isSignedIn) {
+      router.replace('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, router]);
 
   if (CLERK_ENABLED && isLoaded && isSignedIn) {
-    return (
-      <div className="min-h-screen bg-bg-body flex items-center justify-center">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2.5 mb-4">
-            <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <rect x="2" y="24" width="7" height="14" rx="1.5" fill="var(--accent)" opacity="0.35" />
-              <rect x="12" y="16" width="7" height="22" rx="1.5" fill="var(--accent)" opacity="0.6" />
-              <rect x="22" y="8" width="7" height="30" rx="1.5" fill="var(--accent)" opacity="0.85" />
-              <rect x="32" y="2" width="7" height="36" rx="1.5" fill="var(--accent)" />
-            </svg>
-            <h1 className="text-2xl font-bold tracking-tight">
-              <span className="text-text-heading">Metric</span><span className="text-accent">HQ</span>
-            </h1>
-          </div>
-          <p className="text-text-dim mb-8">You&apos;re signed in. Go to your dashboard.</p>
-          <Link
-            href="/dashboard"
-            className="inline-block bg-accent hover:bg-accent-hover text-accent-text px-8 py-3 rounded-lg font-semibold transition-colors"
-          >
-            Open Dashboard
-          </Link>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

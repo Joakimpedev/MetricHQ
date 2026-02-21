@@ -101,9 +101,7 @@ function PlanLimitsSummary({ limits, plan }: { limits: { maxAdPlatforms: number;
 
 const BUILTIN_PLATFORMS = [
   { key: 'google_ads', label: 'Google Ads' },
-  { key: 'meta', label: 'Meta Ads' },
   { key: 'tiktok', label: 'TikTok Ads' },
-  { key: 'linkedin', label: 'LinkedIn Ads' },
 ];
 
 interface CustomSourceOption {

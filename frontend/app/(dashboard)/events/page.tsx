@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Plus, Plug, RefreshCw, BarChart3, Trash2, Lock } from 'lucide-react';
+import { Plus, Plug, RefreshCw, BarChart3, Trash2, Lock, Info, X } from 'lucide-react';
 import { useSubscription } from '../../../components/SubscriptionProvider';
 import DateRangeSelector, { type DateRange } from '../../../components/DateRangeSelector';
 import AddEventSectionModal from '../../../components/AddEventSectionModal';
@@ -74,6 +74,9 @@ export default function EventsPage() {
   const [editingDisplay, setEditingDisplay] = useState<DisplaySection | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [infoDismissed, setInfoDismissed] = useState(() => {
+    try { return localStorage.getItem('metrichq-events-info-dismissed') === '1'; } catch { return false; }
+  });
 
   const handleSync = async () => {
     if (!user?.id || syncing) return;
@@ -293,30 +296,84 @@ export default function EventsPage() {
           ))}
         </div>
       ) : displaySections.length === 0 && sections.length === 0 ? (
-        <div className="bg-bg-surface rounded-xl border border-border-dim p-12 flex flex-col items-center justify-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center">
-            <BarChart3 size={22} className="text-text-dim" />
+        <div className="bg-bg-surface rounded-xl border border-border-dim p-8">
+          <div className="text-center mb-8">
+            <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center mx-auto mb-3">
+              <BarChart3 size={22} className="text-text-dim" />
+            </div>
+            <h3 className="text-[15px] font-semibold text-text-heading mb-1">Track and visualize PostHog events</h3>
+            <p className="text-text-dim text-[12px] max-w-sm mx-auto">
+              Events works in two steps: first pull data from PostHog, then choose how to display it.
+            </p>
           </div>
-          <p className="text-text-dim text-[13px]">No event trackers yet</p>
-          <p className="text-text-dim/60 text-[11px] max-w-xs text-center">
-            Add an event tracker to start fetching data from PostHog, then create display sections to visualize it.
-          </p>
-          <button
-            onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
-            className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-accent-text px-4 py-2 rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Plus size={15} />
-            Add Event Tracker
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+            <div className="flex-1 border border-border-dim rounded-lg p-4 text-center">
+              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-2">
+                <span className="text-[13px] font-bold text-accent">1</span>
+              </div>
+              <p className="text-[13px] font-medium text-text-heading mb-1">Add an Event Tracker</p>
+              <p className="text-[11px] text-text-dim">Pulls data from PostHog for a specific event (e.g. signups, page views)</p>
+            </div>
+            <div className="flex-1 border border-border-dim rounded-lg p-4 text-center">
+              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-2">
+                <span className="text-[13px] font-bold text-accent">2</span>
+              </div>
+              <p className="text-[13px] font-medium text-text-heading mb-1">Add a Display Section</p>
+              <p className="text-[11px] text-text-dim">Create a table, chart, or KPI bar to visualize the tracked data</p>
+            </div>
+          </div>
+          <div className="text-center mt-6">
+            <button
+              onClick={() => { setEditingTracker(null); setTrackerModalOpen(true); }}
+              className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-accent-text px-5 py-2.5 rounded-lg text-[13px] font-medium transition-colors"
+            >
+              <Plus size={15} />
+              Add Event Tracker
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Existing tracker info (compact) */}
+          {/* Info banner — dismissible */}
+          {!infoDismissed && displaySections.length === 0 && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-accent/5 border border-accent/15">
+              <Info size={16} className="text-accent mt-0.5 shrink-0" />
+              <div className="flex-1 text-[12px] text-text-body">
+                <span className="font-medium text-text-heading">How it works:</span>{' '}
+                Add an event tracker to pull data from PostHog, then create a display section (table, chart, or KPI) to visualize it.
+              </div>
+              <button
+                onClick={() => { setInfoDismissed(true); try { localStorage.setItem('metrichq-events-info-dismissed', '1'); } catch {} }}
+                className="p-0.5 rounded hover:bg-bg-hover text-text-dim shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Existing tracker info — when trackers exist but no display sections */}
           {sections.length > 0 && displaySections.length === 0 && (
-            <div className="bg-bg-surface rounded-xl border border-border-dim p-6 flex flex-col items-center justify-center gap-2">
-              <p className="text-text-dim text-[13px]">
-                {sections.length} event tracker{sections.length !== 1 ? 's' : ''} active. Create a section to visualize the data.
+            <div className="bg-bg-surface rounded-xl border border-border-dim p-6 flex flex-col items-center justify-center gap-3">
+              <p className="text-text-body text-[13px] font-medium">
+                {sections.length} event tracker{sections.length !== 1 ? 's' : ''} active
               </p>
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {sections.map(s => (
+                  <span key={s.id} className="text-[11px] bg-bg-elevated text-text-dim px-2 py-0.5 rounded-full">
+                    {s.title || s.event_name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-text-dim text-[12px] max-w-xs text-center">
+                Your data is being tracked. Add a section below to see it as a table, chart, or KPI.
+              </p>
+              <button
+                onClick={() => { setEditingDisplay(null); setDisplayModalOpen(true); }}
+                className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-accent-text px-4 py-2 rounded-lg text-[13px] font-medium transition-colors"
+              >
+                <Plus size={15} />
+                Add Section
+              </button>
             </div>
           )}
 

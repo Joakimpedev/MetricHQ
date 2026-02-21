@@ -139,7 +139,7 @@ function formatCompareLabel(range: DateRange): string {
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
-const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', meta: 'Meta', tiktok: 'TikTok', linkedin: 'LinkedIn', custom_99: 'Reddit Ads' };
+const PLATFORM_LABELS: Record<string, string> = { google_ads: 'Google Ads', tiktok: 'TikTok', custom_99: 'Reddit Ads' };
 
 /** Prorate a monthly amount across a date range using actual days per month (matches backend) */
 function prorateMonthly(monthlyAmount: number, rangeStart: Date, rangeEnd: Date): number {
@@ -201,15 +201,15 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     // google_ads — Display Retargeting (unattributed)
     { country: 'US', platform: 'google_ads', campaign: 'Display Retargeting', attributed: false, sf: 0.04, rf: 0, pf: 0, imp: 28000, clk: 380 },
     { country: 'AU', platform: 'google_ads', campaign: 'Display Retargeting', attributed: false, sf: 0.03, rf: 0, pf: 0, imp: 8500,  clk: 120 },
-    // meta — Lookalike
-    { country: 'US', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.06, rf: 0.08, pf: 0.07, imp: 15400, clk: 310 },
-    { country: 'GB', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.04, rf: 0.04, pf: 0.04, imp: 4800,  clk: 95  },
-    { country: 'DE', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 3500,  clk: 72  },
-    { country: 'CA', platform: 'meta', campaign: 'Lookalike - US SaaS Founders', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 2200,  clk: 48  },
-    // meta — Retargeting
-    { country: 'US', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.04, rf: 0.05, pf: 0.04, imp: 6200,  clk: 250 },
-    { country: 'NO', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 2800,  clk: 68  },
-    { country: 'AU', platform: 'meta', campaign: 'Retargeting - Site Visitors', attributed: true, sf: 0.02, rf: 0.02, pf: 0.02, imp: 1800,  clk: 42  },
+    // google_ads — Exact Match Keywords (attributed)
+    { country: 'US', platform: 'google_ads', campaign: 'Exact Match Keywords', attributed: true, sf: 0.06, rf: 0.08, pf: 0.07, imp: 15400, clk: 310 },
+    { country: 'GB', platform: 'google_ads', campaign: 'Exact Match Keywords', attributed: true, sf: 0.04, rf: 0.04, pf: 0.04, imp: 4800,  clk: 95  },
+    { country: 'DE', platform: 'google_ads', campaign: 'Exact Match Keywords', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 3500,  clk: 72  },
+    { country: 'CA', platform: 'google_ads', campaign: 'Exact Match Keywords', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 2200,  clk: 48  },
+    // google_ads — YouTube Pre-Roll (attributed)
+    { country: 'US', platform: 'google_ads', campaign: 'YouTube Pre-Roll', attributed: true, sf: 0.04, rf: 0.05, pf: 0.04, imp: 6200,  clk: 250 },
+    { country: 'NO', platform: 'google_ads', campaign: 'YouTube Pre-Roll', attributed: true, sf: 0.03, rf: 0.03, pf: 0.03, imp: 2800,  clk: 68  },
+    { country: 'AU', platform: 'google_ads', campaign: 'YouTube Pre-Roll', attributed: true, sf: 0.02, rf: 0.02, pf: 0.02, imp: 1800,  clk: 42  },
     // tiktok — SaaS Demo Signups
     { country: 'US', platform: 'tiktok', campaign: 'SaaS Demo Signups', attributed: true, sf: 0.05, rf: 0.03, pf: 0.03, imp: 38000, clk: 680 },
     { country: 'DE', platform: 'tiktok', campaign: 'SaaS Demo Signups', attributed: true, sf: 0.02, rf: 0.01, pf: 0.01, imp: 18000, clk: 340 },
@@ -217,14 +217,9 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     // tiktok — Founder Testimonials
     { country: 'GB', platform: 'tiktok', campaign: 'Founder Testimonials', attributed: true, sf: 0.04, rf: 0.02, pf: 0.02, imp: 22000, clk: 410 },
     { country: 'US', platform: 'tiktok', campaign: 'Founder Testimonials', attributed: true, sf: 0.03, rf: 0.01, pf: 0.01, imp: 18000, clk: 320 },
-    // linkedin — no country breakdown (unattributed to country)
-    // LinkedIn doesn't report by country, so these don't appear in countryCampaigns
-  ];
-
-  // LinkedIn campaigns — exist in platforms but not in countryCampaigns (matches real behavior)
-  const linkedinCampaigns = [
-    { campaign: 'B2B Decision Makers', sf: 0.06, rf: 0.07, pf: 0.05, imp: 6200, clk: 95 },
-    { campaign: 'SaaS Founders - EU', sf: 0.04, rf: 0.03, pf: 0.03, imp: 3800, clk: 62 },
+    // tiktok — Spark Ads
+    { country: 'US', platform: 'tiktok', campaign: 'Spark Ads - SaaS Tools', attributed: true, sf: 0.06, rf: 0.07, pf: 0.05, imp: 42000, clk: 520 },
+    { country: 'GB', platform: 'tiktok', campaign: 'Spark Ads - SaaS Tools', attributed: true, sf: 0.04, rf: 0.03, pf: 0.03, imp: 18000, clk: 280 },
   ];
 
   // Custom source: Reddit Ads (demo)
@@ -295,18 +290,6 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     c.impressions += a.imp;
     c.clicks += a.clk;
   }
-  // Add LinkedIn campaigns to campAgg
-  campAgg['linkedin'] = {};
-  for (const lc of linkedinCampaigns) {
-    campAgg['linkedin'][lc.campaign] = {
-      spend: Math.round(totalSpend * lc.sf),
-      revenue: Math.round(totalRevenue * lc.rf),
-      purchases: Math.round(totalPurchases * lc.pf),
-      impressions: lc.imp,
-      clicks: lc.clk,
-      attributed: true,
-    };
-  }
   // Add Reddit Ads custom source to campAgg
   campAgg['custom_99'] = {};
   for (const ra of redditAtoms) {
@@ -322,7 +305,7 @@ function generateDemoData(dateRange: DateRange): MetricsData {
   }
 
   const platforms: Record<string, Platform> = {};
-  const usesCampaignName = new Set(['meta', 'tiktok', 'custom_99']);
+  const usesCampaignName = new Set(['tiktok', 'custom_99']);
   for (const [plat, camps] of Object.entries(campAgg)) {
     const campaignList: Campaign[] = Object.entries(camps).map(([name, d]) => ({
       ...(usesCampaignName.has(plat) ? { campaignName: name } : { campaignId: name }),
@@ -338,9 +321,6 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     const platRevenue = campaignList.reduce((s, c) => s + (c.revenue || 0), 0);
     platforms[plat] = { totalSpend: platSpend, totalRevenue: platRevenue, campaigns: campaignList };
   }
-
-  // LinkedIn unattributed spend (no country breakdown)
-  const linkedinSpend = platforms['linkedin']?.totalSpend || 0;
 
   return {
     summary: {
@@ -377,7 +357,7 @@ function generateDemoData(dateRange: DateRange): MetricsData {
     countryCampaigns,
     platforms,
     unattributedRevenue: Math.round(totalRevenue * 0.15),
-    unattributedSpend: linkedinSpend,
+    unattributedSpend: 0,
     customCostsBreakdown: [
       { name: 'Stripe processing fees', category: 'Transaction Fees', amount: Math.round(totalRevenue * 0.029), currency: 'USD', frequency: 'variable' },
       { name: 'Vercel hosting', category: 'SaaS Tools', amount: prorateMonthly(20, start, end), currency: 'USD', frequency: 'monthly', configuredAmount: 20, configuredCurrency: 'USD' },

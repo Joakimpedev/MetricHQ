@@ -429,6 +429,14 @@ export default function AddDisplaySectionModal({ section, onClose, onSaved }: Pr
         {step === 'type' ? (
           /* Step 1: Type picker */
           <div className="px-5 py-5 space-y-3">
+            {trackerSections.length === 0 && !loadingTrackers && (
+              <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/20 mb-1">
+                <span className="text-yellow-600 dark:text-yellow-400 text-[12px]">
+                  You need at least one event tracker before creating a display section.
+                </span>
+              </div>
+            )}
+            <p className="text-[12px] text-text-dim">Choose how to display your tracked event data.</p>
             <button
               onClick={() => { setSectionType('table'); setStep('config'); }}
               className="w-full flex items-center gap-3 p-4 rounded-lg border border-border-dim hover:border-accent/50 hover:bg-bg-hover transition-colors text-left"
